@@ -1,0 +1,1707 @@
+# =============================================================================
+# EXECUTOR BRIEFING — READ THIS ENTIRE FILE BEFORE TOUCHING ANY CODE
+# =============================================================================
+#
+# You are the EXECUTOR. You implement; you do not plan or architect.
+#
+# BEFORE EACH CHUNK:
+#   1. Read this entire ledger file from top to bottom.
+#   2. Read progress.txt in full.
+#   3. Locate your assigned chunk by id and begin.
+#   4. Confirm all inputs exist. If any are missing, raise an open_question immediately.
+#   5. Read prerequisites.read_first files in order.
+#
+# DURING EACH CHUNK:
+#   6. Write tests first (TDD). Tests must fail before implementation.
+#   7. Implement only what is in objective and interface_contract.outputs.
+#   8. Do not make decisions listed in capability_ceiling — stop and flag them.
+#   9. Do not add dependencies not in interface_contract.allowed_new_deps.
+#
+# BEFORE SUBMITTING (transitioning to NEEDS_REVIEW):
+#  10. Run every command in definition_of_done.automated. All must exit 0.
+#  11. Append to progress.txt using the gotcha entry format.
+#      Write "[chunk-id] No gotchas." if none — never skip this step.
+#  12. Fill in handoff: status_note, files_modified, open_questions,
+#      progress_log_updated: true.
+#  13. Set chunk status to NEEDS_REVIEW.
+#
+# DO NOT:
+#   - Process more than one chunk at a time.
+#   - Start a chunk before all depends_on chunks are APPROVED.
+#   - Modify APPROVED chunks.
+#   - Invent missing inputs. Stop and ask.
+# =============================================================================
+
+meta:
+  project: "tank"
+  created_at: "2026-05-17T00:30:00Z"
+  ledger_version: "2.1"
+  models:
+    planner: "claude-opus-4-6"
+    executor: "qwen3.6-35b-a3b-fp8-dflash"
+    reviewer: "claude-opus-4-6"
+  executor_profile: constrained
+  progress_log: "progress.txt"
+  repo_root: "."
+
+
+# =============================================================================
+# EXECUTOR PROFILE: CONSTRAINED
+# You are a small local model. The planner has written exhaustive scaffolding.
+# Follow it precisely. Do not improvise. If something is unclear, stop and ask.
+# =============================================================================
+
+
+# =============================================================================
+# GLOBAL CONTEXT
+# =============================================================================
+
+global:
+
+  project_summary: |
+    Tank is a local, enterprise-governed documentation pack system. It builds
+    versioned .ctx packs from local documentation source files (Markdown and HTML),
+    verifies them against policy, imports them into a local SQLite FTS5 index,
+    and serves them to AI coding agents via MCP. All data stays on the user's
+    machine. No cloud dependency, no embeddings, no API keys required. The MVP
+    is four commands: tank build, tank verify, tank pull, tank query. The MCP
+    server exposes two tools: query-docs and resolve-deps.
+
+  tech_stack:
+    - "Python 3.11+ (use tomllib from stdlib, str | None union syntax)"
+    - "pytest (test runner, with pytest factories for unit tests)"
+    - "mypy (static type checking, strict mode)"
+    - "ruff (linting and formatting)"
+    - "click (CLI framework for composable subcommands)"
+    - "rich (terminal output — tables, progress bars)"
+    - "SQLite + FTS5 (storage and search, via stdlib sqlite3)"
+    - "chunkana (structural Markdown chunking, MIT license, build extra only)"
+    - "mcp (Anthropic MCP Python SDK, base package)"
+    - "tomllib (stdlib, for policy.toml parsing)"
+    - "hashlib (stdlib, SHA-256 for all hash computation)"
+    - "zipfile (stdlib, for .ctx archive creation and reading)"
+
+  architecture_decisions:
+    - "Shared normalizer: tank.builder.normalizer is the single code path for content normalization at both build and verify time. Both must call the same function. Never duplicate normalization logic."
+    - "No **kwargs: spell out every parameter explicitly in every function signature."
+    - "TankError base class with specific subclasses discovered during TDD. CLI catches subclasses and maps to exit codes."
+    - "pack_digest uses empty-string zeroing: set 'pack_digest' field to '' in manifest.json, assemble the zip, hash the bytes, then rewrite manifest with real digest."
+    - "token_count is len(content) // 4. Approximate, advisory only. No tokenizer dependency."
+    - "source_url is always populated, never null. Local builds: relative path from --source root (e.g. 'docs/auth/oauth.md'). Only strip leading './' from the path."
+    - "Lexicographic file walk order (sorted by full relative path) for deterministic chunk ID assignment and reproducible normalized_content_hash."
+    - "Heuristic summaries at build time: first sentence for prose chunks, leading function/class signature for code-heavy chunks (>50% inside code fences)."
+    - "SQLite WAL mode enabled on database creation. Busy timeout 5000ms."
+    - "FTS5 with BM25 ranking is the only search backend for MVP. No embeddings."
+    - "HTML handling: basic tag removal only for MVP. No boilerplate stripping."
+
+  repo_conventions:
+    - "snake_case for files, functions, variables. PascalCase for classes."
+    - "Type hints on all functions. Use str | None, not Optional[str]."
+    - "No comments by default. Only add when the WHY is non-obvious."
+    - "Tests in tests/ mirroring src/tank/ structure: tests/test_builder/, tests/test_validator/, etc."
+    - "Static fixtures in tests/fixtures/ for integration tests. Pytest factory functions for unit tests."
+    - "Prefer dedicated exception classes over generic ValueError/TypeError."
+
+  environment:
+    required_env_vars: []
+    setup_commands:
+      - "pip install -e '.[build,dev]'"
+      - "pytest tests/"
+
+
+# =============================================================================
+# BEHAVIORS
+# =============================================================================
+
+behaviors:
+  - id: TDD
+    description: |
+      Write the test first. The test must fail before any implementation code is written.
+      Commit pattern: red → green → refactor.
+  - id: SMALL_COMMITS
+    description: |
+      One logical change per commit. Commit message format: "<type>(<scope>): <summary>"
+      Types: feat | fix | test | refactor | chore
+  - id: CONTRACT_FIRST
+    description: |
+      Define types and function signatures before writing implementations.
+      Use TODO stubs if needed; signatures must be stable before logic is written.
+  - id: PROGRESS_LOG
+    description: |
+      Before transitioning any chunk to NEEDS_REVIEW, append to progress.txt.
+      Even if no gotchas were found, append "[chunk-id] No gotchas." — never skip.
+  - id: SOURCE_OF_TRUTH
+    description: |
+      The codebase is always the source of truth. Before implementing, check what
+      actually exists in the repo. Do not assume from documentation alone.
+  - id: SHARED_NORMALIZER
+    description: |
+      Never duplicate normalization logic. Both builder and verifier must use
+      tank.builder.normalizer. If you need normalization, import it — do not rewrite.
+  - id: ERROR_PATHS
+    description: |
+      Test error paths and edge cases, not just happy paths. Every public function
+      needs tests for: valid input, invalid input, boundary conditions, expected failures.
+
+
+# =============================================================================
+# TABOOS
+# =============================================================================
+
+taboos:
+  - id: NO_NEW_DEPS
+    description: |
+      Do not add packages not listed in interface_contract.allowed_new_deps.
+      If a dep is genuinely needed, stop, record an open_question, and set status NEEDS_REVIEW.
+  - id: RAISE_SPECIFIC_EXCEPTIONS
+    description: |
+      Never raise ValueError, TypeError, or bare Exception for Tank-specific failures.
+      Use TankError subclasses. If the right subclass doesn't exist yet, create one
+      that inherits from TankError and name it descriptively.
+  - id: NO_KWARGS_PASSTHROUGH
+    description: |
+      Never use **kwargs to pass parameters through. Spell out every parameter
+      explicitly in every function signature.
+  - id: NO_MODULE_BOUNDARY_VIOLATIONS
+    description: |
+      CLI must not import from server. Server must not import from builder.
+      Builder must not import from CLI. Storage and policy are shared foundations
+      that any module may import. Normalizer is in builder but validator may import it.
+  - id: NO_SILENT_ASSUMPTIONS
+    description: |
+      If a required file, export, or env var is missing, do not create a placeholder
+      and continue. Stop, record an open_question, set status NEEDS_REVIEW.
+  - id: NO_SPEC_DRIFT
+    description: |
+      Do not implement features, parameters, or behaviors not listed in the chunk's
+      objective or interface_contract. Scope creep fails review automatically.
+  - id: NO_HASH_STABILITY_CHANGES
+    description: |
+      Do not modify normalization rules, chunk ID assignment order, hash computation
+      logic, or the pack_digest zeroing convention without flagging it. These changes
+      break integrity verification for all existing .ctx packs.
+  - id: NO_OVERWRITE
+    description: |
+      Never rewrite an entire file when a targeted edit is sufficient. Use Edit
+      operations, not Write, for existing files. Wholesale file rewrites risk
+      losing code that was not in context.
+
+
+# =============================================================================
+# GOTCHA BAR
+# =============================================================================
+
+gotcha_bar:
+  qualify_test: |
+    Log a gotcha if BOTH are true:
+      1. A competent developer hitting this cold would waste more than 15 minutes.
+      2. The issue is absent from, or wrong in, official documentation.
+  do_not_log:
+    - "Obvious syntax errors or typos"
+    - "Things covered accurately in the project docs or CLAUDE.md"
+    - "Personal mistakes unrelated to the library or environment"
+  entry_format: |
+    [chunk-id] YYYY-MM-DD
+    GOTCHA: <one-line searchable description>
+    REPRO:  <when and how it bites you>
+    WORKAROUND: <what actually works>
+    AFFECTS: <which future chunks or areas should read this>
+
+
+# =============================================================================
+# CHUNKS
+# =============================================================================
+
+chunks:
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-01-project-scaffold"
+    title: "Project scaffold and pyproject.toml"
+    status: PENDING
+    depends_on: []
+    token_budget_hint: small
+
+    local_context: |
+      Nothing exists yet — no src/, no tests/, no pyproject.toml. This chunk
+      creates the entire project skeleton. Tank uses a src-layout Python package
+      with optional extras. The package structure is defined in docs/architecture.md
+      under "Project Structure". There are two install modes:
+        - `pip install tank` — base package (MCP server, search, storage, policy)
+        - `pip install tank[build]` — adds builder, validator, CLI build/verify/pull commands
+      Every module under src/tank/ needs an __init__.py. The test directory mirrors
+      the src structure. A dev extra should include pytest, mypy, and ruff.
+
+    objective: |
+      A complete, installable Python project scaffold. Running `pip install -e '.[build,dev]'`
+      succeeds. Running `pytest tests/` succeeds (with zero tests collected). Running
+      `mypy src/tank/` succeeds. Running `ruff check src/` succeeds. The package
+      structure matches docs/architecture.md exactly.
+
+    interface_contract:
+      inputs: []
+      outputs:
+        - path: "pyproject.toml"
+          exports:
+            - "project name: 'tank'"
+            - "requires-python: '>=3.11'"
+            - "dependencies: ['click', 'rich', 'mcp']"
+            - "[project.optional-dependencies] build: ['chunkana>=0.1']"
+            - "[project.optional-dependencies] dev: ['pytest', 'mypy', 'ruff']"
+            - "[project.scripts] tank = 'tank.cli.main:cli'"
+        - path: "src/tank/__init__.py"
+          exports:
+            - "__version__: str = '0.1.0'"
+        - path: "src/tank/server.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/search/__init__.py"
+          exports: []
+        - path: "src/tank/search/fts.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/storage/__init__.py"
+          exports: []
+        - path: "src/tank/storage/db.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/storage/models.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/policy/__init__.py"
+          exports: []
+        - path: "src/tank/policy/engine.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/builder/__init__.py"
+          exports: []
+        - path: "src/tank/builder/build.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/builder/chunking.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/builder/manifest.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/builder/normalizer.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/validator/__init__.py"
+          exports: []
+        - path: "src/tank/validator/verify.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/cli/__init__.py"
+          exports: []
+        - path: "src/tank/cli/main.py"
+          exports:
+            - "cli: click.Group  # root command group"
+        - path: "src/tank/cli/build.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/cli/verify.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/cli/pull.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/cli/query.py"
+          exports:
+            - "# empty placeholder"
+        - path: "src/tank/cli/inspect.py"
+          exports:
+            - "# empty placeholder"
+        - path: "tests/__init__.py"
+          exports: []
+        - path: "tests/test_builder/__init__.py"
+          exports: []
+        - path: "tests/test_validator/__init__.py"
+          exports: []
+        - path: "tests/test_search/__init__.py"
+          exports: []
+        - path: "tests/test_storage/__init__.py"
+          exports: []
+        - path: "tests/test_cli/__init__.py"
+          exports: []
+        - path: "tests/fixtures/"
+          exports:
+            - "# empty directory"
+      allowed_new_deps: ["click", "rich", "mcp", "chunkana", "pytest", "mypy", "ruff"]
+
+    assumptions:
+      - "Python 3.11+ is available in the executor's environment."
+      - "pip install -e works with the src-layout (pyproject.toml with [tool.setuptools.packages.find] src configuration)."
+      - "click.Group is the correct type for the root CLI command group created with @click.group()."
+      - "Empty __init__.py files are sufficient — no re-exports needed."
+      - "The 'mcp' package on PyPI is the official Anthropic MCP Python SDK."
+      - "ruff and mypy configuration can live in pyproject.toml under [tool.ruff] and [tool.mypy]."
+
+    definition_of_done:
+      automated:
+        - cmd: "pip install -e '.[build,dev]'"
+          must_pass: true
+        - cmd: "pytest tests/ --co -q"
+          must_pass: true
+        - cmd: "mypy src/tank/"
+          must_pass: true
+        - cmd: "ruff check src/"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "Directory structure matches docs/architecture.md Project Structure section exactly"
+        - "No actual implementation logic in any file — only empty placeholders and __init__.py"
+        - "pyproject.toml has all three extras: build, dev, all"
+
+    capability_ceiling:
+      - "Do not choose versions for dependencies beyond minimum floors (e.g. chunkana>=0.1). Do not pin exact versions."
+      - "Do not add configuration for tools (ruff, mypy) beyond what is needed to make the commands exit 0 on empty files."
+      - "Do not create README.md — it already exists at the repo root."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "pip install -e '.[build,dev]' exits 0"
+      - "Directory tree matches architecture.md Project Structure section — no missing or extra modules"
+      - "mypy src/tank/ exits 0"
+      - "ruff check src/ exits 0"
+      - "No implementation logic in any placeholder file"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-02-exceptions-and-models"
+    title: "Base exceptions and data models"
+    status: PENDING
+    depends_on: ["chunk-01-project-scaffold"]
+    token_budget_hint: small
+
+    local_context: |
+      Tank needs a base exception class and dataclasses for its core data structures.
+      These are foundational — almost every other module will import from them.
+
+      The TankError base class lives in src/tank/errors.py. All Tank-specific
+      exceptions inherit from it. The CLI will catch TankError subclasses and map
+      them to user-facing error messages and exit codes. For this chunk, create
+      TankError and a few initial subclasses that are already obvious from the
+      architecture: ManifestError, PolicyError, VerificationError, ImportError_ (note
+      the underscore to avoid shadowing the builtin).
+
+      The data models live in src/tank/storage/models.py. They are Python dataclasses
+      representing the three core entities: Pack (a package record from the packages
+      table), Page (a page record), and Chunk (a chunk record). These map directly
+      to the SQLite schema in docs/architecture.md. They are plain data containers
+      with no methods beyond __init__.
+
+    objective: |
+      TankError and initial subclasses are importable from tank.errors.
+      Pack, Page, and Chunk dataclasses are importable from tank.storage.models.
+      All have full type annotations. All are tested.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/__init__.py"
+          consumes: []
+      outputs:
+        - path: "src/tank/errors.py"
+          exports:
+            - "class TankError(Exception): base class for all Tank errors"
+            - "class ManifestError(TankError): invalid or missing manifest fields"
+            - "class PolicyError(TankError): pack rejected by policy"
+            - "class VerificationError(TankError): hash mismatch or archive safety failure"
+            - "class ImportError_(TankError): database import failures (underscore avoids builtin shadow)"
+            - "class BuildError(TankError): failures during pack building"
+        - path: "src/tank/storage/models.py"
+          exports:
+            - |
+              @dataclass
+              class Pack:
+                  name: str
+                  version: str
+                  lifecycle_state: str
+                  doc_version_status: str
+                  indexed_at: str
+                  policy_profile: str | None = None
+                  pack_digest: str | None = None
+                  normalized_content_hash: str | None = None
+                  source_url: str | None = None
+                  source_commit: str | None = None
+                  owner: str | None = None
+            - |
+              @dataclass
+              class Page:
+                  id: int
+                  package: str
+                  version: str
+                  url: str
+                  title: str | None = None
+                  content_hash: str | None = None
+            - |
+              @dataclass
+              class Chunk:
+                  id: int
+                  package: str
+                  version: str
+                  content: str
+                  page_id: int | None = None
+                  heading_path: str | None = None
+                  summary: str | None = None
+                  token_count: int | None = None
+                  source_url: str | None = None
+                  source_commit: str | None = None
+                  content_hash: str | None = None
+        - path: "tests/test_storage/test_models.py"
+          exports:
+            - "test_pack_creation()"
+            - "test_chunk_creation()"
+            - "test_page_creation()"
+            - "test_pack_required_fields()"
+        - path: "tests/test_errors.py"
+          exports:
+            - "test_tank_error_is_exception()"
+            - "test_subclasses_inherit_tank_error()"
+            - "test_error_message_preserved()"
+      allowed_new_deps: []
+
+    assumptions:
+      - "Python dataclasses from stdlib are sufficient — no need for pydantic or attrs."
+      - "The dataclass fields map directly to SQLite columns defined in docs/architecture.md Storage section."
+      - "lifecycle_state is stored as a plain string, not an enum. Validation happens elsewhere (policy engine)."
+      - "indexed_at is stored as an ISO 8601 string, not a datetime object."
+      - "Pack.name corresponds to packages.name in the DB (the package name like 'my-lib')."
+      - "ImportError_ uses a trailing underscore to avoid shadowing Python's builtin ImportError."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_errors.py tests/test_storage/test_models.py -v"
+          must_pass: true
+        - cmd: "mypy src/tank/errors.py src/tank/storage/models.py"
+          must_pass: true
+        - cmd: "ruff check src/tank/errors.py src/tank/storage/models.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "All exception classes inherit from TankError, not from Exception directly"
+        - "All dataclass fields have type annotations using str | None syntax"
+        - "No business logic in models — pure data containers"
+
+    capability_ceiling:
+      - "Do not add validation methods to the dataclasses. Validation belongs in the modules that use them."
+      - "Do not add serialization methods (to_dict, from_dict). Those will be added when needed."
+      - "Do not create an enum for lifecycle_state. It is a plain string."
+      - "If you think a field is missing from the dataclass, stop and flag it — do not add fields not in the architecture."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "TankError is the base and all others inherit from it — verified with issubclass() in tests"
+      - "Dataclass fields match the SQLite schema in architecture.md exactly — no extra, no missing"
+      - "str | None syntax used, not Optional[str]"
+      - "ImportError_ does not shadow the builtin ImportError"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-03-normalizer"
+    title: "Content normalizer"
+    status: PENDING
+    depends_on: ["chunk-02-exceptions-and-models"]
+    token_budget_hint: medium
+
+    local_context: |
+      The normalizer is the most critical shared component in Tank. It transforms
+      raw chunk content into a canonical form before hashing. The same function is
+      called at build time (to compute normalized_content_hash) and at verify time
+      (to recompute and compare). If these two calls ever produce different output
+      for the same input, hash verification breaks for all .ctx packs.
+
+      The normalizer lives at src/tank/builder/normalizer.py. Even though it is in
+      the builder package, the validator will also import it — this is the one
+      allowed cross-boundary import (documented in taboo NO_MODULE_BOUNDARY_VIOLATIONS).
+
+      Normalization rules (from docs/architecture.md Token Efficiency section):
+        1. Collapse runs of blank lines to a single blank line
+        2. Strip HTML tags (basic tag removal for MVP — no boilerplate detection)
+        3. Normalize Unicode whitespace to ASCII spaces
+        4. Preserve code block formatting exactly (content inside ``` fences is untouched)
+        5. Preserve table formatting
+        6. Strip leading/trailing whitespace per chunk
+        7. Normalize Unicode to NFC form
+
+      The critical invariant: content inside fenced code blocks (``` ... ```) must
+      pass through COMPLETELY unchanged. No whitespace collapsing, no Unicode
+      normalization, no HTML stripping. Only prose outside code fences is normalized.
+
+    objective: |
+      normalize(content: str) -> str is callable, deterministic, and correctly
+      applies all normalization rules. Content inside fenced code blocks is
+      preserved verbatim. The function is tested with prose, code blocks, mixed
+      content, edge cases (nested fences, empty input, all-code input, Unicode),
+      and error paths.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/errors.py"
+          consumes: [TankError]
+      outputs:
+        - path: "src/tank/builder/normalizer.py"
+          exports:
+            - "def normalize(content: str) -> str"
+        - path: "tests/test_builder/test_normalizer.py"
+          exports:
+            - "test_collapse_blank_lines()"
+            - "test_strip_html_tags()"
+            - "test_normalize_unicode_whitespace()"
+            - "test_preserve_fenced_code_blocks()"
+            - "test_preserve_tables()"
+            - "test_strip_leading_trailing_whitespace()"
+            - "test_unicode_nfc_normalization()"
+            - "test_mixed_prose_and_code()"
+            - "test_nested_code_fences()"
+            - "test_empty_input()"
+            - "test_all_code_input()"
+            - "test_deterministic_output()"
+      allowed_new_deps: []
+
+    assumptions:
+      - "Python's unicodedata.normalize('NFC', ...) is the correct function for Unicode NFC normalization."
+      - "Fenced code blocks start with a line beginning with ``` (optionally followed by a language identifier) and end with a line that is exactly ``` (no trailing text). Indented code blocks (4 spaces) are NOT treated as code fences for normalization purposes — they get normalized like prose."
+      - "HTML tag stripping for MVP is simple regex: remove anything matching <[^>]+>. This will incorrectly strip angle brackets in code blocks, but code blocks are excluded from normalization, so this only affects prose containing literal HTML-like strings outside code blocks."
+      - "Table formatting means: lines starting with | are left unchanged (whitespace between | characters is not collapsed)."
+      - "'Collapse runs of blank lines' means: replace sequences of 2+ consecutive newlines (possibly with whitespace-only lines between them) with exactly two newlines (one blank line)."
+      - "The function takes a single string (the full chunk content) and returns a single string. It does not operate on lists of chunks."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_builder/test_normalizer.py -v"
+          must_pass: true
+        - cmd: "mypy src/tank/builder/normalizer.py"
+          must_pass: true
+        - cmd: "ruff check src/tank/builder/normalizer.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "No normalization is applied to content between ``` fences — verified with a test containing whitespace-heavy code"
+        - "The function is pure (no side effects, no I/O, no state)"
+        - "Unicode NFC normalization is applied to prose but not code blocks"
+
+    capability_ceiling:
+      - "Do not add 'smart' HTML boilerplate detection (nav, footer, breadcrumb removal). MVP is simple tag stripping only."
+      - "Do not try to handle indented code blocks (4-space indent) differently from prose. Only fenced blocks (```) are preserved."
+      - "Do not split or merge chunks. This function normalizes the content of a single chunk."
+      - "If you encounter an edge case not covered by the rules above (e.g. code fence inside an HTML comment), stop and flag it."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+        - docs/document-processing.md
+
+    review_targets:
+      - "normalize('  hello\\n\\n\\n\\nworld  ') produces 'hello\\n\\nworld' — blank line collapse and strip verified"
+      - "normalize('```\\n  x = 1  \\n```') preserves the interior whitespace exactly"
+      - "Calling normalize(x) twice returns the same result — idempotent"
+      - "All tests cover both the happy path AND at least one edge case"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-04-storage-layer"
+    title: "SQLite storage layer — schema, connection, CRUD"
+    status: PENDING
+    depends_on: ["chunk-02-exceptions-and-models"]
+    token_budget_hint: medium
+
+    local_context: |
+      Tank stores all imported documentation in a single SQLite database at
+      .tank/index.db. This chunk creates the storage layer: connection management,
+      schema creation, and basic CRUD operations.
+
+      The schema is defined in docs/architecture.md under "Storage: SQLite Schema".
+      There are three tables (packages, pages, chunks) and one FTS5 virtual table
+      (chunks_fts) with triggers to keep it in sync.
+
+      Key requirements:
+        - WAL mode enabled on database creation
+        - Busy timeout set to 5000ms
+        - Schema created via a create_schema() function, not auto-migration
+        - All imports wrapped in a single transaction (BEGIN/COMMIT)
+        - The .tank/ directory is created if it doesn't exist
+
+      The storage module is in src/tank/storage/db.py. It should expose a Database
+      class that manages the connection and provides methods for importing packs
+      and querying packages.
+
+    objective: |
+      Database class is callable. It creates .tank/index.db with the correct schema
+      (all tables, FTS5 virtual table, triggers). WAL mode is enabled. Busy timeout
+      is set. import_pack() inserts a pack with its pages and chunks in a single
+      atomic transaction. get_packages() returns all imported packs. The FTS5
+      triggers keep chunks_fts in sync automatically.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/storage/models.py"
+          consumes: [Pack, Page, Chunk]
+        - path: "src/tank/errors.py"
+          consumes: [TankError, ImportError_]
+      outputs:
+        - path: "src/tank/storage/db.py"
+          exports:
+            - |
+              class Database:
+                  def __init__(self, db_path: Path) -> None: ...
+                  def create_schema(self) -> None: ...
+                  def import_pack(self, pack: Pack, pages: list[Page], chunks: list[Chunk]) -> None: ...
+                  def get_packages(self) -> list[Pack]: ...
+                  def get_pack(self, name: str, version: str) -> Pack | None: ...
+                  def pack_exists(self, name: str, version: str) -> bool: ...
+                  def delete_pack(self, name: str, version: str) -> None: ...
+                  def close(self) -> None: ...
+        - path: "tests/test_storage/test_db.py"
+          exports:
+            - "test_create_schema_creates_all_tables()"
+            - "test_wal_mode_enabled()"
+            - "test_busy_timeout_set()"
+            - "test_import_pack_inserts_all_records()"
+            - "test_import_pack_is_atomic()"
+            - "test_import_duplicate_pack_raises()"
+            - "test_get_packages_returns_all()"
+            - "test_get_pack_not_found_returns_none()"
+            - "test_delete_pack_removes_all_related()"
+            - "test_fts5_trigger_populates_on_insert()"
+            - "test_fts5_trigger_cleans_on_delete()"
+            - "test_tank_directory_created_if_missing()"
+      allowed_new_deps: []
+
+    assumptions:
+      - "sqlite3 is available in Python 3.11+ stdlib with FTS5 support compiled in. This is true for all standard CPython distributions."
+      - "WAL mode is set via: connection.execute('PRAGMA journal_mode=WAL')"
+      - "Busy timeout is set via: connection.execute('PRAGMA busy_timeout=5000')"
+      - "FTS5 content-sync triggers must use the special 'delete' command: INSERT INTO chunks_fts(chunks_fts, rowid, summary, content) VALUES ('delete', old.id, old.summary, old.content)"
+      - "The Database class manages a single sqlite3.Connection. It is not thread-safe — callers must not share instances across threads."
+      - "import_pack should raise ImportError_ if a pack with the same (name, version) already exists, unless force=True is passed."
+      - "The .tank/ directory path is derived from the db_path parent: if db_path is '/project/.tank/index.db', create '/project/.tank/' if it doesn't exist."
+      - "connection.row_factory = sqlite3.Row is useful for mapping query results to dataclasses."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_storage/test_db.py -v"
+          must_pass: true
+        - cmd: "mypy src/tank/storage/db.py"
+          must_pass: true
+        - cmd: "ruff check src/tank/storage/db.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "WAL mode is set unconditionally on connection open — not configurable"
+        - "import_pack uses a single BEGIN/COMMIT transaction for all inserts"
+        - "FTS5 triggers match the exact SQL in docs/architecture.md"
+        - "No raw SQL strings contain user-provided values — all parameterized with ?"
+
+    capability_ceiling:
+      - "Do not implement schema migrations or PRAGMA user_version. MVP uses create-if-not-exists only."
+      - "Do not add connection pooling or thread safety. Single connection per Database instance."
+      - "Do not modify the schema from what is in docs/architecture.md. If the schema seems wrong, stop and flag it."
+      - "Do not add search functionality here. FTS5 querying belongs in chunk-06 (search layer)."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "PRAGMA journal_mode=WAL is executed on every Database instantiation — verified in test"
+      - "PRAGMA busy_timeout=5000 is executed on every Database instantiation — verified in test"
+      - "import_pack with duplicate (name, version) raises ImportError_ — verified in test"
+      - "Inserting a chunk via import_pack also populates chunks_fts — verified by querying chunks_fts directly in test"
+      - "All SQL uses parameterized queries (?) — no string formatting of values"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-05-policy-engine"
+    title: "Policy engine — TOML loading and lifecycle enforcement"
+    status: PENDING
+    depends_on: ["chunk-02-exceptions-and-models"]
+    token_budget_hint: small
+
+    local_context: |
+      The policy engine loads policy.toml files and evaluates whether a pack's
+      lifecycle_state is allowed. It is used by both `tank verify` and `tank pull`.
+
+      Policy file format (from docs/architecture.md):
+        [policy]
+        require_signatures = false
+        require_attribution = true
+        allowed_lifecycle_states = ["approved", "deprecated"]
+        rejected_doc_version_statuses = ["archived"]
+
+      Lookup order (first file found wins):
+        1. Explicit path passed via --policy flag
+        2. .tank/policy.toml in cwd
+        3. ~/.tank/policy.toml
+        4. Built-in permissive defaults (all states except revoked, no signatures required)
+
+      The engine lives in src/tank/policy/engine.py. It parses TOML using stdlib
+      tomllib (Python 3.11+), applies the lookup order, and evaluates a pack's
+      metadata against the loaded policy.
+
+    objective: |
+      Policy class loads a policy.toml from the lookup chain. evaluate() checks a
+      pack's lifecycle_state and doc_version_status against the loaded policy and
+      returns a PolicyResult with pass/fail and a human-readable reason. Built-in
+      defaults are used when no policy file exists.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/errors.py"
+          consumes: [PolicyError]
+      outputs:
+        - path: "src/tank/policy/engine.py"
+          exports:
+            - |
+              @dataclass
+              class PolicyResult:
+                  allowed: bool
+                  reason: str
+            - |
+              class Policy:
+                  def __init__(self, require_signatures: bool, require_attribution: bool,
+                               allowed_lifecycle_states: list[str],
+                               rejected_doc_version_statuses: list[str]) -> None: ...
+                  @classmethod
+                  def load(cls, policy_path: Path | None = None, project_dir: Path | None = None) -> "Policy": ...
+                  @classmethod
+                  def default(cls) -> "Policy": ...
+                  def evaluate(self, lifecycle_state: str, doc_version_status: str) -> PolicyResult: ...
+        - path: "tests/test_policy/test_engine.py"
+          exports:
+            - "test_load_from_explicit_path()"
+            - "test_load_from_project_dir()"
+            - "test_load_from_user_dir()"
+            - "test_load_falls_back_to_defaults()"
+            - "test_default_policy_allows_approved()"
+            - "test_default_policy_allows_deprecated()"
+            - "test_default_policy_rejects_revoked()"
+            - "test_evaluate_rejects_disallowed_state()"
+            - "test_evaluate_rejects_archived_doc_status()"
+            - "test_evaluate_passes_valid_pack()"
+            - "test_invalid_toml_raises_policy_error()"
+        - path: "tests/test_policy/__init__.py"
+          exports: []
+      allowed_new_deps: []
+
+    assumptions:
+      - "tomllib.load() reads a binary file object. Open policy files with open(path, 'rb')."
+      - "tomllib raises tomllib.TOMLDecodeError on invalid TOML. Catch this and re-raise as PolicyError."
+      - "The policy file is a flat [policy] table. There are no nested profiles in MVP."
+      - "The default policy allows ['draft', 'approved', 'deprecated'] and rejects ['revoked']. rejected_doc_version_statuses defaults to empty list."
+      - "~/.tank/ is resolved via Path.home() / '.tank' / 'policy.toml'."
+      - "If policy_path is provided but the file doesn't exist, raise PolicyError (don't fall through to defaults)."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_policy/test_engine.py -v"
+          must_pass: true
+        - cmd: "mypy src/tank/policy/engine.py"
+          must_pass: true
+        - cmd: "ruff check src/tank/policy/engine.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "tomllib used, not tomli or toml third-party packages"
+        - "Lookup order matches docs/architecture.md exactly"
+        - "Default policy rejects 'revoked' but allows everything else"
+
+    capability_ceiling:
+      - "Do not implement per-profile policies or policy inheritance. MVP is a single flat policy."
+      - "Do not implement signature verification logic. This chunk only checks whether signatures are required; actual verification is in the validator."
+      - "Do not add CLI argument parsing. The Policy.load() takes a Path — the CLI will provide it."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "Policy.load(policy_path=Path('nonexistent.toml')) raises PolicyError — not a silent fallback"
+      - "Policy.default() allows 'draft', 'approved', 'deprecated' and rejects 'revoked'"
+      - "Lookup order tested: explicit path > .tank/policy.toml > ~/.tank/policy.toml > defaults"
+      - "Invalid TOML input raises PolicyError with a descriptive message"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-06-search-layer"
+    title: "FTS5 search with BM25 ranking and attribution"
+    status: PENDING
+    depends_on: ["chunk-04-storage-layer"]
+    token_budget_hint: small
+
+    local_context: |
+      Tank's search is SQLite FTS5 with BM25 ranking. The search module lives in
+      src/tank/search/fts.py. It queries the chunks_fts virtual table and joins
+      back to chunks and packages to include full provenance metadata on every result.
+
+      The exact SQL query is in docs/architecture.md under "Search: FTS5 with Attribution".
+      Key behaviors:
+        - Revoked packs are always excluded (AND p.lifecycle_state != 'revoked')
+        - Results can be filtered by package name and/or version
+        - Two detail levels: 'summary' (heading_path, summary, score, source_url,
+          lifecycle_state) and 'full' (adds content)
+        - chunk_ids parameter allows fetching specific chunks by ID (bypasses search)
+        - If a queried package is not indexed, return an explicit not_indexed status
+        - Deprecated packs include a lifecycle_warning in results
+
+    objective: |
+      search() and get_chunks_by_id() are callable. search() returns BM25-ranked
+      results with full attribution from the packages table. Revoked packs are
+      excluded. Package filtering works. Both detail levels work. Deprecated
+      results carry lifecycle_warning.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/storage/db.py"
+          consumes: [Database]
+        - path: "src/tank/storage/models.py"
+          consumes: [Chunk, Pack]
+        - path: "src/tank/errors.py"
+          consumes: [TankError]
+      outputs:
+        - path: "src/tank/search/fts.py"
+          exports:
+            - |
+              @dataclass
+              class SearchResult:
+                  chunk_id: int
+                  package: str
+                  version: str
+                  heading_path: str | None
+                  summary: str | None
+                  content: str | None  # None when detail='summary'
+                  source_url: str | None
+                  source_commit: str | None
+                  content_hash: str | None
+                  lifecycle_state: str
+                  doc_version_status: str | None
+                  indexed_at: str
+                  score: float
+                  lifecycle_warning: str | None  # set when lifecycle_state == 'deprecated'
+            - "def search(db: Database, query: str, packages: list[str] | None = None, detail: str = 'summary', limit: int = 10) -> list[SearchResult]"
+            - "def get_chunks_by_id(db: Database, chunk_ids: list[int], detail: str = 'full') -> list[SearchResult]"
+        - path: "tests/test_search/test_fts.py"
+          exports:
+            - "test_search_returns_ranked_results()"
+            - "test_search_excludes_revoked()"
+            - "test_search_filters_by_package()"
+            - "test_search_summary_mode_excludes_content()"
+            - "test_search_full_mode_includes_content()"
+            - "test_search_deprecated_has_warning()"
+            - "test_get_chunks_by_id()"
+            - "test_search_empty_index()"
+            - "test_search_no_match()"
+      allowed_new_deps: []
+
+    assumptions:
+      - "FTS5 MATCH syntax: terms are implicitly ANDed. Use the query string directly — do not try to parse or transform it."
+      - "bm25(chunks_fts) returns a NEGATIVE score (lower is better). Sort ORDER BY score ASC, or negate it for display."
+      - "The Database class from chunk-04 provides access to the underlying sqlite3.Connection via a property or method. If not, the search function can accept a sqlite3.Connection directly."
+      - "FTS5 MATCH will raise sqlite3.OperationalError on malformed queries (e.g. empty string). Catch and return an empty result list."
+      - "The content field in SearchResult should be None when detail='summary' to save tokens. Only populate it when detail='full' or when using get_chunks_by_id."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_search/test_fts.py -v"
+          must_pass: true
+        - cmd: "mypy src/tank/search/fts.py"
+          must_pass: true
+        - cmd: "ruff check src/tank/search/fts.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "SQL query matches docs/architecture.md Search section"
+        - "All SQL uses parameterized queries — no string interpolation"
+        - "lifecycle_warning is set for deprecated, not for any other state"
+
+    capability_ceiling:
+      - "Do not implement embedding-based search or hybrid retrieval. FTS5 only."
+      - "Do not modify the FTS5 virtual table definition or triggers."
+      - "Do not implement query parsing or transformation — pass the user's query string directly to FTS5 MATCH."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "Revoked packs never appear in search results — verified with a test that imports a revoked pack and searches"
+      - "BM25 scores are present and results are ordered by relevance"
+      - "detail='summary' results have content=None — verified in test"
+      - "Deprecated results have lifecycle_warning set — verified in test"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-07-builder"
+    title: "Pack builder — source discovery, chunking, manifest, archive assembly"
+    status: PENDING
+    depends_on: ["chunk-03-normalizer", "chunk-02-exceptions-and-models"]
+    token_budget_hint: large
+
+    local_context: |
+      The builder is the largest component in Tank. It takes a local directory of
+      documentation files and produces a .ctx pack (a zip archive). The full pipeline
+      is described in docs/document-processing.md:
+
+        1. Source discovery — recursive walk, lexicographic sort, extension whitelist
+        2. Page construction — each file becomes one page
+        3. Chunking — chunkana integration, heading path construction
+        4. Summary generation — heuristic (first sentence or leading signature)
+        5. Content normalization — using tank.builder.normalizer
+        6. Chunk ID assignment — sequential, in lexicographic file order
+        7. Hash computation — per-chunk, per-page, and normalized_content_hash
+        8. Manifest construction — all fields from CLI args and computed values
+        9. Archive assembly — zip with manifest.json, chunks.jsonl, pages.json
+
+      The builder is split across four files:
+        - build.py — orchestrator
+        - chunking.py — chunkana integration
+        - manifest.py — manifest construction and pack_digest
+        - normalizer.py — already built in chunk-03
+
+      pack_digest computation: write manifest with pack_digest='', create zip, hash
+      the zip bytes, rewrite manifest with real digest. See docs/decisions.md D5.
+
+      source_url: relative path from --source root. Strip only leading './'.
+      See docs/decisions.md D4.
+
+    objective: |
+      build_pack() takes a package name, version, source directory path, and options,
+      and produces a valid .ctx file at the output path. The archive contains
+      manifest.json, chunks.jsonl, and pages.json. All hashes are correct.
+      Chunk IDs are assigned in deterministic lexicographic order. source_url is
+      populated on every chunk as a relative path.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/builder/normalizer.py"
+          consumes: [normalize]
+        - path: "src/tank/storage/models.py"
+          consumes: [Pack, Page, Chunk]
+        - path: "src/tank/errors.py"
+          consumes: [BuildError, TankError]
+      outputs:
+        - path: "src/tank/builder/build.py"
+          exports:
+            - |
+              def build_pack(
+                  package: str,
+                  version: str,
+                  source: Path,
+                  output: Path,
+                  lifecycle: str = "draft",
+                  owner: str | None = None,
+                  policy_profile: str | None = None,
+                  source_commit: str | None = None,
+              ) -> Path: ...  # returns path to the created .ctx file
+        - path: "src/tank/builder/chunking.py"
+          exports:
+            - |
+              @dataclass
+              class RawChunk:
+                  heading_path: str
+                  content: str
+                  source_url: str
+                  page_id: int
+            - "def discover_files(source: Path) -> list[Path]"
+            - "def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]"
+            - "def generate_summary(content: str) -> str"
+        - path: "src/tank/builder/manifest.py"
+          exports:
+            - "def build_manifest(package: str, version: str, chunks_count: int, pages_count: int, normalized_content_hash: str, lifecycle: str, owner: str | None, policy_profile: str | None, source_url: str, source_commit: str | None) -> dict"
+            - "def compute_pack_digest(archive_path: Path) -> str"
+            - "def compute_normalized_content_hash(chunks: list[RawChunk], normalize_fn: Callable[[str], str]) -> str"
+        - path: "tests/test_builder/test_build.py"
+          exports:
+            - "test_build_produces_valid_ctx()"
+            - "test_build_deterministic_hash()"
+            - "test_build_source_url_relative_paths()"
+            - "test_build_nonexistent_source_raises()"
+            - "test_build_empty_source_raises()"
+        - path: "tests/test_builder/test_chunking.py"
+          exports:
+            - "test_discover_files_lexicographic_order()"
+            - "test_discover_files_extension_whitelist()"
+            - "test_discover_files_recursive()"
+            - "test_chunk_file_heading_path_construction()"
+            - "test_generate_summary_prose()"
+            - "test_generate_summary_code_heavy()"
+            - "test_generate_summary_truncation()"
+        - path: "tests/test_builder/test_manifest.py"
+          exports:
+            - "test_build_manifest_required_fields()"
+            - "test_compute_pack_digest()"
+            - "test_compute_normalized_content_hash()"
+            - "test_pack_digest_empty_string_zeroing()"
+        - path: "tests/fixtures/sample_docs/"
+          exports:
+            - "# sample Markdown files for build tests"
+      allowed_new_deps: ["chunkana"]
+
+    assumptions:
+      - "chunkana is imported as: from chunkana import chunk as chunkana_chunk (or similar). The exact API needs to be verified — check chunkana's actual exports. If the API differs from expected, flag it as an open_question."
+      - "chunkana returns chunk objects with at least .content and .heading_path attributes. If the attribute names differ, adapt the wrapper in chunking.py."
+      - "zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) creates a compressed zip. Files are added with zipfile.writestr(arcname, data)."
+      - "To compute pack_digest: 1) write manifest with pack_digest='', 2) create zip in memory or as temp file, 3) read all bytes, 4) sha256 hash them, 5) update manifest.json inside the zip with the real digest. This requires creating the zip twice or using a temp file approach."
+      - "json.dumps(manifest, indent=2, sort_keys=True) ensures deterministic JSON serialization. sort_keys=True is critical for hash reproducibility."
+      - "hashlib.sha256(content.encode('utf-8')).hexdigest() produces the hex digest string. Prefix with 'sha256:' in the output."
+      - "generate_summary for prose: split on sentence boundaries ('. ', '? ', '! '), take the first sentence. If >200 chars, truncate at last space before 200 and append '...'."
+      - "generate_summary for code-heavy (>50% of content inside code fences): extract the first line of the first code block that looks like a function/class definition (starts with 'def ', 'class ', 'function ', 'export '). Fall back to first prose sentence, then to heading_path."
+      - "source_url construction: if --source is './docs' and file is './docs/auth/oauth.md', source_url is 'docs/auth/oauth.md'. Use os.path.normpath or PurePosixPath to normalize, then strip only leading './'."
+      - "heading_path construction: strip the --source directory name from the file path prefix. If --source is './docs' and file is 'docs/auth/oauth.md', the prefix is 'auth/oauth' (not 'docs/auth/oauth'). Join with ' / ' separator."
+      - "token_count is len(normalized_content) // 4."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_builder/ -v"
+          must_pass: true
+        - cmd: "mypy src/tank/builder/"
+          must_pass: true
+        - cmd: "ruff check src/tank/builder/"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "Building the same source directory twice produces identical normalized_content_hash"
+        - "Chunk IDs are assigned in lexicographic file order verified by a multi-file test"
+        - "source_url is populated on every chunk — no None values"
+        - "manifest.json uses sort_keys=True for deterministic serialization"
+        - "pack_digest uses the empty-string zeroing convention"
+
+    capability_ceiling:
+      - "Do not implement URL crawling or any network-based source. --source is always a local path."
+      - "Do not implement --no-recurse, --include, or --exclude flags. These are deferred."
+      - "Do not modify the normalization rules — import and call normalize() from tank.builder.normalizer."
+      - "If chunkana's API does not match assumptions, stop and flag as open_question. Do not switch to a different chunking library."
+      - "Do not implement signature generation. The signatures/ directory in the archive is created empty."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/document-processing.md
+        - docs/architecture.md
+        - docs/decisions.md
+
+    review_targets:
+      - "discover_files returns paths in lexicographic order — verified with a test using files that would sort differently by default (e.g. files in subdirs vs root)"
+      - "Only .md, .html, .htm files are discovered — verified with a test that includes .png, .txt files"
+      - "source_url on chunks matches the convention in decisions.md D4 — 'docs/auth/oauth.md' not 'auth/oauth.md'"
+      - "pack_digest recomputation: read the .ctx, zero the pack_digest field, hash, compare — matches"
+      - "normalized_content_hash recomputation: extract chunks from .ctx, normalize, concatenate in ID order with \\n, hash — matches"
+      - "chunkana is only imported inside chunking.py — no other module imports it"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-08-validator"
+    title: "Archive safety validator — 8-step verification sequence"
+    status: PENDING
+    depends_on: ["chunk-03-normalizer", "chunk-05-policy-engine"]
+    token_budget_hint: medium
+
+    local_context: |
+      The validator runs the 8-step archive safety sequence defined in
+      docs/architecture.md under "Archive Safety Validator". This is the
+      security-critical path — it prevents tampered or malformed .ctx packs
+      from entering the index.
+
+      The 8 steps in order:
+        1. Open archive, read manifest.json only (no other extraction)
+        2. Validate manifest JSON schema (required fields present)
+        3. Check lifecycle_state against policy
+        4. Scan archive file listing for unsafe entries (absolute paths, ../, symlinks, etc.)
+        5. Enforce size and count limits (10k entries, 50MB per file, 500MB total)
+        6. Recompute pack_digest (zero the field, hash, compare)
+        7. Recompute normalized_content_hash (extract chunks, normalize, hash, compare)
+        8. Verify signature (only if policy.require_signatures = true)
+
+      Step 8 (signatures) is a stub for MVP — just check if signatures are required
+      and whether the file exists. Actual cryptographic verification is deferred.
+
+      The validator imports normalize() from tank.builder.normalizer — this is the
+      one allowed cross-module import.
+
+    objective: |
+      verify() takes a path to a .ctx file and a Policy, runs all 8 steps in order,
+      and returns a VerifyResult with pass/fail, the step that failed, and a
+      human-readable reason. Each step is independently testable. The function
+      stops at the first failure.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/builder/normalizer.py"
+          consumes: [normalize]
+        - path: "src/tank/policy/engine.py"
+          consumes: [Policy, PolicyResult]
+        - path: "src/tank/errors.py"
+          consumes: [VerificationError]
+      outputs:
+        - path: "src/tank/validator/verify.py"
+          exports:
+            - |
+              @dataclass
+              class VerifyResult:
+                  passed: bool
+                  step: int | None  # step number that failed, None if all passed
+                  reason: str
+                  manifest: dict | None  # parsed manifest on success, None on failure before step 2
+            - |
+              def verify(
+                  ctx_path: Path,
+                  policy: Policy,
+              ) -> VerifyResult: ...
+        - path: "tests/test_validator/test_verify.py"
+          exports:
+            - "test_verify_valid_pack_passes()"
+            - "test_step1_missing_manifest()"
+            - "test_step2_missing_required_field()"
+            - "test_step3_lifecycle_rejected_by_policy()"
+            - "test_step4_absolute_path_rejected()"
+            - "test_step4_path_traversal_rejected()"
+            - "test_step4_symlink_rejected()"
+            - "test_step5_too_many_entries()"
+            - "test_step5_file_too_large()"
+            - "test_step5_total_too_large()"
+            - "test_step6_pack_digest_mismatch()"
+            - "test_step7_content_hash_mismatch()"
+            - "test_step8_signature_required_but_missing()"
+            - "test_stops_at_first_failure()"
+        - path: "tests/fixtures/malformed_packs/"
+          exports:
+            - "# .ctx files with specific defects for each validation step"
+      allowed_new_deps: []
+
+    assumptions:
+      - "zipfile.ZipFile can read .ctx files (they are standard zip archives)."
+      - "zipfile.ZipInfo.is_dir(), .external_attr, and .filename are available for inspecting entries without extracting."
+      - "To check for symlinks in a zip: check if (info.external_attr >> 16) & 0o120000 == 0o120000 on Unix. On Windows-created zips this may not be set. For MVP, check the external_attr approach and also reject any entry whose filename resolves differently than expected."
+      - "Path traversal check: reject any entry where '..' appears as a path component. Use PurePosixPath(entry).parts and check for '..' in the tuple."
+      - "Size limits from architecture.md: max 10,000 entries, max 50MB uncompressed per file (50 * 1024 * 1024 bytes), max 500MB total uncompressed (500 * 1024 * 1024 bytes). Use info.file_size for uncompressed size."
+      - "For step 6 (pack_digest recomputation): read the archive bytes, parse manifest.json from it, replace pack_digest value with '', re-serialize manifest with sort_keys=True, rebuild the archive bytes with the modified manifest, hash those bytes. This is the same zeroing convention used at build time."
+      - "For step 7: extract chunks.jsonl from the archive, parse each line as JSON, sort by 'id' field, normalize each 'content' field using normalize(), concatenate with '\\n' separator, hash."
+      - "Step 8 MVP stub: if policy.require_signatures is True, check that 'signatures/manifest.sig' exists in the archive. If it doesn't exist, fail. If it does exist, pass (no cryptographic verification)."
+      - "Required manifest fields (step 2): schema_version, pack_format, package, version, pack_digest, normalized_content_hash, chunks, pages, lifecycle_state, doc_version_status, created_at, created_by."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_validator/test_verify.py -v"
+          must_pass: true
+        - cmd: "mypy src/tank/validator/verify.py"
+          must_pass: true
+        - cmd: "ruff check src/tank/validator/verify.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "Every step has at least one failure test"
+        - "Steps execute in order 1-8 and stop at first failure"
+        - "normalize() is imported from tank.builder.normalizer, not reimplemented"
+        - "No archive entry is extracted to disk — all reading via zipfile in-memory"
+
+    capability_ceiling:
+      - "Do not implement actual cryptographic signature verification. Step 8 only checks file existence."
+      - "Do not implement any 'fix' or 'repair' functionality. The validator is read-only."
+      - "Do not modify the validation step order or add new steps."
+      - "If a .ctx file cannot be opened as a zip at all, return VerifyResult(passed=False, step=1, reason='Cannot open archive')."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+        - docs/decisions.md
+
+    review_targets:
+      - "Step 4 rejects entries with '..' in path components — verified with a crafted archive"
+      - "Step 4 rejects absolute paths (starting with /) — verified with a crafted archive"
+      - "Step 6 pack_digest verification uses the empty-string zeroing convention — verified by building a valid pack and verifying it"
+      - "Step 7 uses normalize() from tank.builder.normalizer (import verified in test or code review)"
+      - "verify() returns VerifyResult, never raises exceptions for expected validation failures"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-09-cli-commands"
+    title: "CLI commands — build, verify, pull, query, inspect"
+    status: PENDING
+    depends_on: ["chunk-07-builder", "chunk-08-validator", "chunk-06-search-layer", "chunk-04-storage-layer", "chunk-05-policy-engine"]
+    token_budget_hint: medium
+
+    local_context: |
+      The CLI is a thin wrapper over Tank's core libraries. Each command maps to
+      one or two core function calls. The CLI uses click for command parsing and
+      rich for terminal output.
+
+      Commands (from docs/architecture.md CLI Tooling section):
+        - tank build <package@version> --source <path> [--output ./] [--lifecycle draft] [--owner] [--policy-profile]
+        - tank verify <file.ctx> [--policy ./policy.toml]
+        - tank pull <file.ctx> [--policy ./policy.toml] [--force]
+        - tank query <query> [--package pkg] [--detail summary|full] [--limit N]
+        - tank inspect <file.ctx | .tank/index.db>
+
+      The CLI catches TankError subclasses and prints user-friendly messages.
+      It uses sys.exit() with appropriate exit codes (0 for success, 1 for errors).
+
+      tank pull = verify + import. It calls verify() first, and only imports if
+      all checks pass. It also writes/updates .tank/index.lock after import.
+
+      The root command group lives in src/tank/cli/main.py. Each subcommand is
+      in its own file and registered with the group.
+
+    objective: |
+      All five CLI commands are functional. `tank build` calls build_pack().
+      `tank verify` calls verify(). `tank pull` calls verify() then import_pack().
+      `tank query` calls search(). `tank inspect` reads a .ctx manifest or queries
+      the database. All commands print structured output via rich. Errors are caught
+      and displayed as user-friendly messages.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/builder/build.py"
+          consumes: [build_pack]
+        - path: "src/tank/validator/verify.py"
+          consumes: [verify, VerifyResult]
+        - path: "src/tank/storage/db.py"
+          consumes: [Database]
+        - path: "src/tank/search/fts.py"
+          consumes: [search, get_chunks_by_id, SearchResult]
+        - path: "src/tank/policy/engine.py"
+          consumes: [Policy]
+        - path: "src/tank/errors.py"
+          consumes: [TankError]
+        - path: "src/tank/storage/models.py"
+          consumes: [Pack, Page, Chunk]
+      outputs:
+        - path: "src/tank/cli/main.py"
+          exports:
+            - "cli: click.Group"
+        - path: "src/tank/cli/build.py"
+          exports:
+            - "@cli.command() def build(...) -> None"
+        - path: "src/tank/cli/verify.py"
+          exports:
+            - "@cli.command() def verify_cmd(...) -> None"
+        - path: "src/tank/cli/pull.py"
+          exports:
+            - "@cli.command() def pull(...) -> None"
+        - path: "src/tank/cli/query.py"
+          exports:
+            - "@cli.command() def query(...) -> None"
+        - path: "src/tank/cli/inspect.py"
+          exports:
+            - "@cli.command() def inspect_cmd(...) -> None"
+        - path: "tests/test_cli/test_build.py"
+          exports:
+            - "test_build_command_success()"
+            - "test_build_command_missing_source()"
+            - "test_build_command_bad_package_format()"
+        - path: "tests/test_cli/test_verify.py"
+          exports:
+            - "test_verify_command_pass()"
+            - "test_verify_command_fail()"
+        - path: "tests/test_cli/test_pull.py"
+          exports:
+            - "test_pull_command_success()"
+            - "test_pull_command_verify_fails()"
+            - "test_pull_command_duplicate_rejected()"
+            - "test_pull_command_force_reimport()"
+        - path: "tests/test_cli/test_query.py"
+          exports:
+            - "test_query_command_summary()"
+            - "test_query_command_full()"
+        - path: "tests/test_cli/test_inspect.py"
+          exports:
+            - "test_inspect_ctx_file()"
+            - "test_inspect_index_db()"
+      allowed_new_deps: []
+
+    assumptions:
+      - "click.testing.CliRunner is the standard way to test click commands. runner.invoke(cli, ['build', ...]) returns a Result object with exit_code and output."
+      - "package@version is parsed by splitting on '@'. If no '@' is present or the format is wrong, print an error and exit 1."
+      - "tank pull writes .tank/index.lock after successful import. The lockfile format is TOML as defined in docs/architecture.md. Use tomllib to read and manually format TOML to write (there is no tomllib.dumps in stdlib — write the TOML string manually or use a simple template)."
+      - "tank inspect on a .ctx file opens it as a zip and prints manifest fields. On index.db it opens the database and lists imported packs."
+      - "rich.console.Console and rich.table.Table are used for formatted output."
+      - "Commands that write to .tank/ (pull) should create the directory if it doesn't exist."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_cli/ -v"
+          must_pass: true
+        - cmd: "mypy src/tank/cli/"
+          must_pass: true
+        - cmd: "ruff check src/tank/cli/"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "All commands catch TankError and print user-friendly messages"
+        - "Exit codes: 0 for success, 1 for errors"
+        - "tank pull writes/updates .tank/index.lock after import"
+        - "package@version parsing handles edge cases (no @, multiple @)"
+
+    capability_ceiling:
+      - "Do not implement TOML writing as a library. Write the lockfile TOML manually with string formatting — it is a simple flat structure."
+      - "Do not add --verbose or --debug flags. Logging is deferred."
+      - "Do not add color themes or complex formatting beyond basic rich tables."
+      - "Do not implement tab completion or shell integration."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "tank build my-lib@1.0.0 --source ./fixtures produces a .ctx file — tested via CliRunner"
+      - "tank pull rejects when verify fails — verified with a malformed .ctx in test"
+      - "tank pull --force re-imports an existing pack — verified in test"
+      - "tank query returns results formatted with rich — verified output contains expected text"
+      - "All commands exit 1 on TankError — no uncaught exceptions"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-10-mcp-server"
+    title: "MCP server — query-docs and resolve-deps tools"
+    status: PENDING
+    depends_on: ["chunk-06-search-layer", "chunk-04-storage-layer"]
+    token_budget_hint: medium
+
+    local_context: |
+      The MCP server exposes Tank's search and index health check to AI coding
+      agents. It runs over stdio (default) or HTTP (localhost only).
+
+      Two tools (from docs/architecture.md MCP Tool Surface):
+        - resolve-deps: read-only health check. Lists imported packs with state.
+        - query-docs: FTS5 search with attribution. Supports summary/full detail
+          levels and chunk_ids for targeted retrieval.
+
+      The server uses the official Anthropic MCP Python SDK (`mcp` package).
+      It lives in src/tank/server.py and is invoked as: python -m tank.server
+
+      The MCP SDK provides decorators for registering tools. Each tool receives
+      typed input and returns typed output.
+
+    objective: |
+      The MCP server starts over stdio. resolve-deps returns the list of imported
+      packs from the database. query-docs performs FTS5 search and returns
+      attributed results. Both tools work correctly. The server is testable.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/storage/db.py"
+          consumes: [Database]
+        - path: "src/tank/search/fts.py"
+          consumes: [search, get_chunks_by_id, SearchResult]
+        - path: "src/tank/storage/models.py"
+          consumes: [Pack]
+      outputs:
+        - path: "src/tank/server.py"
+          exports:
+            - "# MCP server with query-docs and resolve-deps tools"
+            - "# Invokable as: python -m tank.server"
+        - path: "src/tank/__main__.py"
+          exports:
+            - "# enables python -m tank.server"
+        - path: "tests/test_server.py"
+          exports:
+            - "test_resolve_deps_returns_packs()"
+            - "test_resolve_deps_empty_index()"
+            - "test_query_docs_summary_mode()"
+            - "test_query_docs_full_mode()"
+            - "test_query_docs_chunk_ids()"
+            - "test_query_docs_not_indexed_package()"
+            - "test_query_docs_deprecated_warning()"
+      allowed_new_deps: []
+
+    assumptions:
+      - "The MCP Python SDK provides a Server class and @server.tool() decorator for registering tools. Check the actual mcp package API — if it differs, adapt accordingly."
+      - "stdio transport is the default. The server reads JSON-RPC from stdin and writes to stdout."
+      - "For testing, the MCP server's tool functions can be extracted and tested directly without running the full server. Test the underlying functions, not the transport layer."
+      - "The server creates a Database instance on startup, pointing to .tank/index.db in the current working directory (or a configurable path)."
+      - "HTTP transport (--http flag) uses the MCP SDK's built-in HTTP server. Bind to 127.0.0.1 only — never 0.0.0.0."
+      - "query-docs output format matches the JSON in docs/architecture.md MCP Tool Surface section."
+      - "resolve-deps output includes: status, packs list with package, version, lifecycle_state, doc_version_status, chunks count, indexed_at."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_server.py -v"
+          must_pass: true
+        - cmd: "mypy src/tank/server.py"
+          must_pass: true
+        - cmd: "ruff check src/tank/server.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "python -m tank.server starts without error (manual check)"
+        - "Tool output JSON matches the schema in docs/architecture.md"
+        - "HTTP transport binds to 127.0.0.1 only — verified in code review"
+
+    capability_ceiling:
+      - "Do not implement the index-deps tool. It is deferred to Phase 2."
+      - "Do not implement authentication or authorization on the HTTP transport."
+      - "Do not bind to 0.0.0.0 or any external interface. 127.0.0.1 only."
+      - "If the MCP SDK API does not match assumptions, stop and flag as open_question."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "resolve-deps returns correct pack count and metadata — verified against a known database state in test"
+      - "query-docs summary mode returns results without content field — verified in test"
+      - "query-docs with chunk_ids returns full content for those specific chunks — verified in test"
+      - "Server does not crash on empty database — returns appropriate empty results"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""
+
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-11-integration-tests"
+    title: "End-to-end integration tests"
+    status: PENDING
+    depends_on: ["chunk-09-cli-commands", "chunk-10-mcp-server"]
+    token_budget_hint: medium
+
+    local_context: |
+      This chunk adds integration tests that exercise the full MVP pipeline:
+      build → verify → pull → query. These tests use the CLI commands (via
+      CliRunner) and real .ctx files, not mocked components.
+
+      The integration tests verify the MVP success criteria from docs/architecture.md:
+        1. tank build produces a valid .ctx archive
+        2. tank verify rejects unsafe/invalid packs
+        3. tank pull imports atomically after verification
+        4. tank query returns BM25-ranked results with attribution
+        5. The MCP server tools return correct results
+
+      Test fixtures: a tests/fixtures/sample_docs/ directory with a realistic
+      multi-file documentation tree (should already exist from chunk-07).
+
+    objective: |
+      A test suite that exercises the full build → verify → pull → query pipeline
+      end-to-end. Covers the golden path and key failure paths. All MVP success
+      criteria from the architecture are verified.
+
+    interface_contract:
+      inputs:
+        - path: "src/tank/cli/main.py"
+          consumes: [cli]
+        - path: "src/tank/server.py"
+          consumes: []
+        - path: "tests/fixtures/sample_docs/"
+          consumes: []
+      outputs:
+        - path: "tests/test_integration.py"
+          exports:
+            - "test_full_pipeline_build_verify_pull_query()"
+            - "test_build_then_verify_passes()"
+            - "test_build_then_tamper_then_verify_fails()"
+            - "test_pull_populates_fts_index()"
+            - "test_query_returns_attributed_results()"
+            - "test_query_progressive_disclosure()"
+            - "test_pull_writes_lockfile()"
+            - "test_pull_duplicate_rejected()"
+            - "test_revoked_pack_excluded_from_query()"
+      allowed_new_deps: []
+
+    assumptions:
+      - "click.testing.CliRunner works for integration testing — it invokes the full command pipeline."
+      - "Each test creates its own temporary directory (via tmp_path fixture) for .tank/ and output files. Tests do not share state."
+      - "The sample_docs fixture from chunk-07 provides enough content for meaningful FTS5 search results."
+      - "To test tampering: build a .ctx, then modify a file inside it using zipfile, and verify that verify catches it."
+      - "To test revoked pack exclusion: import a pack, manually update its lifecycle_state to 'revoked' in the database, then verify search excludes it."
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/test_integration.py -v"
+          must_pass: true
+        - cmd: "mypy tests/test_integration.py"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - "Full pipeline test covers build → verify → pull → query in sequence"
+        - "No test depends on state from another test (each uses its own tmp_path)"
+        - "At least one test verifies tamper detection end-to-end"
+
+    capability_ceiling:
+      - "Do not test Phase 2 or Phase 3 features. MVP only."
+      - "Do not test MCP transport (stdio/HTTP). Test the underlying tool functions."
+      - "Do not modify any core module code. If a test reveals a bug, flag it as open_question."
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - docs/architecture.md
+
+    review_targets:
+      - "Full pipeline test: build produces .ctx, verify passes, pull imports, query returns results — all in one test"
+      - "Tamper detection: modifying chunk content after build causes verify to fail at step 7"
+      - "Progressive disclosure: summary mode returns results without content, then chunk_ids returns full content"
+      - "Lockfile exists after pull and contains the imported pack's metadata"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""

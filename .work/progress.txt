@@ -1,0 +1,6 @@
+# progress.txt
+# Auto-maintained by executor. Do not edit manually.
+# Gotcha bar: a competent developer would waste >15 min cold AND
+#             it is absent/wrong in official docs.
+# Format: [chunk-id] YYYY-MM-DD / GOTCHA / REPRO / WORKAROUND / AFFECTS
+# ─────────────────────────────────────────────────────────────

@@ -1,0 +1,304 @@
+# =============================================================================
+# EXECUTOR BRIEFING — READ THIS ENTIRE FILE BEFORE TOUCHING ANY CODE
+# =============================================================================
+#
+# You are the EXECUTOR. You implement; you do not plan or architect.
+#
+# BEFORE EACH CHUNK:
+#   1. Read this entire ledger file from top to bottom.
+#   2. Read progress.txt in full.
+#   3. Locate your assigned chunk by id and begin.
+#   4. Confirm all inputs exist. If any are missing, raise an open_question immediately.
+#   5. Read prerequisites.read_first files in order.
+#
+# DURING EACH CHUNK:
+#   6. Write tests first (TDD). Tests must fail before implementation.
+#   7. Implement only what is in objective and interface_contract.outputs.
+#   8. Do not make decisions listed in capability_ceiling — stop and flag them.
+#   9. Do not add dependencies not in interface_contract.allowed_new_deps.
+#
+# BEFORE SUBMITTING (transitioning to NEEDS_REVIEW):
+#  10. Run every command in definition_of_done.automated. All must exit 0.
+#  11. Append to progress.txt using the gotcha entry format.
+#      Write "[chunk-id] No gotchas." if none — never skip this step.
+#  12. Fill in handoff: status_note, files_modified, open_questions,
+#      progress_log_updated: true.
+#  13. Set chunk status to NEEDS_REVIEW.
+#
+# DO NOT:
+#   - Process more than one chunk at a time.
+#   - Start a chunk before all depends_on chunks are APPROVED.
+#   - Modify APPROVED chunks.
+#   - Invent missing inputs. Stop and ask.
+# =============================================================================
+
+meta:
+  project: "tank"
+  created_at: ""                     # ISO 8601 e.g. 2026-05-17T10:00:00Z
+  ledger_version: "2.1"
+  models:
+    planner: "claude-opus-4-6"
+    executor: ""                     # e.g. nvidia-spark, qwen-27b, claude-sonnet-4-6
+    reviewer: "claude-opus-4-6"
+  executor_profile: constrained      # constrained | standard | trusted
+  progress_log: "progress.txt"
+  repo_root: "."
+
+
+# =============================================================================
+# EXECUTOR PROFILE GUIDE
+# Controls how much scaffolding Opus writes into each chunk.
+# =============================================================================
+#
+# constrained — small / unfamiliar model (Nvidia Spark, Qwen, local model)
+#   assumptions:        Exhaustive. Every SQLite FTS5 quirk, chunkana API detail,
+#                       hash computation order, normalization edge case.
+#   capability_ceiling: Tight and specific with concrete examples.
+#   outputs.exports:    Full type signatures on all params and return values.
+#   local_context:      Zero prior exposure assumed. Explain everything.
+#
+# standard — mid-tier model (Sonnet) or competent implementer new to this repo
+#   assumptions:        Non-obvious only. Skip standard Python/SQLite knowledge.
+#   capability_ceiling: Architectural decisions only.
+#   outputs.exports:    Names plus return types.
+#   local_context:      Explain what exists and why this order.
+#
+# trusted — frontier model or experienced developer who knows this codebase
+#   assumptions:        Genuine gotchas only (>30 min waste for an expert).
+#   capability_ceiling: True unknowns only.
+#   outputs.exports:    Names only.
+#   local_context:      Brief orientation.
+#
+# Fields unaffected by profile (keep rigorous regardless):
+#   behaviors, taboos, definition_of_done, review_targets, gotcha_bar,
+#   interface_contract.inputs, interface_contract.allowed_new_deps,
+#   progress log obligation, rollback_anchor
+# =============================================================================
+
+
+# =============================================================================
+# GLOBAL CONTEXT
+# =============================================================================
+
+global:
+
+  project_summary: |
+    Tank is a local, enterprise-governed documentation pack system. It builds
+    versioned .ctx packs from documentation sources, verifies them against
+    policy, imports them into a local SQLite index, and serves them to AI
+    coding agents via MCP. All data stays on the user's machine. No cloud
+    dependency, no embeddings, no API keys. MVP is four commands: build,
+    verify, pull, query.
+
+  tech_stack:
+    - "Python 3.11+"
+    - "pytest (test runner)"
+    - "mypy (type checking)"
+    - "ruff (linting and formatting)"
+    - "click + rich (CLI framework)"
+    - "SQLite + FTS5 (storage and search, via stdlib sqlite3)"
+    - "chunkana (structural Markdown chunking, MIT, build extra only)"
+    - "mcp (Anthropic MCP Python SDK, base package)"
+    - "tomllib (stdlib, policy file parsing)"
+
+  architecture_decisions:
+    - "Shared normalizer: tank.builder.normalizer is the single code path for normalization at both build and verify time. Never duplicate."
+    - "No **kwargs: spell out every parameter explicitly."
+    - "TankError base class with specific subclasses discovered during TDD."
+    - "pack_digest uses empty-string zeroing: set field to '' before hashing, write real value after."
+    - "token_count is len(content) // 4 — approximate, advisory only."
+    - "source_url always populated: relative paths for local builds, https:// for Phase 2 web builds."
+    - "Lexicographic file walk order for deterministic chunk IDs and reproducible hashes."
+    - "Heuristic summaries: first sentence for prose, leading signature for code-heavy chunks."
+    - "SQLite WAL mode enabled on creation, 5000ms busy timeout."
+
+  repo_conventions:
+    - "snake_case for files, functions, variables. PascalCase for classes."
+    - "Type hints on all functions. Use str | None, not Optional[str]."
+    - "No comments by default. Only add when the WHY is non-obvious."
+    - "Tests co-located in tests/ mirror of src/tank/ structure."
+    - "Static fixtures in tests/fixtures/. Pytest factories for unit tests."
+
+  environment:
+    required_env_vars: []
+    setup_commands:
+      - "pip install -e '.[build,dev]'"
+      - "pytest tests/"
+
+
+# =============================================================================
+# BEHAVIORS (positive — executor must do these)
+# =============================================================================
+
+behaviors:
+  - id: TDD
+    description: |
+      Write the test first. The test must fail before any implementation code is written.
+      Commit pattern: red → green → refactor.
+  - id: SMALL_COMMITS
+    description: |
+      One logical change per commit. Commit message format: "<type>(<scope>): <summary>"
+      Types: feat | fix | test | refactor | chore
+  - id: CONTRACT_FIRST
+    description: |
+      Define types and function signatures before writing implementations.
+      Use TODO stubs if needed; signatures must be stable before logic is written.
+  - id: PROGRESS_LOG
+    description: |
+      Before transitioning any chunk to NEEDS_REVIEW, append to progress.txt.
+      Even if no gotchas were found, append "[chunk-id] No gotchas." — never skip.
+  - id: SOURCE_OF_TRUTH
+    description: |
+      The codebase is always the source of truth. Before implementing, check what
+      actually exists in the repo. Do not assume from documentation alone.
+  - id: SHARED_NORMALIZER
+    description: |
+      Never duplicate normalization logic. Both builder and verifier must use
+      tank.builder.normalizer. If you need normalization, import it — do not rewrite.
+  - id: ERROR_PATHS
+    description: |
+      Test error paths and edge cases, not just happy paths. Every public function
+      needs tests for: valid input, invalid input, boundary conditions, expected failures.
+
+
+# =============================================================================
+# TABOOS (negative — executor must never do these)
+# =============================================================================
+
+taboos:
+  - id: NO_NEW_DEPS
+    description: |
+      Do not add packages not listed in interface_contract.allowed_new_deps.
+      If a dep is genuinely needed, stop, record an open_question, and set status NEEDS_REVIEW.
+  - id: RAISE_SPECIFIC_EXCEPTIONS
+    description: |
+      Never raise ValueError, TypeError, or bare Exception for Tank-specific failures.
+      Use TankError subclasses. If the right subclass doesn't exist yet, create one
+      that inherits from TankError and name it descriptively.
+  - id: NO_KWARGS_PASSTHROUGH
+    description: |
+      Never use **kwargs to pass parameters through. Spell out every parameter
+      explicitly in every function signature.
+  - id: NO_MODULE_BOUNDARY_VIOLATIONS
+    description: |
+      CLI must not import from server. Server must not import from builder.
+      Builder must not import from CLI. Storage and policy are shared foundations
+      that any module may import. Normalizer is in builder but validator may import it.
+  - id: NO_SILENT_ASSUMPTIONS
+    description: |
+      If a required file, export, or env var is missing, do not create a placeholder
+      and continue. Stop, record an open_question, set status NEEDS_REVIEW.
+  - id: NO_SPEC_DRIFT
+    description: |
+      Do not implement features, parameters, or behaviors not listed in the chunk's
+      objective or interface_contract. Scope creep fails review automatically.
+  - id: NO_HASH_STABILITY_CHANGES
+    description: |
+      Do not modify normalization rules, chunk ID assignment order, hash computation
+      logic, or the pack_digest zeroing convention without flagging it. These changes
+      break integrity verification for all existing .ctx packs.
+  - id: NO_OVERWRITE
+    description: |
+      Never rewrite an entire file when a targeted edit is sufficient. Use Edit
+      operations, not Write, for existing files. Wholesale file rewrites risk
+      losing code that was not in context.
+
+
+# =============================================================================
+# GOTCHA BAR
+# =============================================================================
+
+gotcha_bar:
+  qualify_test: |
+    Log a gotcha if BOTH are true:
+      1. A competent developer hitting this cold would waste more than 15 minutes.
+      2. The issue is absent from, or wrong in, official documentation.
+  do_not_log:
+    - "Obvious syntax errors or typos"
+    - "Things covered accurately in the project docs or CLAUDE.md"
+    - "Personal mistakes unrelated to the library or environment"
+  entry_format: |
+    [chunk-id] YYYY-MM-DD
+    GOTCHA: <one-line searchable description>
+    REPRO:  <when and how it bites you>
+    WORKAROUND: <what actually works>
+    AFFECTS: <which future chunks or areas should read this>
+
+
+# =============================================================================
+# CHUNKS — process in dependency order, not document order
+# =============================================================================
+
+chunks:
+
+  # ---------------------------------------------------------------------------
+  - id: "chunk-01"
+    title: ""
+    status: PENDING                  # PENDING | IN_PROGRESS | NEEDS_REVIEW | APPROVED | REJECTED
+    depends_on: []
+    token_budget_hint: medium        # small (<30k) | medium (30–100k) | large (>100k)
+
+    local_context: |
+      # What the executor needs to understand THIS chunk.
+      # Depth calibrated by meta.executor_profile.
+
+    objective: |
+      # Concrete outcome. Not "implement X" — "X is callable and returns Y given Z."
+
+    interface_contract:
+      inputs:
+        - path: ""
+          consumes: []               # e.g. [TankError, Policy]
+      outputs:
+        - path: ""
+          exports:
+            - ""                     # e.g. "def normalize(content: str) -> str"
+            - ""                     # e.g. "class NormalizationError(TankError)"
+      allowed_new_deps: []
+
+    # Depth calibrated by meta.executor_profile
+    assumptions:
+      - ""                           # e.g. "chunkana.chunk() returns list of Chunk with .heading_path and .content"
+      - ""                           # e.g. "SQLite FTS5 MATCH syntax uses implicit AND between terms"
+
+    definition_of_done:
+      automated:
+        - cmd: "pytest tests/"
+          must_pass: true
+        - cmd: "mypy src/tank/"
+          must_pass: true
+        - cmd: "ruff check src/"
+          must_pass: true
+      coverage_floor: null
+      manual_checklist:
+        - ""                         # e.g. "No generic ValueError/TypeError raises in output files"
+        - ""                         # e.g. "All public functions have type hints"
+
+    # Depth calibrated by meta.executor_profile
+    capability_ceiling:
+      - ""                           # e.g. "Do not change the normalization rules — hash stability depends on them"
+      - ""                           # e.g. "Do not modify the SQLite schema — flag if the schema doesn't support the need"
+
+    prerequisites:
+      read_first:
+        - progress.txt
+        - ""                         # e.g. "docs/architecture.md section: Archive Safety Validator"
+
+    review_targets:
+      - ""                           # e.g. "normalize() preserves code blocks verbatim — verified in tests"
+      - ""                           # e.g. "TankError subclass used for every failure path — no generic exceptions"
+
+    rollback_anchor:
+      git_ref: ""
+      file_checksums: {}
+
+    handoff:
+      status_note: ""
+      files_modified: []
+      open_questions: []
+      progress_log_updated: false
+
+    review:
+      outcome: ""
+      rejection_reason: ""
+      reviewed_at: ""

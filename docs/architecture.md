@@ -207,15 +207,17 @@ Each line is a JSON object:
 {
   "id": 412,
   "page_id": 7,
-  "heading_path": "Authentication / Configure OAuth2",
+  "heading_path": "docs/auth/oauth / Configure OAuth2",
   "summary": "Configure OAuth2 client credentials flow",
   "content": "To configure the OAuth2 client credentials flow...",
   "token_count": 387,
-  "source_url": "https://my-lib.example.com/auth",
+  "source_url": "docs/auth/oauth.md",
   "source_commit": "abc123def456",
   "content_hash": "sha256:<hash-of-normalized-chunk-content>"
 }
 ```
+
+The `source_url` field is always populated. For local builds, it is the relative path from the `--source` argument (e.g. `--source ./docs` produces `docs/auth/oauth.md`). Phase 2 web builds will use full `https://` URLs. The `source_commit` field is optional for local builds (populated if `--source-commit` is provided).
 
 ### pages.json schema
 
@@ -223,12 +225,14 @@ Each line is a JSON object:
 [
   {
     "id": 7,
-    "url": "https://my-lib.example.com/auth",
+    "url": "docs/auth/oauth.md",
     "title": "Authentication",
     "content_hash": "sha256:<hash-of-page-content>"
   }
 ]
 ```
+
+For local builds, `url` is the relative path from the `--source` root. Each file in the source tree becomes one page entry.
 
 ## Archive Safety Validator
 
@@ -572,6 +576,17 @@ tank build <package@version> --source <path> [--output ./] [--lifecycle draft]
     --policy-profile  Policy profile name to embed in manifest
     Writes: <output>/<package>@<version>.ctx
 
+    Source tree handling:
+    - Recurses subdirectories by default
+    - File discovery whitelist: .md, .html, .htm (all others skipped with debug log)
+    - Walk order is lexicographic (sorted by full relative path) for deterministic
+      chunk ID assignment and reproducible normalized_content_hash
+    - Each file becomes one page; heading_path is prefixed with the relative file
+      path (e.g. docs/auth/oauth.md heading "# Overview" → "auth/oauth / Overview")
+    - source_url is set to the relative path from --source root (e.g. "docs/auth/oauth.md")
+
+    See document-processing.md for the full pipeline description.
+
 tank verify <file.ctx> [--policy ./policy.toml]
     Run the full 8-step archive safety validation sequence.
     Prints a pass/fail summary with the specific check that failed.
@@ -607,7 +622,7 @@ Phase 2 will add `tank publish`, `tank registry`, and `tank promote`. Phase 3 wi
 tank (base):
   mcp               # Anthropic MCP Python SDK
   sqlite3           # stdlib
-  tomllib           # stdlib (Python 3.11+); tomli backport for 3.10
+  tomllib           # stdlib (Python 3.11+)
   click, rich       # CLI framework and terminal output
 
 tank[build] adds:
@@ -665,6 +680,7 @@ python -m tank.server --http --port 8000 --path /mcp
 
 | Component | Choice | Rationale |
 |---|---|---|
+| Runtime | Python 3.11+ | `tomllib` in stdlib; active support through 2027; `str \| None` syntax |
 | MCP server | Python | All dependencies are Python-native; avoids cross-process IPC |
 | CLI framework | click + rich | click for composable subcommands; rich for tables and progress bars |
 | Chunking | **chunkana** | Preserves code blocks/tables, heading path metadata, structural chunking for RAG, MIT |
@@ -840,12 +856,18 @@ The following are explicitly out of scope for Tank v1. No MVP schema or format d
 - `attestations/` directory
 - Cloud-hosted index (local-first is a hard constraint)
 
-## Open Questions
+## Resolved Decisions
+
+- **Summary generation approach**: heuristic generation at build time. Extract the first sentence for prose chunks, or the leading function/class signature for code-heavy chunks. No LLM dependency, no network requirement, deterministic output. The `summary` field schema supports upgrading the strategy later without a format change.
+
+- **Chunk-level source_url**: `source_url` is always populated, never null. Local builds store the relative path from the `--source` argument (e.g. `--source ./docs` + file at `docs/auth/oauth.md` = `source_url: "docs/auth/oauth.md"`). Only `./` is stripped from the front. Phase 2 web builds use full `https://` URLs. No fallback logic is needed at query time because the field is never absent.
+
+- **Source tree handling**: `tank build --source <path>` recurses subdirectories by default. Files are discovered by extension whitelist (`.md`, `.html`, `.htm`). Walk order is lexicographic (sorted by full relative path) to guarantee deterministic chunk ID assignment and reproducible `normalized_content_hash`. Phase 2 crawled builds must establish their own deterministic sort (e.g. canonical URL) before assigning IDs.
+
+- **Python version**: 3.11+ required. Uses `tomllib` from stdlib. No backport dependencies.
+
+## Open Questions (Deferred to Phase 2)
 
 - **Policy inheritance in CI**: when a `.ctx` is built in CI with `lifecycle_state: draft` and a human later promotes it to `approved`, should the pack be rebuilt (new `pack_digest`) or should a side-channel approval record update the existing imported entry? Rebuilding is cleaner but requires re-running the pipeline; updating the packages table's `lifecycle_state` in place is pragmatic but means the stored `pack_digest` no longer reflects the approved state. To be resolved when designing the Phase 2 promotion workflow.
 
-- **Chunk-level source_url fallback**: in MVP, chunks inherit `source_url` and `source_commit` from the page they came from in `chunks.jsonl`. For packs built from a single directory without per-page URL metadata, these fields may be absent. Define the fallback clearly: if `source_url` is absent in a chunk record, fall back to `packages.source_url` at query time. Document this in the `query-docs` output schema.
-
 - **Policy merge semantics in monorepos**: a monorepo may want a root-level policy and workspace-level overrides. The lookup order (workspace `.tank/policy.toml` > root `.tank/policy.toml` > user default) seems right, but whether workspace policy is additive (can only restrict further) or fully overriding needs to be specified before Phase 2 implementation.
-
-- **Summary generation approach**: one-line summaries per chunk are critical for the progressive disclosure pattern. For MVP, summaries are generated heuristically at `tank build` time: extract the first sentence or, for code-heavy chunks, the leading function/class signature. LLM-generated summaries would be more accurate but add a runtime dependency and indexing time. The `summary` field is present in the schema either way; the generation strategy can be upgraded without a format change.
