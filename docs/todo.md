@@ -27,8 +27,8 @@
 
 ## Polish
 
-- [ ] **Stale README**
-  `README.md` says "implementation is beginning" but the Phase 1 MVP is code-complete with 141 passing tests.
+- [x] **Stale README** *(fixed)*
+  `README.md` now says "Phase 1 / MVP is code-complete with a full test suite" (184 tests, 183 passing).
 
 ## Release
 
