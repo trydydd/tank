@@ -37,6 +37,7 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["network: requires real network access (opt-in via --network)"]
 
 [tool.ruff]
 target-version = "py311"

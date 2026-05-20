@@ -16,7 +16,7 @@ jobs:
       - run: pip install -e ".[all]" -q
       - run: ruff check .
       - run: mypy src/
-      - run: pytest tests/
+      - run: pytest tests/ --network
 
   build:
     needs: test

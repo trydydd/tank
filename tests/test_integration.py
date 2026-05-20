@@ -1,5 +1,8 @@
 """End-to-end integration tests for the full MVP pipeline.
 
+Network tests (marked with @pytest.mark.network) are skipped by default.
+Pass --network to pytest to run them: pytest --network tests/
+
 Exercises build -> verify -> pull -> query using the CLI via CliRunner
 and real .ctx files, not mocked components.
 
@@ -13,6 +16,7 @@ import hashlib
 import io
 import json
 import os
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -641,3 +645,71 @@ def test_content_tampering_captured_at_step_7(
     result = verify(ctx_path=tampered_path, policy=policy)
     assert result.passed is False
     assert result.step == 7, f"Expected step=7 (content hash), got step={result.step}"
+
+
+# ===========================================================================
+# NETWORK TEST 14 -- Full pipeline against real FastMCP docs
+# ===========================================================================
+
+_FASTMCP_URL = "https://gofastmcp.com/llms-full.txt"
+_FASTMCP_MIN_CHUNKS = 500  # sanity-check: real docs should produce many chunks
+
+
+@pytest.mark.network
+def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
+    """Download the FastMCP llms-full.txt, build a pack, verify it, pull it,
+    and confirm a relevant query returns results.
+
+    This test exercises the full pipeline against a real-world large file
+    (~2MB, ~54k lines) and is the canonical check that tank handles
+    large single-file sources correctly.
+    """
+    from tank.builder.build import build_pack
+
+    source_dir = tmp_path / "source"
+    output_dir = tmp_path / "output"
+    source_dir.mkdir()
+    output_dir.mkdir()
+
+    # --- download ---
+    dest = source_dir / "llms-full.md"
+    urllib.request.urlretrieve(_FASTMCP_URL, dest)  # noqa: S310
+    assert dest.stat().st_size > 1_000_000, "Downloaded file suspiciously small"
+
+    # --- build ---
+    ctx_path = build_pack(
+        package="fastmcp",
+        version="3.3.0",
+        source=source_dir,
+        output=output_dir,
+        lifecycle="draft",
+    )
+    assert ctx_path.exists()
+
+    # Sanity-check chunk count — a real large doc should produce many chunks
+    with zipfile.ZipFile(ctx_path) as zf:
+        chunk_count = sum(1 for line in zf.read("chunks.jsonl").decode().splitlines() if line.strip())
+    assert chunk_count >= _FASTMCP_MIN_CHUNKS, (
+        f"Expected at least {_FASTMCP_MIN_CHUNKS} chunks, got {chunk_count}"
+    )
+
+    # --- verify ---
+    policy = Policy.default()
+    vresult = verify(ctx_path=ctx_path, policy=policy)
+    assert vresult.passed is True, (
+        f"Verification failed: step={vresult.step}, reason={vresult.reason}"
+    )
+
+    # --- pull ---
+    result = _cli_in_cwd(runner, ["pull", str(ctx_path)], tmp_path)
+    assert result.exit_code == 0, result.output
+
+    # --- query ---
+    db = Database(tmp_path / ".tank" / "index.db")
+    try:
+        db.create_schema()
+        hits = search(db, "tool", packages=["fastmcp"], limit=5)
+        assert len(hits) > 0, "Query for 'tool' against fastmcp docs returned no results"
+        assert all(h.package == "fastmcp" for h in hits)
+    finally:
+        db.close()
