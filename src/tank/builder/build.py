@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import zipfile
+from collections.abc import Mapping
 from pathlib import Path
 
 from tank.builder.chunking import RawChunk, chunk_file, discover_files, generate_summary
@@ -140,7 +141,7 @@ def build_pack(
 
 def _write_archive(
     path: Path,
-    manifest: dict[str, object],
+    manifest: Mapping[str, object],
     raw_chunks: list[RawChunk],
     pages: list[Page],
 ) -> None:
