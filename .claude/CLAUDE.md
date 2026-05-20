@@ -30,7 +30,7 @@
 
 ## Integrity
 
-- `pack_digest` computation: set `"pack_digest": ""` in manifest.json, assemble the zip, hash the archive bytes, then rewrite the manifest with the real digest. Verification reverses this: replace the value with `""`, hash, compare. The empty-string convention avoids JSON key ordering issues.
+- `pack_digest` computation: set `"pack_digest": ""` in manifest.json, assemble the zip, hash the archive bytes, then rewrite the manifest with the real digest. Verification reverses this: replace the value with `""`, hash, compare. The empty-string convention avoids JSON key ordering issues. All ZIP entries use a pinned `date_time` of `(2021, 8, 8, 0, 0, 0)` — the build writes the archive twice and both writes must produce identical ZipInfo metadata for the verifier to reproduce the hash. This date must never change.
 - `token_count` is a rough estimate computed as `len(content) // 4`. Document clearly that it is approximate, for budget planning only. No tokenizer dependency.
 
 ## Testing
