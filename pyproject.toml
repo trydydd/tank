@@ -19,7 +19,7 @@ build = [
 dev = [
     "pytest",
     "mypy",
-    "ruff",
+    "ruff==0.15.8",
 ]
 all = [
     "tank[build]",
