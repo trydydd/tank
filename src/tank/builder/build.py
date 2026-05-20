@@ -6,10 +6,6 @@ import os
 import zipfile
 from pathlib import Path
 
-# Fixed ZIP timestamp so both archive writes produce identical ZipInfo metadata,
-# making pack_digest reproducible by the verifier. Must never change.
-_ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
-
 from tank.builder.chunking import RawChunk, chunk_file, discover_files, generate_summary
 from tank.builder.manifest import (
     build_manifest,
@@ -181,6 +177,11 @@ def _write_archive(
         indent=2,
         sort_keys=True,
     )
+
+    # _ZIP_EPOCH pins every entry's timestamp so both archive writes during
+    # build produce identical ZipInfo metadata, making pack_digest reproducible
+    # by the verifier. This value must never change.
+    _ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
 
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, content in [
