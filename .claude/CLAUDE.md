@@ -38,6 +38,7 @@
 - Red-green-refactor. Write the failing test first, make it pass, then clean up.
 - Test error paths and edge cases, not just happy paths. Every public function should have tests for: valid input, invalid input, boundary conditions, and expected failure modes.
 - Static fixtures in `tests/fixtures/` for integration-level tests (sample source trees, known-good .ctx packs, malformed archives for validator tests). Pytest factory functions for unit tests (individual chunks, normalization edge cases, policy evaluation).
+- **Never bypass the public API in tests or benchmarks.** Call the same functions and entry points that real callers use. Reaching past the public interface to call internal helpers directly (e.g. calling `search()` instead of `query_docs()` to work around a limit) masks bugs rather than surfacing them — if the public API can't do what the test needs, that is the bug to fix.
 
 ## Architecture Constraints
 
