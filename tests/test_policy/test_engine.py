@@ -2,7 +2,7 @@ from pathlib import Path
 import tempfile
 import textwrap
 import pytest
-from tank.policy.engine import Policy, PolicyResult
+from tank.policy.engine import Policy
 from tank.errors import PolicyError
 
 

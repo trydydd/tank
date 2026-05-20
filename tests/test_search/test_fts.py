@@ -1,7 +1,7 @@
 from pathlib import Path
 import tempfile
 
-from tank.search.fts import SearchResult, search, get_chunks_by_id
+from tank.search.fts import search, get_chunks_by_id
 from tank.storage.db import Database
 from tank.storage.models import Chunk, Page, Pack
 

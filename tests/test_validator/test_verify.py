@@ -8,10 +8,8 @@ import time
 import zipfile
 from pathlib import Path
 
-import pytest
 
 from tank.builder.build import build_pack
-from tank.errors import VerificationError
 from tank.policy.engine import Policy
 from tank.validator.verify import VerifyResult, verify
 
@@ -57,7 +55,7 @@ def _build_valid_ctx(tmp_path: Path) -> Path:
 
 def _create_empty_zip(path: Path) -> None:
     """Create a zip file with no entries (not a valid .ctx)."""
-    with zipfile.ZipFile(path, "w") as zf:
+    with zipfile.ZipFile(path, "w") as _:
         pass
 
 

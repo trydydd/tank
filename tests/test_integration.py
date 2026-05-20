@@ -25,9 +25,9 @@ from click.testing import CliRunner
 
 from tank.cli.main import cli  # type: ignore[import-untyped]
 from tank.policy.engine import Policy  # type: ignore[import-untyped]
-from tank.search.fts import get_chunks_by_id, search  # type: ignore[import-untyped]
+from tank.search.fts import search  # type: ignore[import-untyped]
 from tank.storage.db import Database  # type: ignore[import-untyped]
-from tank.validator.verify import VerifyResult, verify  # type: ignore[import-untyped]
+from tank.validator.verify import verify  # type: ignore[import-untyped]
 from click.testing import Result
 
 
@@ -102,7 +102,7 @@ def _tamper_with_valid_digest(src: Path, content_replacements: dict[int, str]) -
     zeroed_manifest_json = json.dumps(zeroed, indent=2, sort_keys=True).encode()
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(src, "r") as orig_zf:
+    with zipfile.ZipFile(src, "r") as _:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out_zf:
             out_zf.writestr("manifest.json", zeroed_manifest_json)
             out_zf.writestr("chunks.jsonl", new_chunks.encode())

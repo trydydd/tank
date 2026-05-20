@@ -8,10 +8,8 @@ import pytest
 from tank.storage.db import Database
 from tank.storage.models import Chunk, Pack, Page
 from tank.server import (
-    create_server,
     query_docs,
     resolve_deps,
-    run_http,
 )
 
 
