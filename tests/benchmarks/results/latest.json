@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-05-20T18:05:28.319016+00:00",
+  "git_commit": "aa2507c",
+  "tank_version": "0.1.0",
+  "token_counter": "len_div_4",
+  "corpus": {
+    "chunks": 20,
+    "avg_summary_chars": 73,
+    "avg_content_chars": 939
+  },
+  "schema": {
+    "total_tokens": 245,
+    "tools": [
+      {
+        "name": "resolve-deps",
+        "tokens": 75,
+        "chars": 301
+      },
+      {
+        "name": "query-docs",
+        "tokens": 170,
+        "chars": 680
+      }
+    ],
+    "pct_of_200k_context": 0.122,
+    "pct_of_128k_context": 0.191
+  },
+  "responses": {
+    "summary_n5": {
+      "tokens": 563,
+      "actual_results": 5,
+      "tokens_per_result": 113
+    },
+    "summary_n10": {
+      "tokens": 1122,
+      "actual_results": 10,
+      "tokens_per_result": 112
+    },
+    "summary_n20": {
+      "tokens": 2012,
+      "actual_results": 18,
+      "tokens_per_result": 112
+    },
+    "full_n5": {
+      "tokens": 1810,
+      "actual_results": 5,
+      "tokens_per_result": 362
+    },
+    "full_n10": {
+      "tokens": 3542,
+      "actual_results": 10,
+      "tokens_per_result": 354
+    },
+    "full_n20": {
+      "tokens": 6405,
+      "actual_results": 18,
+      "tokens_per_result": 356
+    }
+  },
+  "progressive_disclosure": {
+    "step1_summary_all_tokens": 2012,
+    "step2_full_top3_tokens": 1047,
+    "total_tokens": 3059,
+    "vs_naive_full_n20_tokens": 6405,
+    "saving_pct": 52.2
+  }
+}
