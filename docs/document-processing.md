@@ -162,7 +162,7 @@ Assembly sequence:
 1. Write `chunks.jsonl` — one JSON object per line, in chunk ID order
 2. Write `pages.json` — array of page objects, in page ID order
 3. Write `manifest.json` with `pack_digest` set to empty string
-4. Create the zip archive containing all three files (plus empty `signatures/` directory)
+4. Create the zip archive containing all three files (plus empty `signatures/` directory); all ZIP entries use a pinned `date_time` of `(2021, 8, 8, 0, 0, 0)` to ensure the archive is byte-for-byte reproducible across writes
 5. Compute `pack_digest` over the archive bytes
 6. Rewrite `manifest.json` inside the archive with the real `pack_digest` value
 7. Write the final `.ctx` file to the `--output` directory

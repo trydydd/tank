@@ -382,7 +382,7 @@ The system maintains a hash chain: **pack archive → manifest hashes → chunk 
 
 ### Hash semantics
 
-- **`pack_digest`**: SHA-256 of the full `.ctx` archive bytes, computed with the `pack_digest` field value in `manifest.json` replaced by an empty string during computation. This makes the digest deterministic even though `manifest.json` itself declares the digest.
+- **`pack_digest`**: SHA-256 of the full `.ctx` archive bytes, computed with the `pack_digest` field value in `manifest.json` replaced by an empty string during computation. This makes the digest deterministic even though `manifest.json` itself declares the digest. All ZIP entries are written with a pinned `date_time` of `(2021, 8, 8, 0, 0, 0)` so that the two archive writes during build (once with empty digest, once with the real digest) produce identical ZipInfo metadata and the verifier can reproduce the hash exactly.
 - **`normalized_content_hash`**: SHA-256 of all chunk `content` strings, each normalized (whitespace-normalized, Unicode-normalized to NFC), then concatenated in ascending `id` order with a `\n` separator. This hash is independent of metadata changes (heading paths, summaries, page IDs) and only changes when text content changes.
 - **Per-chunk `content_hash`**: SHA-256 of that chunk's normalized content alone. Useful for detecting which specific chunks changed between pack versions.
 

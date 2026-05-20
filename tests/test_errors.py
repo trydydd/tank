@@ -13,7 +13,13 @@ def test_tank_error_is_exception() -> None:
 
 
 def test_subclasses_inherit_tank_error() -> None:
-    for cls in (ManifestError, PolicyError, VerificationError, ImportError_, BuildError):
+    for cls in (
+        ManifestError,
+        PolicyError,
+        VerificationError,
+        ImportError_,
+        BuildError,
+    ):
         assert issubclass(cls, TankError)
 
 

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import zipfile
+from collections.abc import Mapping
 from pathlib import Path
 
 from tank.builder.chunking import RawChunk, chunk_file, discover_files, generate_summary
@@ -56,9 +57,9 @@ def build_pack(
         # Read and normalize the full file content for page hash
         raw_content = file_path.read_text(encoding="utf-8")
         normalized_content = normalize(raw_content)
-        content_hash = "sha256:" + hashlib.sha256(
-            normalized_content.encode("utf-8")
-        ).hexdigest()
+        content_hash = (
+            "sha256:" + hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+        )
 
         # Extract title from first heading
         title = _extract_title(raw_content) or Path(file_path).stem
@@ -140,7 +141,7 @@ def build_pack(
 
 def _write_archive(
     path: Path,
-    manifest: dict[str, object],
+    manifest: Mapping[str, object],
     raw_chunks: list[RawChunk],
     pages: list[Page],
 ) -> None:
@@ -178,12 +179,23 @@ def _write_archive(
         sort_keys=True,
     )
 
+    # _ZIP_EPOCH pins every entry's timestamp so both archive writes during
+    # build produce identical ZipInfo metadata, making pack_digest reproducible
+    # by the verifier. This value must never change.
+    _ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
+
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))
-        zf.writestr("chunks.jsonl", chunks_lines)
-        zf.writestr("pages.json", pages_json)
-        # Empty signatures directory (placeholder for future signing)
-        zf.writestr("signatures/", "")
+        for name, content in [
+            ("manifest.json", json.dumps(manifest, indent=2, sort_keys=True)),
+            ("chunks.jsonl", chunks_lines),
+            ("pages.json", pages_json),
+        ]:
+            info = zipfile.ZipInfo(name, date_time=_ZIP_EPOCH)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, content)
+        sig_info = zipfile.ZipInfo("signatures/", date_time=_ZIP_EPOCH)
+        sig_info.compress_type = zipfile.ZIP_STORED
+        zf.writestr(sig_info, "")
 
 
 def _extract_title(content: str) -> str | None:

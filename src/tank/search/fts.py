@@ -82,22 +82,26 @@ LIMIT ?"""
     results: list[SearchResult] = []
     for row in rows:
         lifecycle_state = row[9]
-        results.append(SearchResult(
-            chunk_id=row[0],
-            package=row[1],
-            version=row[2],
-            heading_path=row[3],
-            summary=row[4],
-            content=row[5],
-            source_url=row[6],
-            source_commit=row[7],
-            content_hash=row[8],
-            lifecycle_state=lifecycle_state,
-            doc_version_status=row[10],
-            indexed_at=row[11],
-            score=row[12],
-            lifecycle_warning="This package is deprecated" if lifecycle_state == "deprecated" else None,
-        ))
+        results.append(
+            SearchResult(
+                chunk_id=row[0],
+                package=row[1],
+                version=row[2],
+                heading_path=row[3],
+                summary=row[4],
+                content=row[5],
+                source_url=row[6],
+                source_commit=row[7],
+                content_hash=row[8],
+                lifecycle_state=lifecycle_state,
+                doc_version_status=row[10],
+                indexed_at=row[11],
+                score=row[12],
+                lifecycle_warning="This package is deprecated"
+                if lifecycle_state == "deprecated"
+                else None,
+            )
+        )
 
     return results
 
@@ -131,21 +135,25 @@ def get_chunks_by_id(
     results: list[SearchResult] = []
     for row in rows:
         lifecycle_state = row[9]
-        results.append(SearchResult(
-            chunk_id=row[0],
-            package=row[1],
-            version=row[2],
-            heading_path=row[3],
-            summary=row[4],
-            content=row[5] if detail == "full" else None,
-            source_url=row[6],
-            source_commit=row[7],
-            content_hash=row[8],
-            lifecycle_state=lifecycle_state,
-            doc_version_status=row[10],
-            indexed_at=row[11],
-            score=0.0,
-            lifecycle_warning="This package is deprecated" if lifecycle_state == "deprecated" else None,
-        ))
+        results.append(
+            SearchResult(
+                chunk_id=row[0],
+                package=row[1],
+                version=row[2],
+                heading_path=row[3],
+                summary=row[4],
+                content=row[5] if detail == "full" else None,
+                source_url=row[6],
+                source_commit=row[7],
+                content_hash=row[8],
+                lifecycle_state=lifecycle_state,
+                doc_version_status=row[10],
+                indexed_at=row[11],
+                score=0.0,
+                lifecycle_warning="This package is deprecated"
+                if lifecycle_state == "deprecated"
+                else None,
+            )
+        )
 
     return results

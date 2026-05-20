@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -39,7 +38,9 @@ class TestInspectCommand:
         assert "test-pkg" in result.output
         assert "1.0.0" in result.output
 
-    def test_inspect_index_db(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_inspect_index_db(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Inspecting an index.db lists imported packs."""
         source = _fixture_path()
         build_out = tmp_path / "build"

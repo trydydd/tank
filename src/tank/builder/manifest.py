@@ -6,7 +6,7 @@ import json
 import time
 import zipfile
 from pathlib import Path
-from typing import Callable
+from typing import Callable, cast
 
 from tank.builder.chunking import RawChunk
 
@@ -83,7 +83,9 @@ def compute_pack_digest(archive_path: Path) -> str:
 def load_manifest(ctx_path: Path) -> dict[str, str | int | float | None]:
     """Load and parse manifest.json from a .ctx archive."""
     with zipfile.ZipFile(ctx_path, "r") as zf:
-        return json.loads(zf.read("manifest.json"))
+        return cast(
+            dict[str, str | int | float | None], json.loads(zf.read("manifest.json"))
+        )
 
 
 def compute_normalized_content_hash(

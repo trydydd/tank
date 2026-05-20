@@ -96,12 +96,18 @@ def test_build_source_url_relative_paths(tmp_path: Path) -> None:
             record = json.loads(line)
             url = record["source_url"]
             assert url is not None
-            assert not url.startswith("./"), f"source_url should not start with './': {url}"
-            assert url.startswith("docs/"), f"source_url must include source dir name: {url}"
+            assert not url.startswith("./"), (
+                f"source_url should not start with './': {url}"
+            )
+            assert url.startswith("docs/"), (
+                f"source_url must include source dir name: {url}"
+            )
 
         pages = json.loads(zf.read("pages.json"))
         for page in pages:
-            assert page["url"].startswith("docs/"), f"page url must include source dir name: {page['url']}"
+            assert page["url"].startswith("docs/"), (
+                f"page url must include source dir name: {page['url']}"
+            )
 
 
 def test_build_nonexistent_source_raises(tmp_path: Path) -> None:
@@ -147,9 +153,9 @@ def test_source_url_does_not_strip_source_dir_name(tmp_path: Path) -> None:
         chunks_text = zf.read("chunks.jsonl").decode("utf-8")
         for line in chunks_text.strip().split("\n"):
             record = json.loads(line)
-            assert not record["source_url"].startswith(
-                "auth/"
-            ), "source_url must not strip the source dir name"
+            assert not record["source_url"].startswith("auth/"), (
+                "source_url must not strip the source dir name"
+            )
 
 
 def test_build_empty_source_raises(tmp_path: Path) -> None:

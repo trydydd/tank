@@ -36,14 +36,16 @@ def resolve_deps(db: Database) -> dict[str, Any]:
             (p.name, p.version),
         ).fetchone()
         chunks = row["cnt"]
-        packs.append({
-            "package": p.name,
-            "version": p.version,
-            "lifecycle_state": p.lifecycle_state,
-            "doc_version_status": p.doc_version_status,
-            "chunks": chunks,
-            "indexed_at": p.indexed_at,
-        })
+        packs.append(
+            {
+                "package": p.name,
+                "version": p.version,
+                "lifecycle_state": p.lifecycle_state,
+                "doc_version_status": p.doc_version_status,
+                "chunks": chunks,
+                "indexed_at": p.indexed_at,
+            }
+        )
     return {"status": "ok", "packs": packs}
 
 

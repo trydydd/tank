@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[all]" -q
+      - run: ruff check .
+      - run: mypy src/
+      - run: pytest tests/ --network
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[all]" build -q
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Build packs
+        run: |
+          mkdir -p source packs
+          curl -sf --max-time 120 -o source/llms-full.md https://gofastmcp.com/llms-full.txt
+          tank build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            packs/*.ctx

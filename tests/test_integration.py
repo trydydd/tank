@@ -1,5 +1,8 @@
 """End-to-end integration tests for the full MVP pipeline.
 
+Network tests (marked with @pytest.mark.network) are skipped by default.
+Pass --network to pytest to run them: pytest --network tests/
+
 Exercises build -> verify -> pull -> query using the CLI via CliRunner
 and real .ctx files, not mocked components.
 
@@ -13,6 +16,7 @@ import hashlib
 import io
 import json
 import os
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -21,9 +25,9 @@ from click.testing import CliRunner
 
 from tank.cli.main import cli  # type: ignore[import-untyped]
 from tank.policy.engine import Policy  # type: ignore[import-untyped]
-from tank.search.fts import get_chunks_by_id, search  # type: ignore[import-untyped]
+from tank.search.fts import search  # type: ignore[import-untyped]
 from tank.storage.db import Database  # type: ignore[import-untyped]
-from tank.validator.verify import VerifyResult, verify  # type: ignore[import-untyped]
+from tank.validator.verify import verify  # type: ignore[import-untyped]
 from click.testing import Result
 
 
@@ -49,9 +53,8 @@ def sample_docs() -> Path:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _cli_in_cwd(
-    runner: CliRunner, args: list[str], tmp_path: Path
-) -> Result:
+
+def _cli_in_cwd(runner: CliRunner, args: list[str], tmp_path: Path) -> Result:
     """Invoke CliRunner with cwd set to tmp_path (pull/query need .tank relative)."""
     old = os.getcwd()
     os.chdir(tmp_path)
@@ -98,7 +101,7 @@ def _tamper_with_valid_digest(src: Path, content_replacements: dict[int, str]) -
     zeroed_manifest_json = json.dumps(zeroed, indent=2, sort_keys=True).encode()
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(src, "r") as orig_zf:
+    with zipfile.ZipFile(src, "r") as _:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out_zf:
             out_zf.writestr("manifest.json", zeroed_manifest_json)
             out_zf.writestr("chunks.jsonl", new_chunks.encode())
@@ -109,7 +112,9 @@ def _tamper_with_valid_digest(src: Path, content_replacements: dict[int, str]) -
 
     # Write tampered archive with updated pack_digest
     with zipfile.ZipFile(result, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode())
+        zf.writestr(
+            "manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode()
+        )
         zf.writestr("chunks.jsonl", new_chunks.encode())
         for name, data in other_files.items():
             zf.writestr(name, data)
@@ -120,6 +125,7 @@ def _tamper_with_valid_digest(src: Path, content_replacements: dict[int, str]) -
 # ===========================================================================
 # 1. Golden-path end-to-end: build -> verify -> pull -> query
 # ===========================================================================
+
 
 def test_full_pipeline_build_verify_pull_query(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -167,6 +173,7 @@ def test_full_pipeline_build_verify_pull_query(
 # 2. Build then verify passes (standalone)
 # ===========================================================================
 
+
 def test_build_then_verify_passes(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -198,6 +205,7 @@ def test_build_then_verify_passes(
 # 3. Tamper detection: modify chunk content, verify fails at step 7
 # ===========================================================================
 
+
 def test_build_then_tamper_then_verify_fails(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -228,13 +236,16 @@ def test_build_then_tamper_then_verify_fails(
     # Use the programmatic API to assert VerifyResult(passed=False, step=7)
     policy = Policy.default()
     vresult = verify(ctx_path=tampered_path, policy=policy)
-    assert vresult.passed is False, f"Tampered pack should fail verification, got step={vresult.step}"
+    assert vresult.passed is False, (
+        f"Tampered pack should fail verification, got step={vresult.step}"
+    )
     assert vresult.step == 7, f"Expected step=7 (content hash), got step={vresult.step}"
 
 
 # ===========================================================================
 # 4. Pull populates FTS index
 # ===========================================================================
+
 
 def test_pull_populates_fts_index(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -276,6 +287,7 @@ def test_pull_populates_fts_index(
 # 5. Query returns attributed results
 # ===========================================================================
 
+
 def test_query_returns_attributed_results(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -300,9 +312,7 @@ def test_query_returns_attributed_results(
     result = _cli_in_cwd(runner, ["pull", str(ctx_path)], tmp_path)
     assert result.exit_code == 0, result.output
 
-    result = _cli_in_cwd(
-        runner, ["query", "billing", "--detail", "full"], tmp_path
-    )
+    result = _cli_in_cwd(runner, ["query", "billing", "--detail", "full"], tmp_path)
     assert result.exit_code == 0, result.output
     assert "attr-test" in result.output.lower()
 
@@ -310,6 +320,7 @@ def test_query_returns_attributed_results(
 # ===========================================================================
 # 6. Progressive disclosure: summary then full
 # ===========================================================================
+
 
 def test_query_progressive_disclosure(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -336,9 +347,7 @@ def test_query_progressive_disclosure(
     assert result.exit_code == 0, result.output
 
     # CLI summary query
-    result = _cli_in_cwd(
-        runner, ["query", "oauth", "--detail", "summary"], tmp_path
-    )
+    result = _cli_in_cwd(runner, ["query", "oauth", "--detail", "summary"], tmp_path)
     assert result.exit_code == 0, result.output
 
     # Server API for programmatic checks
@@ -367,6 +376,7 @@ def test_query_progressive_disclosure(
 # ===========================================================================
 # 7. Lockfile written after pull
 # ===========================================================================
+
 
 def test_pull_writes_lockfile(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -405,6 +415,7 @@ def test_pull_writes_lockfile(
 # 8. Pull rejects duplicate
 # ===========================================================================
 
+
 def test_pull_duplicate_rejected(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -436,6 +447,7 @@ def test_pull_duplicate_rejected(
 # ===========================================================================
 # 9. Revoked pack excluded from query results
 # ===========================================================================
+
 
 def test_revoked_pack_excluded_from_query(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -490,6 +502,7 @@ def test_revoked_pack_excluded_from_query(
 # NEGATIVE TEST 10 -- Pull does not leave partial state on failure
 # ===========================================================================
 
+
 def test_pull_does_not_leave_partial_state_on_failure(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -532,6 +545,7 @@ def test_pull_does_not_leave_partial_state_on_failure(
 # ===========================================================================
 # NEGATIVE TEST 11 -- Revoked pack not in query results
 # ===========================================================================
+
 
 def test_revoked_pack_not_in_query_results(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -586,6 +600,7 @@ def test_revoked_pack_not_in_query_results(
 # NEGATIVE TEST 12 -- Build/verify cycle is symmetric
 # ===========================================================================
 
+
 def test_build_verify_cycle_is_symmetric(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -617,6 +632,7 @@ def test_build_verify_cycle_is_symmetric(
 # NEGATIVE TEST 13 -- Content tampering caught at step 7 specifically
 # ===========================================================================
 
+
 def test_content_tampering_captured_at_step_7(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -641,3 +657,75 @@ def test_content_tampering_captured_at_step_7(
     result = verify(ctx_path=tampered_path, policy=policy)
     assert result.passed is False
     assert result.step == 7, f"Expected step=7 (content hash), got step={result.step}"
+
+
+# ===========================================================================
+# NETWORK TEST 14 -- Full pipeline against real FastMCP docs
+# ===========================================================================
+
+_FASTMCP_URL = "https://gofastmcp.com/llms-full.txt"
+_FASTMCP_MIN_CHUNKS = 500  # sanity-check: real docs should produce many chunks
+
+
+@pytest.mark.network
+def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
+    """Download the FastMCP llms-full.txt, build a pack, verify it, pull it,
+    and confirm a relevant query returns results.
+
+    This test exercises the full pipeline against a real-world large file
+    (~2MB, ~54k lines) and is the canonical check that tank handles
+    large single-file sources correctly.
+    """
+    from tank.builder.build import build_pack
+
+    source_dir = tmp_path / "source"
+    output_dir = tmp_path / "output"
+    source_dir.mkdir()
+    output_dir.mkdir()
+
+    # --- download ---
+    dest = source_dir / "llms-full.md"
+    urllib.request.urlretrieve(_FASTMCP_URL, dest)  # noqa: S310
+    assert dest.stat().st_size > 1_000_000, "Downloaded file suspiciously small"
+
+    # --- build ---
+    ctx_path = build_pack(
+        package="fastmcp",
+        version="3.3.0",
+        source=source_dir,
+        output=output_dir,
+        lifecycle="draft",
+    )
+    assert ctx_path.exists()
+
+    # Sanity-check chunk count — a real large doc should produce many chunks
+    with zipfile.ZipFile(ctx_path) as zf:
+        chunk_count = sum(
+            1 for line in zf.read("chunks.jsonl").decode().splitlines() if line.strip()
+        )
+    assert chunk_count >= _FASTMCP_MIN_CHUNKS, (
+        f"Expected at least {_FASTMCP_MIN_CHUNKS} chunks, got {chunk_count}"
+    )
+
+    # --- verify ---
+    policy = Policy.default()
+    vresult = verify(ctx_path=ctx_path, policy=policy)
+    assert vresult.passed is True, (
+        f"Verification failed: step={vresult.step}, reason={vresult.reason}"
+    )
+
+    # --- pull ---
+    result = _cli_in_cwd(runner, ["pull", str(ctx_path)], tmp_path)
+    assert result.exit_code == 0, result.output
+
+    # --- query ---
+    db = Database(tmp_path / ".tank" / "index.db")
+    try:
+        db.create_schema()
+        hits = search(db, "tool", packages=["fastmcp"], limit=5)
+        assert len(hits) > 0, (
+            "Query for 'tool' against fastmcp docs returned no results"
+        )
+        assert all(h.package == "fastmcp" for h in hits)
+    finally:
+        db.close()

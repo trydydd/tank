@@ -30,7 +30,9 @@ class TestDiscoverFiles:
         assert "config.md" in relative_names
         assert "endpoints.md" in relative_names
 
-    def test_discover_files_does_not_include_non_whitelisted(self, tmp_path: Path) -> None:
+    def test_discover_files_does_not_include_non_whitelisted(
+        self, tmp_path: Path
+    ) -> None:
         source = tmp_path / "docs"
         source.mkdir()
         (source / "readme.md").write_text("# README\n")
@@ -81,12 +83,12 @@ class TestGenerateSummary:
 
     def test_generate_summary_code_heavy(self) -> None:
         content = (
-            '```python\n'
-            'def configure_oauth(client_id: str) -> Config:\n'
-            '    pass\n'
-            'def another_func() -> None:\n'
-            '    pass\n'
-            '```'
+            "```python\n"
+            "def configure_oauth(client_id: str) -> Config:\n"
+            "    pass\n"
+            "def another_func() -> None:\n"
+            "    pass\n"
+            "```"
         )
         result = generate_summary(content)
         assert "def configure_oauth(client_id: str) -> Config:" in result

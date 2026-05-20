@@ -17,7 +17,9 @@ console = Console()
 
 @click.command()
 @click.argument("ctx_path", type=click.Path(path_type=Path))
-@click.option("--policy", type=click.Path(path_type=Path), default=None, help="Policy file path")
+@click.option(
+    "--policy", type=click.Path(path_type=Path), default=None, help="Policy file path"
+)
 def verify_cmd(ctx_path: Path, policy: Path | None) -> None:
     """Verify the integrity of a .ctx documentation pack."""
     if not ctx_path.exists():

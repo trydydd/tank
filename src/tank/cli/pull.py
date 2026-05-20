@@ -67,19 +67,21 @@ def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
         if not line:
             continue
         c = json.loads(line)
-        chunks.append(Chunk(
-            id=c["id"],
-            package=pack.name,
-            version=pack.version,
-            content=c["content"],
-            page_id=c.get("page_id"),
-            heading_path=c.get("heading_path"),
-            summary=c.get("summary"),
-            token_count=c.get("token_count"),
-            source_url=c.get("source_url"),
-            source_commit=c.get("source_commit"),
-            content_hash=c.get("content_hash"),
-        ))
+        chunks.append(
+            Chunk(
+                id=c["id"],
+                package=pack.name,
+                version=pack.version,
+                content=c["content"],
+                page_id=c.get("page_id"),
+                heading_path=c.get("heading_path"),
+                summary=c.get("summary"),
+                token_count=c.get("token_count"),
+                source_url=c.get("source_url"),
+                source_commit=c.get("source_commit"),
+                content_hash=c.get("content_hash"),
+            )
+        )
 
     db.import_pack(pack, pages, chunks)
     return ctx_path
@@ -107,8 +109,12 @@ def _write_lockfile(db: Database) -> None:
 
 @click.command()
 @click.argument("ctx_path", type=click.Path(exists=True, path_type=Path))
-@click.option("--policy", type=click.Path(path_type=Path), default=None, help="Policy file path")
-@click.option("--force", is_flag=True, default=False, help="Force reimport of existing pack")
+@click.option(
+    "--policy", type=click.Path(path_type=Path), default=None, help="Policy file path"
+)
+@click.option(
+    "--force", is_flag=True, default=False, help="Force reimport of existing pack"
+)
 def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
     """Verify and import a .ctx documentation pack into the local index."""
     policy_obj = Policy.load(policy_path=policy)
@@ -138,7 +144,12 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
         except Exception:
             pass
 
-        if not force and pack_name and pack_version and db.pack_exists(pack_name, pack_version):
+        if (
+            not force
+            and pack_name
+            and pack_version
+            and db.pack_exists(pack_name, pack_version)
+        ):
             console.print(
                 f"[red]error: pack {pack_name}@{pack_version} is already imported. "
                 "Use --force to reimport.[/red]"
@@ -147,7 +158,12 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
             sys.exit(1)
 
         # When --force, delete the existing pack so import_pack succeeds
-        if force and pack_name and pack_version and db.pack_exists(pack_name, pack_version):
+        if (
+            force
+            and pack_name
+            and pack_version
+            and db.pack_exists(pack_name, pack_version)
+        ):
             db.delete_pack(pack_name, pack_version)
 
         _import_pack(ctx_path, policy_obj, db)
@@ -155,7 +171,9 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
         db.close()
 
         if pack_name:
-            console.print(f"[green]Successfully imported {pack_name}@{pack_version}[/green]")
+            console.print(
+                f"[green]Successfully imported {pack_name}@{pack_version}[/green]"
+            )
         else:
             console.print("[green]Successfully imported pack[/green]")
     except TankError as exc:

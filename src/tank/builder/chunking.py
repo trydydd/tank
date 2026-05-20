@@ -117,7 +117,9 @@ def generate_summary(content: str) -> str:
             if s.startswith(("def ", "class ", "function ", "export ")):
                 return s
         # Fall back to first prose sentence
-        return _first_sentence(prose_lines) if prose_lines else _heading_fallback(content)
+        return (
+            _first_sentence(prose_lines) if prose_lines else _heading_fallback(content)
+        )
 
     return _first_sentence(prose_lines) if prose_lines else _heading_fallback(content)
 
