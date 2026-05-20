@@ -22,13 +22,13 @@ Work through this list in order. Do not tag until all items are complete.
 ### 1. Known bugs and gaps
 
 Review `docs/todo.md` and confirm every v{N} item is resolved or explicitly deferred.
-For v0.1.0 specifically, the following bugs were identified in `docs/ultraplan-review.md`
-and must be fixed before the initial release:
+
+The following bugs were open when v0.1.0 was tagged and are deferred to v0.1.1:
 
 - [ ] `src/tank/storage/db.py:121-126` — page ID foreign key integrity on import
 - [ ] `src/tank/search/fts.py:76` — silent exception swallowing on search failure
 - [ ] `src/tank/cli/pull.py:39` — hardcoded `doc_version_status="imported"`
-- [ ] `src/tank/server.py:122` — unused `max_tokens` parameter (implement or remove)
+- [ ] `src/tank/server.py` — `max_tokens` parameter accepted but not implemented
 
 ### 2. Tests pass cleanly
 

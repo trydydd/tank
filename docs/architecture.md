@@ -82,17 +82,18 @@ Full-text search across indexed documentation. Fast, read-only, only hits alread
 {
   "query": "how to configure OAuth2 in my-lib",
   "packages": ["my-lib"],
-  "max_tokens": 2000,
   "detail": "summary",
+  "limit": 10,
   "chunk_ids": []
 }
 ```
 
 - `query`: natural language question (required unless `chunk_ids` is provided)
 - `packages`: optional filter scoped to specific package names
-- `max_tokens`: budget cap for the response
 - `detail`: `"summary"` (default) returns heading path + one-line summary (~20–40 tokens each); `"full"` returns complete chunk content
+- `limit`: maximum number of results to return (default 10); use lower values to stay within a token budget
 - `chunk_ids`: optional list of specific chunk IDs to expand to full content, bypassing search
+- `max_tokens`: accepted but not yet implemented — see `docs/todo.md`
 
 **Output** (each result includes full provenance):
 ```json

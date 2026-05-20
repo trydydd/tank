@@ -197,11 +197,11 @@ borrowing figures measured against a different tool.
 
 | Item | Priority | Action |
 |---|---|---|
-| Write token overhead benchmark | v0.2.0 | `tests/benchmarks/test_token_overhead.py` — schema + response cost at summary/full levels |
+| ~~Write token overhead benchmark~~ | ~~v0.2.0~~ | ✅ Done — `tests/benchmarks/test_token_overhead.py` with baseline in `tests/benchmarks/results/latest.json` |
 | Document progressive disclosure pattern | v0.1.0 | Add agent usage example to README showing the two-step summary→full pattern |
 | Expose `token_budget` on `query-docs` | v0.3.0 | Return maximum content within a caller-specified token budget, auto-balancing result count vs. detail level |
 | Consider schema compression | v1.0.0 | If Tank registers more tools in future, audit description verbosity against StackOne's compression tradeoffs |
-| Fix silent failure in `fts.py:76` | v0.1.0 | Currently all search errors return `[]` silently — a query over-budget or schema mismatch is invisible to the caller |
+| Fix silent failure in `fts.py:76` | open bug | Currently all search errors return `[]` silently — a query over-budget or schema mismatch is invisible to the caller; tracked in `docs/todo.md` |
 
 ---
 
