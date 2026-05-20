@@ -55,6 +55,7 @@ def query_docs(
     packages: list[str] | None = None,
     detail: str = "summary",
     chunk_ids: list[int] | None = None,
+    limit: int = 10,
 ) -> dict[str, Any]:
     """FTS5 search with attribution.
 
@@ -76,7 +77,7 @@ def query_docs(
         if row["cnt"] < len(packages):
             return {"status": "not_indexed"}
 
-    hits = search(db, query, packages=packages, detail=detail)
+    hits = search(db, query, packages=packages, detail=detail, limit=limit)
     return {"results": [_to_dict(r) for r in hits]}
 
 
@@ -122,11 +123,12 @@ def _register_tools(mcp: FastMCP) -> None:
         max_tokens: int | None = None,
         detail: str = "summary",
         chunk_ids: list[int] | None = None,
+        limit: int = 10,
     ) -> str:
         """FTS5 full-text search across indexed documentation."""
         db = Database(_db_path())
         try:
-            result = query_docs(db, query, packages, detail, chunk_ids)
+            result = query_docs(db, query, packages, detail, chunk_ids, limit)
             return json.dumps(result)
         finally:
             db.close()

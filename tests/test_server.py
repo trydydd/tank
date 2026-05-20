@@ -345,6 +345,26 @@ def test_query_docs_chunk_ids(db: Database) -> None:
 
 
 # ---------------------------------------------------------------------------
+# test_query_docs_limit
+# ---------------------------------------------------------------------------
+
+
+def test_query_docs_limit(db: Database) -> None:
+    _seed_approved_pack(db)
+
+    # "configure" matches chunks 1, 2, 4, 5 in the fixture (4 results).
+    full = query_docs(db, query="configure", detail="summary", chunk_ids=None)
+    assert len(full["results"]) == 4
+
+    capped = query_docs(db, query="configure", detail="summary", chunk_ids=None, limit=2)
+    assert len(capped["results"]) == 2
+
+    # limit larger than available results should return all matches without error.
+    uncapped = query_docs(db, query="configure", detail="summary", chunk_ids=None, limit=100)
+    assert len(uncapped["results"]) == 4
+
+
+# ---------------------------------------------------------------------------
 # test_query_docs_not_indexed_package
 # ---------------------------------------------------------------------------
 

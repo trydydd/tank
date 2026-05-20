@@ -677,17 +677,13 @@ def test_token_overhead(bench_db: Database) -> None:
         "django OR fastapi OR asyncio OR mock OR network"
     )
 
-    # Responses at different result counts via the public API only.
-    # query_docs() has no limit parameter — it always delegates to search()
-    # with its default of 10. n=20 will return the same results as n=10;
-    # that is the bug (see todo.md), not a benchmark artefact.
+    # Responses at different result counts via the public API.
     response_data: dict[str, dict] = {}
     for detail in ("summary", "full"):
         for n in (5, 10, 20):
-            result = _query_docs(bench_db, broad_query, detail=detail)
-            results = result.get("results", [])[:n]
-            payload = {"results": results}
-            tokens = _response_tokens(payload)
+            result = _query_docs(bench_db, broad_query, detail=detail, limit=n)
+            results = result.get("results", [])
+            tokens = _response_tokens(result)
             key = f"{detail}_n{n}"
             response_data[key] = {
                 "tokens": tokens,
@@ -695,9 +691,9 @@ def test_token_overhead(bench_db: Database) -> None:
                 "tokens_per_result": round(tokens / max(len(results), 1)),
             }
 
-    # Two-step progressive disclosure session via the public API only.
-    # Step 1 — summary scan (capped at 10 by the current public API)
-    step1 = _query_docs(bench_db, broad_query, detail="summary")
+    # Two-step progressive disclosure session via the public API.
+    # Step 1 — broad summary scan
+    step1 = _query_docs(bench_db, broad_query, detail="summary", limit=20)
     step1_tokens = _response_tokens(step1)
     top_ids = [r["chunk_id"] for r in step1.get("results", [])[:3]]
 
@@ -706,9 +702,7 @@ def test_token_overhead(bench_db: Database) -> None:
     step2_tokens = _response_tokens(step2)
 
     two_step_total = step1_tokens + step2_tokens
-    # Compare against the highest result count the public API actually delivers.
-    # Until query_docs() exposes a limit parameter, this is full_n10 = full_n20.
-    naive_full = response_data["full_n10"]["tokens"]
+    naive_full = response_data["full_n20"]["tokens"]
     saving_pct = round((naive_full - two_step_total) / naive_full * 100, 1) if naive_full else 0.0
 
     results_payload = {
@@ -761,10 +755,5 @@ def test_token_overhead(bench_db: Database) -> None:
     print(f"    total                    {pd['total_tokens']:>7} tokens")
     print(f"    vs naive full (API max)  {pd['vs_naive_full_n20_tokens']:>7} tokens")
     print(f"    saving                   {pd['saving_pct']:>6}%")
-    n10 = response_data["full_n10"]["actual_results"]
-    n20 = response_data["full_n20"]["actual_results"]
-    if n10 == n20:
-        print(f"\n  NOTE: full_n10 == full_n20 ({n10} results) — query_docs() has no limit")
-        print(f"        parameter; search() caps at 10. See todo.md.")
     print(f"\n  Results written to {out_path}")
     print("────────────────────────────────────────────────────────────────\n")

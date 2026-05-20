@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-05-20T19:41:44.212747+00:00",
-  "git_commit": "8cd2515",
+  "timestamp": "2026-05-20T19:46:08.532435+00:00",
+  "git_commit": "aa4cad7",
   "tank_version": "0.1.0",
   "token_counter": "len_div_4",
   "corpus": {
@@ -9,7 +9,7 @@
     "avg_content_chars": 939
   },
   "schema": {
-    "total_tokens": 245,
+    "total_tokens": 260,
     "tools": [
       {
         "name": "resolve-deps",
@@ -18,12 +18,12 @@
       },
       {
         "name": "query-docs",
-        "tokens": 170,
-        "chars": 680
+        "tokens": 185,
+        "chars": 743
       }
     ],
-    "pct_of_200k_context": 0.122,
-    "pct_of_128k_context": 0.191
+    "pct_of_200k_context": 0.13,
+    "pct_of_128k_context": 0.203
   },
   "responses": {
     "summary_n5": {
@@ -37,8 +37,8 @@
       "tokens_per_result": 112
     },
     "summary_n20": {
-      "tokens": 1122,
-      "actual_results": 10,
+      "tokens": 2012,
+      "actual_results": 18,
       "tokens_per_result": 112
     },
     "full_n5": {
@@ -52,16 +52,16 @@
       "tokens_per_result": 354
     },
     "full_n20": {
-      "tokens": 3542,
-      "actual_results": 10,
-      "tokens_per_result": 354
+      "tokens": 6405,
+      "actual_results": 18,
+      "tokens_per_result": 356
     }
   },
   "progressive_disclosure": {
-    "step1_summary_all_tokens": 1122,
+    "step1_summary_all_tokens": 2012,
     "step2_full_top3_tokens": 1047,
-    "total_tokens": 2169,
-    "vs_naive_full_n20_tokens": 3542,
-    "saving_pct": 38.8
+    "total_tokens": 3059,
+    "vs_naive_full_n20_tokens": 6405,
+    "saving_pct": 52.2
   }
 }

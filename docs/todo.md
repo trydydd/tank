@@ -5,8 +5,8 @@
 - [ ] **`src/tank/cli/pull.py:39` — hardcoded `doc_version_status`**
   `_import_pack` sets `doc_version_status="imported"` instead of reading the value from the manifest. The manifest carries the real status (`stable`, `prerelease`, etc.) but pull ignores it.
 
-- [ ] **`src/tank/server.py:122` — unused `max_tokens` parameter**
-  The `query-docs` MCP tool accepts `max_tokens` but never passes it through or uses it. Either implement token-budget logic or remove the parameter.
+- [ ] **`src/tank/server.py` — `max_tokens` parameter is a stub**
+  The `query-docs` MCP tool accepts `max_tokens` but never uses it. Now that `limit` is exposed (see fixed item below), the path is clear: implement token-budget logic that auto-selects `limit` to fit results within the requested token budget, using `len(content) // 4` as the estimator. Design question to settle first: trim from the bottom of the ranked list, or truncate content of the last result? Either implement or remove before v0.1.0 ships.
 
 - [ ] **`src/tank/storage/db.py:121-126` — page ID foreign key integrity broken on import**
   The `pages` table uses `INTEGER PRIMARY KEY AUTOINCREMENT`, but `import_pack()` omits the `id` column from the INSERT. SQLite generates new IDs that won't match the `page_id` values chunks carry from the `.ctx` pack. After importing a second pack, chunk `page_id` references point to wrong pages or nonexistent rows. Fix: either include `id` in the page INSERT, or remap chunk `page_id` values to the auto-generated IDs during import.
@@ -14,8 +14,8 @@
 - [ ] **`src/tank/search/fts.py:76` — silent exception swallowing**
   `search()` catches all exceptions and returns `[]`. Malformed queries, database errors, and schema mismatches all silently produce empty results with no logging or error signal.
 
-- [ ] **`src/tank/server.py` / `src/tank/search/fts.py:32` — result limit not exposed**
-  `query_docs()` calls `search()` without a `limit` argument, so the default of 10 is always used. Callers — including the MCP tool — have no way to request more or fewer results. `detail="full"` and `detail="summary"` both cap at 10 even though their per-result token costs differ by ~3×. Fix: add a `limit` parameter to `query_docs()` and expose it on the MCP tool. This is a prerequisite for implementing the `max_tokens` budget logic (see item above). Discovered by the token overhead benchmark when `full_n10 == full_n20`.
+- [x] **`src/tank/server.py` / `src/tank/search/fts.py:32` — result limit not exposed** *(fixed)*
+  `query_docs()` now accepts `limit: int = 10` and passes it through to `search()`. The MCP tool exposes the same parameter. Discovered by the token overhead benchmark when `full_n10 == full_n20`.
 
 ## Incomplete Implementations
 
