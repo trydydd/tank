@@ -35,7 +35,11 @@ class TestVerifyCommand:
             ["verify", str(ctx_path)],
         )
         assert result.exit_code == 0, f"verify failed: {result.output}"
-        assert "passed" in result.output.lower() or "ok" in result.output.lower() or "valid" in result.output.lower()
+        assert (
+            "passed" in result.output.lower()
+            or "ok" in result.output.lower()
+            or "valid" in result.output.lower()
+        )
 
     def test_verify_command_fail(self, tmp_path: Path) -> None:
         """A malformed .ctx (corrupted manifest) must fail verification."""

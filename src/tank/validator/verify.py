@@ -21,7 +21,9 @@ class VerifyResult:
     passed: bool
     step: int | None  # step number that failed, None if all passed
     reason: str
-    manifest: dict[str, Any] | None  # parsed manifest on success, None on failure before step 2
+    manifest: (
+        dict[str, Any] | None
+    )  # parsed manifest on success, None on failure before step 2
 
 
 _REQUIRED_MANIFEST_FIELDS: list[str] = [
@@ -242,7 +244,9 @@ def _read_archive_bytes(ctx_path: Path, manifest: dict[str, Any]) -> bytes:
 
     zeroed_manifest = dict(manifest)
     zeroed_manifest["pack_digest"] = ""
-    zeroed_manifest_json = json.dumps(zeroed_manifest, indent=2, sort_keys=True).encode("utf-8")
+    zeroed_manifest_json = json.dumps(zeroed_manifest, indent=2, sort_keys=True).encode(
+        "utf-8"
+    )
 
     buf = io.BytesIO()
     with zipfile.ZipFile(ctx_path, "r") as zf:
@@ -259,6 +263,7 @@ def _read_archive_bytes(ctx_path: Path, manifest: dict[str, Any]) -> bytes:
 def _compute_pack_digest_from_bytes(data: bytes) -> str:
     """SHA-256 hex digest of archive bytes with pack_digest zeroed."""
     import hashlib
+
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 

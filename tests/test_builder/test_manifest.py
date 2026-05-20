@@ -63,9 +63,15 @@ class TestComputePackDigest:
             path = Path(tmpdir)
             archive = path / "test.ctx"
             # Create a simple zip with a manifest
-            manifest = {"package": "x", "version": "1.0", "pack_digest": "sha256:original"}
+            manifest = {
+                "package": "x",
+                "version": "1.0",
+                "pack_digest": "sha256:original",
+            }
             with zipfile.ZipFile(archive, "w") as zf:
-                zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))
+                zf.writestr(
+                    "manifest.json", json.dumps(manifest, indent=2, sort_keys=True)
+                )
                 zf.writestr("chunks.jsonl", "")
                 zf.writestr("pages.json", "[]")
             digest = compute_pack_digest(archive)
@@ -84,14 +90,18 @@ class TestComputeNormalizedContentHash:
             FakeChunk(2, "hello   world"),
             FakeChunk(1, "  foo  "),
         ]
-        result = compute_normalized_content_hash(chunks, lambda c: c.strip().replace("   ", " "))
+        result = compute_normalized_content_hash(
+            chunks, lambda c: c.strip().replace("   ", " ")
+        )
         assert result.startswith("sha256:")
         # Deterministic: same chunks in any order should produce same hash
         chunks2 = [
             FakeChunk(1, "  foo  "),
             FakeChunk(2, "hello   world"),
         ]
-        result2 = compute_normalized_content_hash(chunks2, lambda c: c.strip().replace("   ", " "))
+        result2 = compute_normalized_content_hash(
+            chunks2, lambda c: c.strip().replace("   ", " ")
+        )
         assert result == result2
 
     def test_pack_digest_empty_string_zeroing(self) -> None:
@@ -105,7 +115,9 @@ class TestComputeNormalizedContentHash:
                 "pack_digest": "sha256:deadbeef",
             }
             with zipfile.ZipFile(archive, "w") as zf:
-                zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))
+                zf.writestr(
+                    "manifest.json", json.dumps(manifest, indent=2, sort_keys=True)
+                )
                 zf.writestr("chunks.jsonl", "")
                 zf.writestr("pages.json", "[]")
 

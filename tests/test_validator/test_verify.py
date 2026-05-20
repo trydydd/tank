@@ -163,7 +163,9 @@ def _rewrite_archive_with_modified_chunks(
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
             zeroed = dict(manifest)
             zeroed["pack_digest"] = ""
-            out.writestr("manifest.json", json.dumps(zeroed, indent=2, sort_keys=True).encode())
+            out.writestr(
+                "manifest.json", json.dumps(zeroed, indent=2, sort_keys=True).encode()
+            )
             out.writestr("chunks.jsonl", new_chunks.encode())
             for name in zf.namelist():
                 if name in ("manifest.json", "chunks.jsonl"):
@@ -173,7 +175,9 @@ def _rewrite_archive_with_modified_chunks(
     manifest["pack_digest"] = digest
 
     with zipfile.ZipFile(result, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode())
+        zf.writestr(
+            "manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode()
+        )
         zf.writestr("chunks.jsonl", new_chunks.encode())
         with zipfile.ZipFile(src, "r") as orig:
             for name in orig.namelist():
@@ -215,6 +219,7 @@ def _make_manifest(**overrides: object) -> dict:
 # Happy-path test
 # ---------------------------------------------------------------------------
 
+
 def test_verify_valid_pack_passes(tmp_path: Path) -> None:
     """A valid .ctx built by build_pack() passes all 8 steps."""
     ctx_path = _build_valid_ctx(tmp_path)
@@ -228,6 +233,7 @@ def test_verify_valid_pack_passes(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Step 1 — open archive, read manifest.json only
 # ---------------------------------------------------------------------------
+
 
 def test_step1_missing_manifest(tmp_path: Path) -> None:
     """Archive without manifest.json fails at step 1."""
@@ -252,6 +258,7 @@ def test_step1_corrupt_zip(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Step 2 — validate manifest JSON schema (required fields)
 # ---------------------------------------------------------------------------
+
 
 def test_step2_missing_required_field(tmp_path: Path) -> None:
     """Manifest missing 'package' field is rejected at step 2."""
@@ -299,6 +306,7 @@ def test_step2_missing_pack_digest_field(tmp_path: Path) -> None:
 # Step 3 — check lifecycle_state against policy
 # ---------------------------------------------------------------------------
 
+
 def test_step3_lifecycle_rejected_by_policy(tmp_path: Path) -> None:
     """Revoked lifecycle_state rejected by default policy."""
     ctx = tmp_path / "bad.ctx"
@@ -321,6 +329,7 @@ def test_step3_lifecycle_rejected_by_policy(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Step 4 — scan archive file listing for unsafe entries
 # ---------------------------------------------------------------------------
+
 
 def test_step4_absolute_path_rejected(tmp_path: Path) -> None:
     """Archive containing '/etc/passwd' entry fails at step 4."""
@@ -395,6 +404,7 @@ def test_step4_symlink_rejected(tmp_path: Path) -> None:
 # Step 5 — enforce size and count limits
 # ---------------------------------------------------------------------------
 
+
 def test_step5_too_many_entries(tmp_path: Path) -> None:
     """Archive with 10,001 entries fails at step 5."""
     ctx = tmp_path / "bad.ctx"
@@ -412,7 +422,11 @@ def test_step5_too_many_entries(tmp_path: Path) -> None:
     result = verify(ctx, policy)
     assert result.passed is False
     assert result.step == 5
-    assert "entries" in result.reason.lower() or "10,000" in result.reason or "exceeds" in result.reason.lower()
+    assert (
+        "entries" in result.reason.lower()
+        or "10,000" in result.reason
+        or "exceeds" in result.reason.lower()
+    )
 
 
 def test_step5_file_too_large(tmp_path: Path) -> None:
@@ -435,7 +449,11 @@ def test_step5_file_too_large(tmp_path: Path) -> None:
     result = verify(ctx, policy)
     assert result.passed is False
     assert result.step == 5
-    assert "limit" in result.reason.lower() or "exceeds" in result.reason.lower() or "size" in result.reason.lower()
+    assert (
+        "limit" in result.reason.lower()
+        or "exceeds" in result.reason.lower()
+        or "size" in result.reason.lower()
+    )
 
 
 def test_step5_total_too_large(tmp_path: Path) -> None:
@@ -459,12 +477,17 @@ def test_step5_total_too_large(tmp_path: Path) -> None:
     result = verify(ctx, policy)
     assert result.passed is False
     assert result.step == 5
-    assert "limit" in result.reason.lower() or "exceeds" in result.reason.lower() or "size" in result.reason.lower()
+    assert (
+        "limit" in result.reason.lower()
+        or "exceeds" in result.reason.lower()
+        or "size" in result.reason.lower()
+    )
 
 
 # ---------------------------------------------------------------------------
 # Step 6 — recompute pack_digest
 # ---------------------------------------------------------------------------
+
 
 def test_step6_pack_digest_mismatch(tmp_path: Path) -> None:
     """Archive with tampered pack_digest fails at step 6."""
@@ -490,6 +513,7 @@ def test_step6_pack_digest_mismatch(tmp_path: Path) -> None:
 # Step 7 — recompute normalized_content_hash
 # ---------------------------------------------------------------------------
 
+
 def test_step7_content_hash_mismatch(tmp_path: Path) -> None:
     """Archive with modified chunk content fails at step 7."""
     build_dir = tmp_path / "build"
@@ -513,6 +537,7 @@ def test_step7_content_hash_mismatch(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Step 8 — verify signature (MVP stub)
 # ---------------------------------------------------------------------------
+
 
 def test_step8_signature_required_but_missing(tmp_path: Path) -> None:
     """Policy requiring signatures but manifest.sig absent fails at step 8."""
@@ -574,6 +599,7 @@ def test_step8_signature_present_passes(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Negative tests
 # ---------------------------------------------------------------------------
+
 
 def test_verify_does_not_extract_to_disk(tmp_path: Path) -> None:
     """verify() must not write any file to disk — assert tmp_path is empty after verify() returns."""
@@ -651,6 +677,7 @@ def test_step6_does_not_pass_tampered_manifest(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Additional edge-case / verification_inputs tests
 # ---------------------------------------------------------------------------
+
 
 def test_verify_returns_verify_result_not_raises(tmp_path: Path) -> None:
     """verify() returns VerifyResult for expected failures, never raises."""

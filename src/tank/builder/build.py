@@ -57,9 +57,9 @@ def build_pack(
         # Read and normalize the full file content for page hash
         raw_content = file_path.read_text(encoding="utf-8")
         normalized_content = normalize(raw_content)
-        content_hash = "sha256:" + hashlib.sha256(
-            normalized_content.encode("utf-8")
-        ).hexdigest()
+        content_hash = (
+            "sha256:" + hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+        )
 
         # Extract title from first heading
         title = _extract_title(raw_content) or Path(file_path).stem

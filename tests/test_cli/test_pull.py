@@ -17,7 +17,9 @@ def _fixture_path(name: str = "sample_docs") -> Path:
     return Path(__file__).parent.parent / "fixtures" / name
 
 
-def _make_valid_ctx(tmp_path: Path, package: str, version: str, source: Path | None = None) -> Path:
+def _make_valid_ctx(
+    tmp_path: Path, package: str, version: str, source: Path | None = None
+) -> Path:
     """Build and return a valid .ctx file."""
     src = source or _fixture_path()
     build_out = tmp_path / "build"
@@ -63,7 +65,9 @@ def _make_tampered_ctx(tmp_path: Path, valid_ctx: Path) -> Path:
 class TestPullCommand:
     """Tests for 'tank pull' subcommand."""
 
-    def test_pull_command_success(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pull_command_success(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Pulling a valid .ctx imports the pack successfully."""
         monkeypatch.chdir(tmp_path)
         ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
@@ -81,7 +85,9 @@ class TestPullCommand:
         conn.close()
         assert count == 1
 
-    def test_pull_command_verify_fails(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pull_command_verify_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Pulling a malformed .ctx must exit 1."""
         monkeypatch.chdir(tmp_path)
         broken = _make_broken_ctx(tmp_path)
@@ -91,7 +97,9 @@ class TestPullCommand:
         )
         assert result.exit_code == 1, f"pull should fail: {result.output}"
 
-    def test_pull_command_duplicate_rejected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pull_command_duplicate_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Pulling the same .ctx twice without --force must reject the second."""
         monkeypatch.chdir(tmp_path)
         ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
@@ -100,10 +108,16 @@ class TestPullCommand:
         assert result1.exit_code == 0, f"first pull failed: {result1.output}"
 
         result2 = CliRunner().invoke(cli, ["pull", str(ctx_path)])
-        assert result2.exit_code == 1, f"second pull should be rejected: {result2.output}"
-        assert "already" in result2.output.lower() or "duplicate" in result2.output.lower()
+        assert result2.exit_code == 1, (
+            f"second pull should be rejected: {result2.output}"
+        )
+        assert (
+            "already" in result2.output.lower() or "duplicate" in result2.output.lower()
+        )
 
-    def test_pull_command_force_reimport(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pull_command_force_reimport(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Pulling with --force re-imports an existing pack."""
         monkeypatch.chdir(tmp_path)
         ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
@@ -117,7 +131,9 @@ class TestPullCommand:
         result3 = CliRunner().invoke(cli, ["pull", str(ctx_path), "--force"])
         assert result3.exit_code == 0, f"force pull failed: {result3.output}"
 
-    def test_pull_does_not_import_on_verify_failure(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pull_does_not_import_on_verify_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """NEG: failed verify must leave packages table empty — query DB after pull with malformed .ctx."""
         monkeypatch.chdir(tmp_path)
         broken = _make_broken_ctx(tmp_path)
@@ -131,7 +147,9 @@ class TestPullCommand:
             conn.close()
             assert count == 0, "packages table should be empty after failed pull"
 
-    def test_pull_force_does_not_skip_verify(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_pull_force_does_not_skip_verify(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """NEG: --force allows reimport but does NOT skip 8-step verification — tampered .ctx with --force must still be rejected."""
         monkeypatch.chdir(tmp_path)
         ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
@@ -140,4 +158,6 @@ class TestPullCommand:
 
         tampered = _make_tampered_ctx(tmp_path, ctx_path)
         result2 = CliRunner().invoke(cli, ["pull", str(tampered), "--force"])
-        assert result2.exit_code == 1, f"tampered pack with --force should fail: {result2.output}"
+        assert result2.exit_code == 1, (
+            f"tampered pack with --force should fail: {result2.output}"
+        )

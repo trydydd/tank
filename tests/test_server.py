@@ -42,30 +42,87 @@ def _seed_approved_pack(db: Database) -> Pack:
         owner="platform-team",
     )
     pages = [
-        Page(id=1, package="my-lib", version="1.0.0", url="docs/auth/oauth.md", title="Authentication"),
-        Page(id=2, package="my-lib", version="1.0.0", url="docs/config.md", title="Configuration"),
+        Page(
+            id=1,
+            package="my-lib",
+            version="1.0.0",
+            url="docs/auth/oauth.md",
+            title="Authentication",
+        ),
+        Page(
+            id=2,
+            package="my-lib",
+            version="1.0.0",
+            url="docs/config.md",
+            title="Configuration",
+        ),
     ]
     chunks = [
-        Chunk(id=1, package="my-lib", version="1.0.0", content="To configure OAuth2 client credentials flow...",
-              page_id=1, heading_path="docs/auth/oauth / Configure OAuth2",
-              summary="Configure OAuth2 client credentials flow", token_count=387,
-              source_url="docs/auth/oauth.md", source_commit="abc123", content_hash="sha256:c1"),
-        Chunk(id=2, package="my-lib", version="1.0.0", content="Set the max retries to 3.",
-              page_id=2, heading_path="docs / Configuration",
-              summary="Configure retry limits", token_count=50,
-              source_url="docs/config.md", source_commit="abc123", content_hash="sha256:c2"),
-        Chunk(id=3, package="my-lib", version="1.0.0", content="OAuth2 requires a client ID and secret.",
-              page_id=1, heading_path="docs/auth/oauth / OAuth2 Setup",
-              summary="OAuth2 client ID setup", token_count=100,
-              source_url="docs/auth/oauth.md", source_commit="abc123", content_hash="sha256:c3"),
-        Chunk(id=4, package="my-lib", version="1.0.0", content="The timeout setting controls request waits.",
-              page_id=2, heading_path="docs / Timeout Configuration",
-              summary="Configure timeout values", token_count=80,
-              source_url="docs/config.md", source_commit="abc123", content_hash="sha256:c4"),
-        Chunk(id=5, package="my-lib", version="1.0.0", content="Logging can be enabled via config.",
-              page_id=2, heading_path="docs / Logging",
-              summary="Enable and configure logging", token_count=60,
-              source_url="docs/config.md", source_commit="abc123", content_hash="sha256:c5"),
+        Chunk(
+            id=1,
+            package="my-lib",
+            version="1.0.0",
+            content="To configure OAuth2 client credentials flow...",
+            page_id=1,
+            heading_path="docs/auth/oauth / Configure OAuth2",
+            summary="Configure OAuth2 client credentials flow",
+            token_count=387,
+            source_url="docs/auth/oauth.md",
+            source_commit="abc123",
+            content_hash="sha256:c1",
+        ),
+        Chunk(
+            id=2,
+            package="my-lib",
+            version="1.0.0",
+            content="Set the max retries to 3.",
+            page_id=2,
+            heading_path="docs / Configuration",
+            summary="Configure retry limits",
+            token_count=50,
+            source_url="docs/config.md",
+            source_commit="abc123",
+            content_hash="sha256:c2",
+        ),
+        Chunk(
+            id=3,
+            package="my-lib",
+            version="1.0.0",
+            content="OAuth2 requires a client ID and secret.",
+            page_id=1,
+            heading_path="docs/auth/oauth / OAuth2 Setup",
+            summary="OAuth2 client ID setup",
+            token_count=100,
+            source_url="docs/auth/oauth.md",
+            source_commit="abc123",
+            content_hash="sha256:c3",
+        ),
+        Chunk(
+            id=4,
+            package="my-lib",
+            version="1.0.0",
+            content="The timeout setting controls request waits.",
+            page_id=2,
+            heading_path="docs / Timeout Configuration",
+            summary="Configure timeout values",
+            token_count=80,
+            source_url="docs/config.md",
+            source_commit="abc123",
+            content_hash="sha256:c4",
+        ),
+        Chunk(
+            id=5,
+            package="my-lib",
+            version="1.0.0",
+            content="Logging can be enabled via config.",
+            page_id=2,
+            heading_path="docs / Logging",
+            summary="Enable and configure logging",
+            token_count=60,
+            source_url="docs/config.md",
+            source_commit="abc123",
+            content_hash="sha256:c5",
+        ),
     ]
     db.import_pack(pack, pages, chunks)
     return pack
@@ -73,17 +130,35 @@ def _seed_approved_pack(db: Database) -> Pack:
 
 def _seed_deprecated_pack(db: Database) -> Pack:
     pack = Pack(
-        name="old-lib", version="0.9.0", lifecycle_state="deprecated",
-        doc_version_status="archived", indexed_at="2026-01-01T00:00:00Z",
-        policy_profile="internal-strict", pack_digest="sha256:dd1",
-        normalized_content_hash="sha256:dd2", source_url="https://old-lib.example.com/docs",
-        source_commit="dead01", owner="legacy-team",
+        name="old-lib",
+        version="0.9.0",
+        lifecycle_state="deprecated",
+        doc_version_status="archived",
+        indexed_at="2026-01-01T00:00:00Z",
+        policy_profile="internal-strict",
+        pack_digest="sha256:dd1",
+        normalized_content_hash="sha256:dd2",
+        source_url="https://old-lib.example.com/docs",
+        source_commit="dead01",
+        owner="legacy-team",
     )
-    pages = [Page(id=1, package="old-lib", version="0.9.0", url="docs/old.md", title="Old")]
+    pages = [
+        Page(id=1, package="old-lib", version="0.9.0", url="docs/old.md", title="Old")
+    ]
     chunks = [
-        Chunk(id=10, package="old-lib", version="0.9.0", content="This is deprecated content.",
-              page_id=1, heading_path="docs / Old Guide", summary="Deprecated guide content",
-              token_count=30, source_url="docs/old.md", source_commit="dead01", content_hash="sha256:dd3"),
+        Chunk(
+            id=10,
+            package="old-lib",
+            version="0.9.0",
+            content="This is deprecated content.",
+            page_id=1,
+            heading_path="docs / Old Guide",
+            summary="Deprecated guide content",
+            token_count=30,
+            source_url="docs/old.md",
+            source_commit="dead01",
+            content_hash="sha256:dd3",
+        ),
     ]
     db.import_pack(pack, pages, chunks)
     return pack
@@ -91,17 +166,35 @@ def _seed_deprecated_pack(db: Database) -> Pack:
 
 def _seed_revoked_pack(db: Database) -> Pack:
     pack = Pack(
-        name="bad-lib", version="1.0.0", lifecycle_state="revoked",
-        doc_version_status="stable", indexed_at="2026-03-01T00:00:00Z",
-        policy_profile="internal-strict", pack_digest="sha256:rv1",
-        normalized_content_hash="sha256:rv2", source_url="https://bad-lib.example.com/docs",
-        source_commit="bad01", owner="unknown",
+        name="bad-lib",
+        version="1.0.0",
+        lifecycle_state="revoked",
+        doc_version_status="stable",
+        indexed_at="2026-03-01T00:00:00Z",
+        policy_profile="internal-strict",
+        pack_digest="sha256:rv1",
+        normalized_content_hash="sha256:rv2",
+        source_url="https://bad-lib.example.com/docs",
+        source_commit="bad01",
+        owner="unknown",
     )
-    pages = [Page(id=1, package="bad-lib", version="1.0.0", url="docs/bad.md", title="Bad")]
+    pages = [
+        Page(id=1, package="bad-lib", version="1.0.0", url="docs/bad.md", title="Bad")
+    ]
     chunks = [
-        Chunk(id=20, package="bad-lib", version="1.0.0", content="This is revoked content.",
-              page_id=1, heading_path="docs / Bad Guide", summary="Revoked content",
-              token_count=20, source_url="docs/bad.md", source_commit="bad01", content_hash="sha256:rv3"),
+        Chunk(
+            id=20,
+            package="bad-lib",
+            version="1.0.0",
+            content="This is revoked content.",
+            page_id=1,
+            heading_path="docs / Bad Guide",
+            summary="Revoked content",
+            token_count=20,
+            source_url="docs/bad.md",
+            source_commit="bad01",
+            content_hash="sha256:rv3",
+        ),
     ]
     db.import_pack(pack, pages, chunks)
     return pack
@@ -117,15 +210,35 @@ def test_resolve_deps_returns_packs(db: Database) -> None:
 
     # Import a second pack to verify multi-pack behavior
     pack2 = Pack(
-        name="other-lib", version="2.1.0", lifecycle_state="approved",
-        doc_version_status="stable", indexed_at="2026-05-15T12:00:00Z",
-        policy_profile="internal-strict", pack_digest="sha256:ee1",
-        normalized_content_hash="sha256:ee2", source_url="https://other-lib.example.com/docs",
-        source_commit="def456", owner="backend-team",
+        name="other-lib",
+        version="2.1.0",
+        lifecycle_state="approved",
+        doc_version_status="stable",
+        indexed_at="2026-05-15T12:00:00Z",
+        policy_profile="internal-strict",
+        pack_digest="sha256:ee1",
+        normalized_content_hash="sha256:ee2",
+        source_url="https://other-lib.example.com/docs",
+        source_commit="def456",
+        owner="backend-team",
     )
-    pages2 = [Page(id=1, package="other-lib", version="2.1.0", url="docs/api.md", title="API")]
+    pages2 = [
+        Page(id=1, package="other-lib", version="2.1.0", url="docs/api.md", title="API")
+    ]
     chunks2 = [
-        Chunk(id=1, package="other-lib", version="2.1.0", content="The API accepts JSON payloads.", page_id=1, heading_path="docs / API", summary="API accepts JSON", token_count=50, source_url="docs/api.md", source_commit="def456", content_hash="sha256:ff1"),
+        Chunk(
+            id=1,
+            package="other-lib",
+            version="2.1.0",
+            content="The API accepts JSON payloads.",
+            page_id=1,
+            heading_path="docs / API",
+            summary="API accepts JSON",
+            token_count=50,
+            source_url="docs/api.md",
+            source_commit="def456",
+            content_hash="sha256:ff1",
+        ),
     ]
     db.import_pack(pack2, pages2, chunks2)
 
@@ -167,7 +280,11 @@ def test_query_docs_summary_mode(db: Database) -> None:
     _seed_approved_pack(db)
 
     result: dict[str, Any] = query_docs(
-        db, query="OAuth2", packages=None, detail="summary", chunk_ids=None,
+        db,
+        query="OAuth2",
+        packages=None,
+        detail="summary",
+        chunk_ids=None,
     )
     assert "results" in result
     assert len(result["results"]) > 0
@@ -189,7 +306,11 @@ def test_query_docs_full_mode(db: Database) -> None:
     _seed_approved_pack(db)
 
     result: dict[str, Any] = query_docs(
-        db, query="configure", packages=None, detail="full", chunk_ids=None,
+        db,
+        query="configure",
+        packages=None,
+        detail="full",
+        chunk_ids=None,
     )
     assert "results" in result
     assert len(result["results"]) > 0
@@ -208,7 +329,11 @@ def test_query_docs_chunk_ids(db: Database) -> None:
     _seed_approved_pack(db)
 
     result: dict[str, Any] = query_docs(
-        db, query="", packages=None, detail="summary", chunk_ids=[1, 2],
+        db,
+        query="",
+        packages=None,
+        detail="summary",
+        chunk_ids=[1, 2],
     )
     assert "results" in result
     assert len(result["results"]) == 2
@@ -228,8 +353,11 @@ def test_query_docs_not_indexed_package(db: Database) -> None:
     _seed_approved_pack(db)
 
     result: dict[str, Any] = query_docs(
-        db, query="anything", packages=["nonexistent-pkg"],
-        detail="summary", chunk_ids=None,
+        db,
+        query="anything",
+        packages=["nonexistent-pkg"],
+        detail="summary",
+        chunk_ids=None,
     )
     assert result["status"] == "not_indexed"
 
@@ -243,7 +371,11 @@ def test_query_docs_deprecated_warning(db: Database) -> None:
     _seed_deprecated_pack(db)
 
     result: dict[str, Any] = query_docs(
-        db, query="deprecated", packages=None, detail="summary", chunk_ids=None,
+        db,
+        query="deprecated",
+        packages=None,
+        detail="summary",
+        chunk_ids=None,
     )
     assert "results" in result
 
@@ -289,7 +421,11 @@ def test_query_docs_does_not_return_revoked(db: Database) -> None:
     _seed_revoked_pack(db)
 
     result: dict[str, Any] = query_docs(
-        db, query="content", packages=None, detail="full", chunk_ids=None,
+        db,
+        query="content",
+        packages=None,
+        detail="full",
+        chunk_ids=None,
     )
     assert "results" in result
 

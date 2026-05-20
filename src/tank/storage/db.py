@@ -89,8 +89,10 @@ class Database:
         from tank.errors import ImportError_
 
         cursor = self._conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM packages WHERE name = ? AND version = ?",
-                       (pack.name, pack.version))
+        cursor.execute(
+            "SELECT COUNT(*) FROM packages WHERE name = ? AND version = ?",
+            (pack.name, pack.version),
+        )
         if cursor.fetchone()[0] > 0:
             raise ImportError_(f"Pack {pack.name}@{pack.version} is already imported")
 
@@ -101,11 +103,19 @@ class Database:
                 "indexed_at, policy_profile, pack_digest, normalized_content_hash, "
                 "source_url, source_commit, owner) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (pack.name, pack.version, pack.lifecycle_state,
-                 pack.doc_version_status, pack.indexed_at,
-                 pack.policy_profile, pack.pack_digest,
-                 pack.normalized_content_hash, pack.source_url,
-                 pack.source_commit, pack.owner),
+                (
+                    pack.name,
+                    pack.version,
+                    pack.lifecycle_state,
+                    pack.doc_version_status,
+                    pack.indexed_at,
+                    pack.policy_profile,
+                    pack.pack_digest,
+                    pack.normalized_content_hash,
+                    pack.source_url,
+                    pack.source_commit,
+                    pack.owner,
+                ),
             )
 
             for page in pages:
@@ -120,10 +130,18 @@ class Database:
                     "INSERT INTO chunks (package, version, page_id, heading_path, "
                     "summary, content, token_count, source_url, source_commit, content_hash) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (chunk.package, chunk.version, chunk.page_id,
-                     chunk.heading_path, chunk.summary, chunk.content,
-                     chunk.token_count, chunk.source_url, chunk.source_commit,
-                     chunk.content_hash),
+                    (
+                        chunk.package,
+                        chunk.version,
+                        chunk.page_id,
+                        chunk.heading_path,
+                        chunk.summary,
+                        chunk.content,
+                        chunk.token_count,
+                        chunk.source_url,
+                        chunk.source_commit,
+                        chunk.content_hash,
+                    ),
                 )
 
             self._conn.commit()
@@ -139,7 +157,8 @@ class Database:
         ).fetchall()
         return [
             Pack(
-                name=r["name"], version=r["version"],
+                name=r["name"],
+                version=r["version"],
                 lifecycle_state=r["lifecycle_state"],
                 doc_version_status=r["doc_version_status"],
                 indexed_at=r["indexed_at"],
@@ -164,7 +183,8 @@ class Database:
         if row is None:
             return None
         return Pack(
-            name=row["name"], version=row["version"],
+            name=row["name"],
+            version=row["version"],
             lifecycle_state=row["lifecycle_state"],
             doc_version_status=row["doc_version_status"],
             indexed_at=row["indexed_at"],

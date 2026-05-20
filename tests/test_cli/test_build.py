@@ -48,7 +48,10 @@ class TestBuildCommand:
             ["build", "my-lib@1.0.0", "--source", "/nonexistent/path"],
         )
         assert result.exit_code == 1
-        assert "error" in result.output.lower() or "does not exist" in result.output.lower()
+        assert (
+            "error" in result.output.lower()
+            or "does not exist" in result.output.lower()
+        )
         # Should NOT contain a Python traceback
         assert "Traceback" not in result.output
 
@@ -60,7 +63,11 @@ class TestBuildCommand:
             ["build", "my-lib", "--source", str(source)],
         )
         assert result.exit_code == 1
-        assert "error" in result.output.lower() or "missing" in result.output.lower() or "@" in result.output
+        assert (
+            "error" in result.output.lower()
+            or "missing" in result.output.lower()
+            or "@" in result.output
+        )
 
     def test_build_multiple_at_signs_rejected(self, tmp_path: Path) -> None:
         """Package string with multiple '@' signs must be rejected."""
@@ -70,7 +77,11 @@ class TestBuildCommand:
             ["build", "my@lib@1.0.0", "--source", str(source)],
         )
         assert result.exit_code == 1
-        assert "error" in result.output.lower() or "invalid" in result.output.lower() or "@" in result.output
+        assert (
+            "error" in result.output.lower()
+            or "invalid" in result.output.lower()
+            or "@" in result.output
+        )
 
     def test_build_creates_output_dir(self, tmp_path: Path) -> None:
         """Output directory is created if it doesn't exist."""
@@ -90,7 +101,16 @@ class TestBuildCommand:
         output = tmp_path / "packs"
         result = CliRunner().invoke(
             cli,
-            ["build", "my-lib@1.0.0", "--source", str(source), "--output", str(output), "--lifecycle", "approved"],
+            [
+                "build",
+                "my-lib@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output),
+                "--lifecycle",
+                "approved",
+            ],
         )
         assert result.exit_code == 0, f"build failed: {result.output}"
         ctx_files = list(output.glob("*.ctx"))
@@ -104,7 +124,16 @@ class TestBuildCommand:
         output = tmp_path / "packs"
         result = CliRunner().invoke(
             cli,
-            ["build", "my-lib@1.0.0", "--source", str(source), "--output", str(output), "--owner", "team-a"],
+            [
+                "build",
+                "my-lib@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output),
+                "--owner",
+                "team-a",
+            ],
         )
         assert result.exit_code == 0, f"build failed: {result.output}"
         ctx_files = list(output.glob("*.ctx"))

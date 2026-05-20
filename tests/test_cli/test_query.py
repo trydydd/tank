@@ -18,7 +18,9 @@ def _fixture_path(name: str = "sample_docs") -> Path:
 class TestQueryCommand:
     """Tests for 'tank query' subcommand."""
 
-    def test_query_command_summary(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_query_command_summary(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Query with detail=summary returns results with headings and summaries."""
         source = _fixture_path()
         build_out = tmp_path / "build"
@@ -36,7 +38,8 @@ class TestQueryCommand:
         # We need to run from build_out so both resolve to build_out/.tank/index.db.
         monkeypatch.chdir(build_out)
         result = CliRunner().invoke(
-            cli, ["pull", str(ctx_path)],
+            cli,
+            ["pull", str(ctx_path)],
         )
         assert result.exit_code == 0, f"pull failed: {result.output}"
 
@@ -47,9 +50,13 @@ class TestQueryCommand:
         )
         assert result.exit_code == 0, f"query failed: {result.output}"
         # Review target: output contains heading_path from imported data
-        assert "getting-started" in result.output, f"Expected heading_path in output: {result.output}"
+        assert "getting-started" in result.output, (
+            f"Expected heading_path in output: {result.output}"
+        )
 
-    def test_query_command_full(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_query_command_full(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Query with detail=full includes content in results."""
         source = _fixture_path()
         build_out = tmp_path / "build"
@@ -77,5 +84,7 @@ class TestQueryCommand:
             cli,
             ["query", "nonexistent"],
         )
-        assert result.exit_code == 0, f"query should exit 0 on empty db: {result.output}"
+        assert result.exit_code == 0, (
+            f"query should exit 0 on empty db: {result.output}"
+        )
         assert "Traceback" not in result.output

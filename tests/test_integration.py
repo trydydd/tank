@@ -53,9 +53,8 @@ def sample_docs() -> Path:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _cli_in_cwd(
-    runner: CliRunner, args: list[str], tmp_path: Path
-) -> Result:
+
+def _cli_in_cwd(runner: CliRunner, args: list[str], tmp_path: Path) -> Result:
     """Invoke CliRunner with cwd set to tmp_path (pull/query need .tank relative)."""
     old = os.getcwd()
     os.chdir(tmp_path)
@@ -113,7 +112,9 @@ def _tamper_with_valid_digest(src: Path, content_replacements: dict[int, str]) -
 
     # Write tampered archive with updated pack_digest
     with zipfile.ZipFile(result, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode())
+        zf.writestr(
+            "manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode()
+        )
         zf.writestr("chunks.jsonl", new_chunks.encode())
         for name, data in other_files.items():
             zf.writestr(name, data)
@@ -124,6 +125,7 @@ def _tamper_with_valid_digest(src: Path, content_replacements: dict[int, str]) -
 # ===========================================================================
 # 1. Golden-path end-to-end: build -> verify -> pull -> query
 # ===========================================================================
+
 
 def test_full_pipeline_build_verify_pull_query(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -171,6 +173,7 @@ def test_full_pipeline_build_verify_pull_query(
 # 2. Build then verify passes (standalone)
 # ===========================================================================
 
+
 def test_build_then_verify_passes(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -202,6 +205,7 @@ def test_build_then_verify_passes(
 # 3. Tamper detection: modify chunk content, verify fails at step 7
 # ===========================================================================
 
+
 def test_build_then_tamper_then_verify_fails(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -232,13 +236,16 @@ def test_build_then_tamper_then_verify_fails(
     # Use the programmatic API to assert VerifyResult(passed=False, step=7)
     policy = Policy.default()
     vresult = verify(ctx_path=tampered_path, policy=policy)
-    assert vresult.passed is False, f"Tampered pack should fail verification, got step={vresult.step}"
+    assert vresult.passed is False, (
+        f"Tampered pack should fail verification, got step={vresult.step}"
+    )
     assert vresult.step == 7, f"Expected step=7 (content hash), got step={vresult.step}"
 
 
 # ===========================================================================
 # 4. Pull populates FTS index
 # ===========================================================================
+
 
 def test_pull_populates_fts_index(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -280,6 +287,7 @@ def test_pull_populates_fts_index(
 # 5. Query returns attributed results
 # ===========================================================================
 
+
 def test_query_returns_attributed_results(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -304,9 +312,7 @@ def test_query_returns_attributed_results(
     result = _cli_in_cwd(runner, ["pull", str(ctx_path)], tmp_path)
     assert result.exit_code == 0, result.output
 
-    result = _cli_in_cwd(
-        runner, ["query", "billing", "--detail", "full"], tmp_path
-    )
+    result = _cli_in_cwd(runner, ["query", "billing", "--detail", "full"], tmp_path)
     assert result.exit_code == 0, result.output
     assert "attr-test" in result.output.lower()
 
@@ -314,6 +320,7 @@ def test_query_returns_attributed_results(
 # ===========================================================================
 # 6. Progressive disclosure: summary then full
 # ===========================================================================
+
 
 def test_query_progressive_disclosure(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -340,9 +347,7 @@ def test_query_progressive_disclosure(
     assert result.exit_code == 0, result.output
 
     # CLI summary query
-    result = _cli_in_cwd(
-        runner, ["query", "oauth", "--detail", "summary"], tmp_path
-    )
+    result = _cli_in_cwd(runner, ["query", "oauth", "--detail", "summary"], tmp_path)
     assert result.exit_code == 0, result.output
 
     # Server API for programmatic checks
@@ -371,6 +376,7 @@ def test_query_progressive_disclosure(
 # ===========================================================================
 # 7. Lockfile written after pull
 # ===========================================================================
+
 
 def test_pull_writes_lockfile(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -409,6 +415,7 @@ def test_pull_writes_lockfile(
 # 8. Pull rejects duplicate
 # ===========================================================================
 
+
 def test_pull_duplicate_rejected(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -440,6 +447,7 @@ def test_pull_duplicate_rejected(
 # ===========================================================================
 # 9. Revoked pack excluded from query results
 # ===========================================================================
+
 
 def test_revoked_pack_excluded_from_query(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -494,6 +502,7 @@ def test_revoked_pack_excluded_from_query(
 # NEGATIVE TEST 10 -- Pull does not leave partial state on failure
 # ===========================================================================
 
+
 def test_pull_does_not_leave_partial_state_on_failure(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -536,6 +545,7 @@ def test_pull_does_not_leave_partial_state_on_failure(
 # ===========================================================================
 # NEGATIVE TEST 11 -- Revoked pack not in query results
 # ===========================================================================
+
 
 def test_revoked_pack_not_in_query_results(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -590,6 +600,7 @@ def test_revoked_pack_not_in_query_results(
 # NEGATIVE TEST 12 -- Build/verify cycle is symmetric
 # ===========================================================================
 
+
 def test_build_verify_cycle_is_symmetric(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
@@ -620,6 +631,7 @@ def test_build_verify_cycle_is_symmetric(
 # ===========================================================================
 # NEGATIVE TEST 13 -- Content tampering caught at step 7 specifically
 # ===========================================================================
+
 
 def test_content_tampering_captured_at_step_7(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
@@ -688,7 +700,9 @@ def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
 
     # Sanity-check chunk count — a real large doc should produce many chunks
     with zipfile.ZipFile(ctx_path) as zf:
-        chunk_count = sum(1 for line in zf.read("chunks.jsonl").decode().splitlines() if line.strip())
+        chunk_count = sum(
+            1 for line in zf.read("chunks.jsonl").decode().splitlines() if line.strip()
+        )
     assert chunk_count >= _FASTMCP_MIN_CHUNKS, (
         f"Expected at least {_FASTMCP_MIN_CHUNKS} chunks, got {chunk_count}"
     )
@@ -709,7 +723,9 @@ def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
     try:
         db.create_schema()
         hits = search(db, "tool", packages=["fastmcp"], limit=5)
-        assert len(hits) > 0, "Query for 'tool' against fastmcp docs returned no results"
+        assert len(hits) > 0, (
+            "Query for 'tool' against fastmcp docs returned no results"
+        )
         assert all(h.package == "fastmcp" for h in hits)
     finally:
         db.close()

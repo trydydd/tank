@@ -22,7 +22,9 @@ class Policy:
 
     # Built-in defaults — all states except revoked allowed
     _DEFAULT_LIFECYCLE: tuple[str, ...] = (
-        "draft", "approved", "deprecated",
+        "draft",
+        "approved",
+        "deprecated",
     )
     _DEFAULT_REJECTED_STATUSES: tuple[str, ...] = ()
 
@@ -106,6 +108,8 @@ def _parse_policy(data: dict[str, Any]) -> Policy:
             policy.get("allowed_lifecycle_states", list(Policy._DEFAULT_LIFECYCLE))
         ),
         rejected_doc_version_statuses=list(
-            policy.get("rejected_doc_version_statuses", list(Policy._DEFAULT_REJECTED_STATUSES))
+            policy.get(
+                "rejected_doc_version_statuses", list(Policy._DEFAULT_REJECTED_STATUSES)
+            )
         ),
     )

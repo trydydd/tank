@@ -44,7 +44,9 @@ def _parse_package_spec(spec: str) -> tuple[str, str]:
 @click.argument("package_spec")
 @click.option("--source", required=True, type=click.Path(path_type=Path))
 @click.option("--output", type=click.Path(path_type=Path), default=Path("."))
-@click.option("--lifecycle", default="draft", help="Lifecycle state (draft, approved, deprecated)")
+@click.option(
+    "--lifecycle", default="draft", help="Lifecycle state (draft, approved, deprecated)"
+)
 @click.option("--owner", default=None, help="Owner/team name")
 @click.option("--policy-profile", default=None, help="Policy profile name")
 def build(

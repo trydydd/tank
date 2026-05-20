@@ -28,10 +28,21 @@ def _open_db() -> Database:
 
 @click.command()
 @click.argument("query")
-@click.option("--package", "packages", multiple=True, help="Filter by package name (repeatable)")
-@click.option("--detail", "detail", type=click.Choice(["summary", "full"]), default="summary")
-@click.option("--limit", "limit", default=10, type=int, help="Maximum number of results")
-@click.option("--chunk-ids", "chunk_ids", default=None, help="Comma-separated chunk IDs to retrieve")
+@click.option(
+    "--package", "packages", multiple=True, help="Filter by package name (repeatable)"
+)
+@click.option(
+    "--detail", "detail", type=click.Choice(["summary", "full"]), default="summary"
+)
+@click.option(
+    "--limit", "limit", default=10, type=int, help="Maximum number of results"
+)
+@click.option(
+    "--chunk-ids",
+    "chunk_ids",
+    default=None,
+    help="Comma-separated chunk IDs to retrieve",
+)
 def query(
     query: str,
     packages: tuple[str, ...],

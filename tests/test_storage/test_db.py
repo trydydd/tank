@@ -13,15 +13,19 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _make_pack(name: str = "test-lib", version: str = "1.0.0",
-               lifecycle_state: str = "approved",
-               doc_version_status: str = "stable",
-               indexed_at: str | None = None,
-               **kwargs: object) -> Pack:
+def _make_pack(
+    name: str = "test-lib",
+    version: str = "1.0.0",
+    lifecycle_state: str = "approved",
+    doc_version_status: str = "stable",
+    indexed_at: str | None = None,
+    **kwargs: object,
+) -> Pack:
     if indexed_at is None:
         indexed_at = _now()
     return Pack(
-        name=name, version=version,
+        name=name,
+        version=version,
         lifecycle_state=lifecycle_state,
         doc_version_status=doc_version_status,
         indexed_at=indexed_at,
@@ -29,18 +33,26 @@ def _make_pack(name: str = "test-lib", version: str = "1.0.0",
     )
 
 
-def _make_page(pkg: str = "test-lib", version: str = "1.0.0",
-               url: str = "docs/readme.md", title: str | None = None,
-               **kwargs: object) -> Page:
-    return Page(id=1, package=pkg, version=version, url=url,
-                title=title, **kwargs)  # type: ignore[call-arg]
+def _make_page(
+    pkg: str = "test-lib",
+    version: str = "1.0.0",
+    url: str = "docs/readme.md",
+    title: str | None = None,
+    **kwargs: object,
+) -> Page:
+    return Page(id=1, package=pkg, version=version, url=url, title=title, **kwargs)  # type: ignore[call-arg]
 
 
-def _make_chunk(pkg: str = "test-lib", version: str = "1.0.0",
-                content: str = "hello world", page_id: int = 1,
-                **kwargs: object) -> Chunk:
-    return Chunk(id=1, package=pkg, version=version, content=content,
-                 page_id=page_id, **kwargs)  # type: ignore[call-arg]
+def _make_chunk(
+    pkg: str = "test-lib",
+    version: str = "1.0.0",
+    content: str = "hello world",
+    page_id: int = 1,
+    **kwargs: object,
+) -> Chunk:
+    return Chunk(
+        id=1, package=pkg, version=version, content=content, page_id=page_id, **kwargs
+    )  # type: ignore[call-arg]
 
 
 @pytest.fixture()
@@ -57,6 +69,7 @@ def db(db_path: Path) -> Database:
 
 
 # -- schema --
+
 
 def test_create_schema_creates_all_tables(db: Database) -> None:
     conn = sqlite3.connect(db._db_path)
@@ -88,6 +101,7 @@ def test_busy_timeout_set(db: Database) -> None:
 
 
 # -- import --
+
 
 def test_import_pack_inserts_all_records(db: Database) -> None:
     pack = _make_pack(owner="team-a")
@@ -132,6 +146,7 @@ def test_import_duplicate_pack_raises(db: Database) -> None:
 
 # -- queries --
 
+
 def test_get_packages_returns_all(db: Database) -> None:
     p1 = _make_pack(name="lib-a", version="1.0.0")
     p2 = _make_pack(name="lib-b", version="2.0.0")
@@ -150,6 +165,7 @@ def test_get_pack_not_found_returns_none(db: Database) -> None:
 
 # -- delete --
 
+
 def test_delete_pack_removes_all_related(db: Database) -> None:
     pack = _make_pack()
     pages = [_make_page()]
@@ -164,6 +180,7 @@ def test_delete_pack_removes_all_related(db: Database) -> None:
 
 
 # -- FTS5 triggers --
+
 
 def test_fts5_trigger_populates_on_insert(db: Database) -> None:
     pack = _make_pack()
@@ -193,6 +210,7 @@ def test_fts5_trigger_cleans_on_delete(db: Database) -> None:
 
 
 # -- edge cases --
+
 
 def test_tank_directory_created_if_missing(tmp_path: Path) -> None:
     db_path = tmp_path / "nested" / ".tank" / "index.db"
