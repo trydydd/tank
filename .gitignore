@@ -30,6 +30,12 @@ htmlcov/
 # Tank runtime artifacts
 .tank/
 
+# Build inputs (downloaded source files)
+source/
+
+# Python venvs (non-standard names)
+.venv312/
+
 # IDE
 .vscode/
 .idea/
