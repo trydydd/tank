@@ -10,19 +10,16 @@ dependencies = [
     "click",
     "rich",
     "mcp",
+    "chunkana>=0.1",
 ]
 
 [project.optional-dependencies]
-build = [
-    "chunkana>=0.1",
-]
 dev = [
     "pytest",
     "mypy",
     "ruff==0.15.8",
 ]
 all = [
-    "tank[build]",
     "tank[dev]",
 ]
 
