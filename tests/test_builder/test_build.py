@@ -174,3 +174,30 @@ def test_build_empty_source_raises(tmp_path: Path) -> None:
         assert "No documentation files" in str(e)
     else:
         assert False, "Expected BuildError"
+
+
+def test_build_doc_version_status_passed_through(tmp_path: Path) -> None:
+    """doc_version_status parameter is written to the manifest."""
+    source = _fixture_path()
+    for status in ("stable", "prerelease", "archived", "unknown"):
+        output = tmp_path / f"packs_{status}"
+        ctx_path = build_pack(
+            package="test-lib",
+            version="1.0.0",
+            source=source,
+            output=output,
+            doc_version_status=status,
+        )
+        with zipfile.ZipFile(ctx_path, "r") as zf:
+            manifest = json.loads(zf.read("manifest.json"))
+        assert manifest["doc_version_status"] == status, (
+            f"expected {status!r}, got {manifest['doc_version_status']!r}"
+        )
+
+
+def test_build_doc_version_status_defaults_to_stable(tmp_path: Path) -> None:
+    """Omitting doc_version_status produces 'stable' in the manifest."""
+    ctx_path = _build(tmp_path)
+    with zipfile.ZipFile(ctx_path, "r") as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+    assert manifest["doc_version_status"] == "stable"

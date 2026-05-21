@@ -47,6 +47,11 @@ def _parse_package_spec(spec: str) -> tuple[str, str]:
 @click.option(
     "--lifecycle", default="draft", help="Lifecycle state (draft, approved, deprecated)"
 )
+@click.option(
+    "--doc-version-status",
+    default="stable",
+    help="Documentation version status (stable, prerelease, archived, unknown)",
+)
 @click.option("--owner", default=None, help="Owner/team name")
 @click.option("--policy-profile", default=None, help="Policy profile name")
 def build(
@@ -54,6 +59,7 @@ def build(
     source: Path,
     output: Path,
     lifecycle: str,
+    doc_version_status: str,
     owner: str | None,
     policy_profile: str | None,
 ) -> None:
@@ -80,6 +86,7 @@ def build(
             source=source,
             output=output_dir,
             lifecycle=lifecycle,
+            doc_version_status=doc_version_status,
             owner=owner,
             policy_profile=policy_profile,
         )

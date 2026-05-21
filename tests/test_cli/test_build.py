@@ -140,3 +140,40 @@ class TestBuildCommand:
         with zipfile.ZipFile(ctx_files[0], "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))
             assert manifest["owner"] == "team-a"
+
+    def test_build_with_doc_version_status_option(self, tmp_path: Path) -> None:
+        """Build with --doc-version-status sets doc_version_status in manifest."""
+        source = _fixture_path()
+        output = tmp_path / "packs"
+        result = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "my-lib@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output),
+                "--doc-version-status",
+                "prerelease",
+            ],
+        )
+        assert result.exit_code == 0, f"build failed: {result.output}"
+        ctx_files = list(output.glob("*.ctx"))
+        with zipfile.ZipFile(ctx_files[0], "r") as zf:
+            manifest = json.loads(zf.read("manifest.json"))
+            assert manifest["doc_version_status"] == "prerelease"
+
+    def test_build_doc_version_status_defaults_to_stable(self, tmp_path: Path) -> None:
+        """Omitting --doc-version-status produces 'stable' in the manifest."""
+        source = _fixture_path()
+        output = tmp_path / "packs"
+        result = CliRunner().invoke(
+            cli,
+            ["build", "my-lib@1.0.0", "--source", str(source), "--output", str(output)],
+        )
+        assert result.exit_code == 0, f"build failed: {result.output}"
+        ctx_files = list(output.glob("*.ctx"))
+        with zipfile.ZipFile(ctx_files[0], "r") as zf:
+            manifest = json.loads(zf.read("manifest.json"))
+            assert manifest["doc_version_status"] == "stable"

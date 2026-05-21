@@ -19,6 +19,7 @@ class TestBuildManifest:
             pages_count=3,
             normalized_content_hash="sha256:abc123",
             lifecycle="draft",
+            doc_version_status="stable",
             owner=None,
             policy_profile=None,
             source_url="docs",
@@ -47,6 +48,7 @@ class TestBuildManifest:
             pages_count=3,
             normalized_content_hash="sha256:abc123",
             lifecycle="approved",
+            doc_version_status="stable",
             owner="platform-team",
             policy_profile="internal-strict",
             source_url="docs",
@@ -55,6 +57,74 @@ class TestBuildManifest:
         assert manifest["owner"] == "platform-team"
         assert manifest["policy_profile"] == "internal-strict"
         assert manifest["source_commit"] == "abc123"
+
+    def test_build_manifest_doc_version_status_prerelease(self) -> None:
+        manifest = build_manifest(
+            package="my-lib",
+            version="2.0.0-beta",
+            chunks_count=5,
+            pages_count=2,
+            normalized_content_hash="sha256:abc123",
+            lifecycle="draft",
+            doc_version_status="prerelease",
+            owner=None,
+            policy_profile=None,
+            source_url="docs",
+            source_commit=None,
+        )
+        assert manifest["doc_version_status"] == "prerelease"
+
+    def test_build_manifest_doc_version_status_archived(self) -> None:
+        manifest = build_manifest(
+            package="my-lib",
+            version="0.9.0",
+            chunks_count=5,
+            pages_count=2,
+            normalized_content_hash="sha256:abc123",
+            lifecycle="deprecated",
+            doc_version_status="archived",
+            owner=None,
+            policy_profile=None,
+            source_url="docs",
+            source_commit=None,
+        )
+        assert manifest["doc_version_status"] == "archived"
+
+    def test_build_manifest_doc_version_status_unknown(self) -> None:
+        manifest = build_manifest(
+            package="my-lib",
+            version="1.0.0",
+            chunks_count=5,
+            pages_count=2,
+            normalized_content_hash="sha256:abc123",
+            lifecycle="draft",
+            doc_version_status="unknown",
+            owner=None,
+            policy_profile=None,
+            source_url="docs",
+            source_commit=None,
+        )
+        assert manifest["doc_version_status"] == "unknown"
+
+    def test_build_manifest_doc_version_status_passed_through(self) -> None:
+        """doc_version_status is taken from the parameter, not hardcoded."""
+        for status in ("stable", "prerelease", "archived", "unknown"):
+            manifest = build_manifest(
+                package="my-lib",
+                version="1.0.0",
+                chunks_count=1,
+                pages_count=1,
+                normalized_content_hash="sha256:abc123",
+                lifecycle="draft",
+                doc_version_status=status,
+                owner=None,
+                policy_profile=None,
+                source_url="docs",
+                source_commit=None,
+            )
+            assert manifest["doc_version_status"] == status, (
+                f"expected {status!r}, got {manifest['doc_version_status']!r}"
+            )
 
 
 class TestComputePackDigest:
