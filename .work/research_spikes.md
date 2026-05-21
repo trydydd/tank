@@ -105,6 +105,46 @@ Cost: bounded to ~8000 tokens of only the content the agent decided it needs.
 
 ---
 
+### Tank vs WebFetch — token comparison (fastmcp stdio query)
+
+**Query:** "how do I configure a stdio implementation in fastmcp"  
+**Source:** `https://gofastmcp.com/deployment/running-server` (single page, fetched via WebFetch)  
+**Pack:** `fastmcp@3.0.0` built from that page, pulled into local index
+
+**Results:**
+
+| Approach | Tokens | % of WebFetch |
+|---|---|---|
+| WebFetch full page | ~2,259 | 100% |
+| Tank summary scan (3 chunks matched) | ~81 | 3% |
+| Tank full content (all 3 chunks) | ~1,550 | 68% |
+| Tank full content (chunk 3 only — STDIO section) | ~258 | 11% |
+
+**Chunk breakdown (full content):**
+
+| Chunk | Tokens | Content |
+|---|---|---|
+| 2 | ~360 | `run()` method intro — useful but redundant given chunk 3 |
+| 3 | ~258 | STDIO transport section — sufficient to answer the question |
+| 5 | ~932 | SSE deprecation + CLI reload — noise for this query |
+
+60% of the full-content response (chunk 5, 932 tokens) was irrelevant to the query. BM25 matched it on "transport" and "run" without understanding the question was specifically about stdio.
+
+**⚠️ Agentless benchmark caveat**
+
+This benchmark does not simulate an agent making selective chunk decisions. The summary scan (81 tokens) was computed but not acted on — all three matched chunk IDs were fetched unconditionally:
+
+```python
+chunk_ids = [r["chunk_id"] for r in summary_hits]  # [2, 3, 5] — all of them
+full_result = query_docs(db, query="", chunk_ids=chunk_ids, detail="full")
+```
+
+The 258-token figure (chunk 3 only) is what a real agent *would* spend after reading the summaries and recognising that chunk 5 is about SSE/CLI, not stdio. But no agent was in the loop to make that decision.
+
+The honest agentless result is **1,550 tokens vs 2,259 for WebFetch (68%)**. The selective figure requires an agent reading summaries and choosing — that path is not yet benchmarked.
+
+---
+
 ### Related files
 
 - `src/tank/server.py` — `query_docs()`, `_apply_token_budget()`
