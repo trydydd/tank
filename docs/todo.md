@@ -33,14 +33,8 @@
 
 ## v0.1.1
 
-- [ ] **Benchmark output cleanup + PR comment bot**
-  Both `test_token_overhead` and `test_webfetch_vs_tank` produce verbose console output and write results JSON, but results never surface in code review. Two changes needed:
-
-  1. **Output cleanup** — condense each benchmark's console table to the key figures only (schema cost, progressive disclosure saving, WebFetch vs Tank % saved). Current output is noisy enough that reviewers skip it.
-
-  2. **PR comment bot** — add a CI step that runs `pytest --benchmark -s` on every PR targeting `develop` or `main`, then posts the results JSON as a formatted markdown comment on the PR. This makes token regressions visible in review without anyone having to run the benchmarks manually.
-
-  The comment should show: current results, delta vs the baseline in `tests/benchmarks/results/latest.json` (token overhead) and `tests/benchmarks/results/webfetch_vs_tank_latest.json` (WebFetch comparison), and a pass/fail badge if either benchmark regresses beyond a threshold (TBD — suggest ±10%).
+- [x] **Benchmark results surfaced in PR review** *(fixed)*
+  CI runs benchmarks on every PR and posts a formatted markdown comment via `tests/benchmarks/compare.py --markdown`. The comment leads with a three-row headline table (schema cost, summary tokens/result, two-step saving) with deltas vs baseline, and collapses full detail under `<details>`. First-run PRs with no baseline on `main` use `--standalone` instead of dumping raw JSON. Pass/warn thresholds: schema tokens >+20%, summary tokens/result >+15%, two-step saving <40%.
 
 ## Polish
 
