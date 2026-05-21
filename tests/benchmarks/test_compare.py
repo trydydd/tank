@@ -375,7 +375,7 @@ def test_format_markdown_warn_contains_warn() -> None:
 def test_format_markdown_contains_threshold_reference() -> None:
     r = _make_result()
     output = format_markdown(compare(r, r))
-    assert "Threshold reference" in output
+    assert "Thresholds" in output
     assert "+20%" in output
     assert "+15%" in output
     assert "40%" in output

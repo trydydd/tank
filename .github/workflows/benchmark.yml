@@ -78,15 +78,8 @@ jobs:
       - name: Build comment body (no baseline)
         if: steps.compare.outputs.has_baseline == 'false'
         run: |
-          cat > /tmp/comment.md << 'EOF'
-          <!-- tank-benchmark -->
-          ## 📊 Tank benchmark
-
-          No baseline found on `main` — this is likely the first PR that includes
-          the benchmark harness. Results for this PR:
-
-          EOF
-          cat /tmp/pr.json >> /tmp/comment.md
+          python3 pr/tests/benchmarks/compare.py \
+            /tmp/pr.json --standalone > /tmp/comment.md
 
       - name: Find existing benchmark comment
         uses: actions/github-script@v7
