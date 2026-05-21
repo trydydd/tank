@@ -13,6 +13,13 @@
 ## Code Style
 
 - `ruff` and `mypy` are the authority on formatting and type safety. No additional style guide.
+- Run all three checks before committing — CI enforces all of them:
+  ```
+  .venv/bin/ruff check src/ tests/
+  .venv/bin/ruff format --check src/ tests/
+  .venv/bin/mypy src/
+  ```
+  To auto-fix formatting: `.venv/bin/ruff format src/ tests/`
 - Spell out every parameter explicitly. No `**kwargs` pass-through.
 - Prefer dedicated exception classes over generic `ValueError`/`TypeError`. The CLI maps exceptions to specific exit codes and user-facing messages. Start with a base `TankError` class; discover and add specific subclasses during TDD as failure modes emerge.
 - Always use type hints. Prefer `str | None` union syntax over `Optional[str]`.
