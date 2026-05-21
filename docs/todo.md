@@ -11,8 +11,8 @@
 - [x] **`src/tank/storage/db.py:121-126` — page ID foreign key integrity broken on import** *(fixed)*
   `import_pack()` now builds a `page_id_map` from each page's pack-local ID to its AUTOINCREMENT DB ID, and remaps `chunk.page_id` values through it before inserting chunks.
 
-- [ ] **`src/tank/search/fts.py:76` — silent exception swallowing**
-  `search()` catches all exceptions and returns `[]`. Malformed queries, database errors, and schema mismatches all silently produce empty results with no logging or error signal.
+- [x] **`src/tank/search/fts.py:76` — silent exception swallowing** *(fixed)*
+  `search()` now raises `SearchError` (a `TankError` subclass) on `sqlite3.Error` instead of catching all exceptions and returning `[]`.
 
 - [x] **`src/tank/server.py` / `src/tank/search/fts.py:32` — result limit not exposed** *(fixed)*
   `query_docs()` now accepts `limit: int = 10` and passes it through to `search()`. The MCP tool exposes the same parameter. Discovered by the token overhead benchmark when `full_n10 == full_n20`.

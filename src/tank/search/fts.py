@@ -1,5 +1,8 @@
+import sqlite3
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+
+from tank.errors import SearchError
 
 if TYPE_CHECKING:
     from tank.storage.db import Database
@@ -73,8 +76,8 @@ LIMIT ?"""
         params.append(limit)
 
         rows = conn.execute(sql, params).fetchall()
-    except Exception:
-        return []
+    except sqlite3.Error as exc:
+        raise SearchError(str(exc)) from exc
 
     # SELECT columns: 0=id, 1=package, 2=version, 3=heading_path, 4=summary,
     # 5=content, 6=source_url, 7=source_commit, 8=content_hash,

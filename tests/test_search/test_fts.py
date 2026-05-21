@@ -1,6 +1,9 @@
 from pathlib import Path
 import tempfile
 
+import pytest
+
+from tank.errors import SearchError
 from tank.search.fts import search, get_chunks_by_id
 from tank.storage.db import Database
 from tank.storage.models import Chunk, Page, Pack
@@ -319,6 +322,12 @@ def test_search_no_match() -> None:
 
     results = search(db, "zzzznonexistent")
     assert results == []
+
+
+def test_search_malformed_query_raises_search_error() -> None:
+    db = _make_db()
+    with pytest.raises(SearchError):
+        search(db, "foo AND")  # incomplete binary operator — invalid FTS5 syntax
 
 
 def test_search_best_match_first() -> None:

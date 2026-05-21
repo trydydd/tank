@@ -21,7 +21,7 @@
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
 - [x] GitHub Actions benchmark workflow — PR delta comparison via `tests/benchmarks/compare.py`
 - [x] Fix `src/tank/storage/db.py:121-126` — page ID foreign key integrity on import
-- [ ] Fix `src/tank/search/fts.py:76` — silent exception swallowing; all search errors return `[]`
+- [x] Fix `src/tank/search/fts.py:76` — silent exception swallowing; all search errors return `[]`
 - [ ] Fix `src/tank/cli/pull.py:39` — hardcoded `doc_version_status="imported"` instead of reading from manifest
 - [ ] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
 

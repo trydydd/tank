@@ -20,3 +20,7 @@ class ImportError_(TankError):
 
 class BuildError(TankError):
     """Failures during pack building."""
+
+
+class SearchError(TankError):
+    """Database or query error during search."""
