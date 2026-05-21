@@ -8,8 +8,8 @@
 - [x] **`src/tank/builder/manifest.py:43` — `doc_version_status` hardcoded to `"stable"`** *(fixed)*
   `build_manifest()` now accepts `doc_version_status` as a required parameter. `build_pack()` and `tank build --doc-version-status` pass it through. Valid values: `stable`, `prerelease`, `archived`, `unknown`.
 
-- [ ] **`src/tank/server.py` — `max_tokens` parameter is a stub**
-  The `query-docs` MCP tool accepts `max_tokens` but never uses it. Now that `limit` is exposed (see fixed item below), the path is clear: implement token-budget logic that auto-selects `limit` to fit results within the requested token budget, using `len(content) // 4` as the estimator. Design question to settle first: trim from the bottom of the ranked list, or truncate content of the last result? Either implement or remove before v0.1.0 ships.
+- [x] **`src/tank/server.py` — `max_tokens` parameter is a stub** *(fixed)*
+  `query_docs()` now enforces a greedy token budget: chunks are accumulated in BM25 rank order and the list is cut before the estimated cost (`len(content) // 4` for full, `len(summary) // 4` for summary) would exceed `max_tokens`. Whole chunks only — no mid-text truncation. Documented in `docs/ranking.md`.
 
 - [x] **`src/tank/storage/db.py:121-126` — page ID foreign key integrity broken on import** *(fixed)*
   `import_pack()` now builds a `page_id_map` from each page's pack-local ID to its AUTOINCREMENT DB ID, and remaps `chunk.page_id` values through it before inserting chunks.

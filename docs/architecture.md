@@ -91,9 +91,9 @@ Full-text search across indexed documentation. Fast, read-only, only hits alread
 - `query`: natural language question (required unless `chunk_ids` is provided)
 - `packages`: optional filter scoped to specific package names
 - `detail`: `"summary"` (default) returns heading path + one-line summary (~20–40 tokens each); `"full"` returns complete chunk content
-- `limit`: maximum number of results to return (default 10); use lower values to stay within a token budget
+- `limit`: maximum number of chunks returned from the FTS5 query (default 10)
 - `chunk_ids`: optional list of specific chunk IDs to expand to full content, bypassing search
-- `max_tokens`: accepted but not yet implemented — see `docs/todo.md`
+- `max_tokens`: optional token budget; chunks are accumulated in BM25 rank order and the list is cut before the estimated cost would exceed the budget — whole chunks only, never truncated mid-text (see `docs/ranking.md`)
 
 **Output** (each result includes full provenance):
 ```json
@@ -527,6 +527,14 @@ This two-step pattern is the primary mechanism for staying within the AI agent's
 
 1. **Summary layer** (returned by default): heading path + one-line summary per matching chunk. Roughly 20–40 tokens per result. The agent scans this to decide what it actually needs.
 2. **Full content** (on request): the agent requests specific chunks by ID via `chunk_ids` to get complete text.
+
+### Token budget enforcement (`max_tokens`)
+
+When `max_tokens` is set on `query-docs`, a greedy post-ranking pass enforces a hard budget. After BM25 ranking, chunks are accumulated from highest score to lowest. A chunk is included only if its estimated cost does not push the running total over `max_tokens`. The cut always falls between whole chunks — content is never truncated mid-text.
+
+Token cost estimation: `len(content) // 4` for `detail="full"`, `len(summary) // 4` for `detail="summary"`. This matches the `token_count` estimator written at build time and is intentionally approximate — suitable for budget planning, not byte-exact accounting.
+
+The ranking strategy and the rationale for the greedy approach are documented in `docs/ranking.md`.
 
 ### Content normalization (applied at build time)
 
