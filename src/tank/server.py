@@ -128,7 +128,7 @@ def _register_tools(mcp: FastMCP) -> None:
         """FTS5 full-text search across indexed documentation."""
         db = Database(_db_path())
         try:
-            result = query_docs(db, query, packages, detail, chunk_ids, limit)
+            result = query_docs(db, query=query, packages=packages, detail=detail, chunk_ids=chunk_ids, limit=limit)
             return json.dumps(result)
         finally:
             db.close()
