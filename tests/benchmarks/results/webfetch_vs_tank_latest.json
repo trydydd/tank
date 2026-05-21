@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-05-21T18:23:18.709891+00:00",
-  "git_commit": "5fe5a56",
+  "timestamp": "2026-05-21T18:26:06.671863+00:00",
+  "git_commit": "37c1179",
   "tank_version": "0.1.0",
   "token_counter": "len_div_4",
   "source_url": "https://gofastmcp.com/deployment/running-server",
@@ -30,21 +30,21 @@
     "chunk_breakdown": [
       {
         "chunk_id": 2,
-        "heading_path": "fastmcp-running-server",
+        "heading_path": "fastmcp-running-server / STDIO Transport (Default)",
         "summary": "You can now run this MCP server by executing `python my_server.",
         "content_chars": 1441,
         "content_tokens": 360
       },
       {
         "chunk_id": 3,
-        "heading_path": "fastmcp-running-server",
+        "heading_path": "fastmcp-running-server / HTTP Transport (Streamable)",
         "summary": "STDIO is ideal for:  * Local development and testing * Claude Desktop integration * Command-line tools * Single-user applications  ### HTTP Transport (Streamable)  HTTP transport turns your MCP...",
         "content_chars": 1035,
         "content_tokens": 258
       },
       {
         "chunk_id": 5,
-        "heading_path": "fastmcp-running-server",
+        "heading_path": "fastmcp-running-server / Choosing the Right Transport",
         "summary": "We recommend using HTTP transport instead of SSE for all new projects.",
         "content_chars": 3729,
         "content_tokens": 932
@@ -52,7 +52,6 @@
     ]
   },
   "warnings": [
-    "All returned chunks share the same heading_path ('fastmcp-running-server'). The chunker did not extract section headings from this document \u2014 structural signal is absent.",
     "Natural language query returned 0 FTS5 results. The LLM-generated FTS5 query is what an agent would actually send \u2014 this correctly demonstrates the NL\u2192FTS5 translation step working as intended."
   ],
   "notes": "Two-step approach is AGENTLESS: all matched chunk IDs are fetched unconditionally. A real agent selecting only relevant chunks after reading summaries would reduce token cost further."

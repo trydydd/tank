@@ -44,8 +44,10 @@ def discover_files(source: Path) -> list[Path]:
 def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
     """Chunk a single documentation file using chunkana.
 
-    heading_path is constructed as: <relative_file_prefix> / <chunkana header_path>
+    heading_path is constructed as: <relative_file_prefix> / <first section_tag>
     where relative_file_prefix is the path relative to source, minus extension.
+    section_tags is the chunkana metadata field that holds headers present in
+    the chunk; header_path is always empty and not used.
     """
     relative = os.path.relpath(file_path, source)
     prefix = Path(relative).with_suffix("")  # e.g. "auth/oauth"
@@ -55,11 +57,11 @@ def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
 
     chunks: list[RawChunk] = []
     for ana in ana_chunks:
-        hp = ana.metadata.get("header_path", [])  # e.g. "/Auth" or "/Auth/Overview"
+        # chunkana never populates header_path; section headings are in section_tags.
+        section_tags: list[str] = ana.metadata.get("section_tags") or []
         parts: list[str] = [str(prefix)]
-        if hp:
-            # hp is like "/Auth/Overview" — strip leading "/" and split
-            parts.append(hp.lstrip("/"))
+        if section_tags:
+            parts.append(section_tags[0])
         heading_path = " / ".join(parts)
 
         content = normalize(ana.content)
