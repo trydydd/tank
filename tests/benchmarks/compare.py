@@ -656,6 +656,14 @@ def format_markdown_webfetch_standalone(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _safe_cell(text: str, max_len: int = 60) -> str:
+    """Sanitize text for use in a markdown table cell."""
+    truncated = text[:max_len]
+    # Escape pipes (would create extra columns) and strip backticks (unclosed
+    # code spans corrupt the table when the text is truncated mid-span).
+    return truncated.replace("|", "\\|").replace("`", "'")
+
+
 def _md_webfetch_chunk_breakdown(data: dict[str, Any]) -> str:
     breakdown = data["tank_two_step_agentless"].get("chunk_breakdown", [])
     if not breakdown:
@@ -667,8 +675,8 @@ def _md_webfetch_chunk_breakdown(data: dict[str, Any]) -> str:
         "|---|---:|---|---|",
     ]
     for c in breakdown:
-        hp = (c.get("heading_path") or "").split(" / ")[-1]
-        summary = (c.get("summary") or "")[:60]
+        hp = _safe_cell((c.get("heading_path") or "").split(" / ")[-1])
+        summary = _safe_cell(c.get("summary") or "")
         lines.append(
             f"| {c['chunk_id']} | {c['content_tokens']} | {hp} | {summary} |"
         )
