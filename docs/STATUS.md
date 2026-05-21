@@ -1,6 +1,6 @@
 # Tank — Project Status
 
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Current State: Implementation Complete
 
@@ -26,16 +26,16 @@ Architecture and design documents remain the canonical reference.
 | Component | Files |
 |---|---|
 | `src/tank/` | Core package — 24 Python modules across builder, CLI, errors, policy, search, server, storage, validator |
-| `tests/` | 141 tests covering builder, CLI, errors, integration, policy, search, server, storage, validator |
+| `tests/` | 184 tests covering builder, CLI, errors, integration, policy, search, server, storage, validator, benchmark harness |
 | `tests/fixtures/` | `malformed_packs/`, `sample_docs/` — static test data |
 | `pyproject.toml` | Project config, dependencies, entry points |
 | `README.md` | Project overview |
 
 ### Test Results
 
-- **141/141 tests passing** (pytest)
-- **mypy**: 1 minor error in `src/tank/builder/build.py:133` (`dict` invariance)
-- **CI/CD**: Not yet configured
+- **183/184 tests passing** (pytest; 1 skipped — FastMCP integration test requires running server)
+- **mypy**: 1 minor error in `src/tank/builder/chunking.py:8` (unused `type: ignore` on `chunkana` import)
+- **CI/CD**: Benchmark workflow configured (`.github/workflows/benchmark.yml`); release workflow configured; no deploy/publish step yet
 
 ### What Is Implemented
 
@@ -53,7 +53,7 @@ All Phase 1 / MVP components:
 - [x] SQLite storage — schema creation, WAL mode, migrations (`tank.storage.db`)
 - [x] Data models — Pack, Chunk, Page dataclasses (`tank.storage.models`)
 - [x] FTS5 search with BM25 ranking and attribution (`tank.search.fts`)
-- [x] MCP server — `query-docs` and `resolve-deps` tools (`tank.server`)
+- [x] MCP server — `query-docs` (with `limit` parameter) and `resolve-deps` tools (`tank.server`)
 - [x] CLI commands — `tank build`, `tank verify`, `tank pull`, `tank query`, `tank inspect`
 - [x] Lockfile management (`.tank/index.lock`)
 

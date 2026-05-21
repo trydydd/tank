@@ -101,7 +101,7 @@ Works with Claude Code, Claude Desktop, Cursor, VS Code, and any MCP-compatible 
 
 ## Status
 
-Tank is in active development. The architecture is complete and implementation is beginning. See [STATUS.md](STATUS.md) for details.
+Tank Phase 1 / MVP is code-complete with a full test suite. See [STATUS.md](docs/STATUS.md) for details.
 
 ## License
 

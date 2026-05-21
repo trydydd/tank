@@ -37,7 +37,10 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["network: requires real network access (opt-in via --network)"]
+markers = [
+    "network: requires real network access (opt-in via --network)",
+    "benchmark: token overhead benchmark (opt-in via --benchmark)",
+]
 
 [tool.ruff]
 target-version = "py311"

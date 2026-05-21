@@ -1,0 +1,128 @@
+name: Benchmark
+
+on:
+  pull_request:
+    paths:
+      - "src/tank/server.py"
+      - "src/tank/search/**"
+      - "src/tank/storage/models.py"
+      - "src/tank/storage/db.py"
+      - "tests/benchmarks/**"
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          path: pr
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: baseline
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Separate venvs prevent the two editable installs from conflicting.
+      - name: Create virtualenvs
+        run: |
+          python -m venv /tmp/venv-pr
+          python -m venv /tmp/venv-baseline
+
+      - name: Install PR dependencies
+        run: /tmp/venv-pr/bin/pip install -e "./pr/[dev]" mcp -q
+
+      - name: Install baseline dependencies
+        run: /tmp/venv-baseline/bin/pip install -e "./baseline/[dev]" mcp -q
+
+      - name: Run benchmark on PR branch
+        working-directory: pr
+        run: /tmp/venv-pr/bin/python -m pytest tests/benchmarks/ --benchmark -s -q
+
+      - name: Save PR results
+        run: cp pr/tests/benchmarks/results/latest.json /tmp/pr.json
+
+      - name: Run benchmark on main
+        working-directory: baseline
+        # Soft-fail: main may not have the benchmark yet (first PR adding it).
+        continue-on-error: true
+        run: /tmp/venv-baseline/bin/python -m pytest tests/benchmarks/ --benchmark -s -q
+
+      - name: Save main results (if available)
+        # Only copy if the benchmark ran successfully on main.
+        run: |
+          if [ -f baseline/tests/benchmarks/results/latest.json ]; then
+            cp baseline/tests/benchmarks/results/latest.json /tmp/main.json
+          fi
+
+      - name: Generate comparison
+        id: compare
+        run: |
+          if [ -f /tmp/main.json ]; then
+            python3 pr/tests/benchmarks/compare.py \
+              /tmp/main.json /tmp/pr.json --markdown > /tmp/comment.md
+            echo "has_baseline=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_baseline=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build comment body (no baseline)
+        if: steps.compare.outputs.has_baseline == 'false'
+        run: |
+          cat > /tmp/comment.md << 'EOF'
+          <!-- tank-benchmark -->
+          ## 📊 Tank benchmark
+
+          No baseline found on `main` — this is likely the first PR that includes
+          the benchmark harness. Results for this PR:
+
+          EOF
+          cat /tmp/pr.json >> /tmp/comment.md
+
+      - name: Find existing benchmark comment
+        uses: actions/github-script@v7
+        id: find-comment
+        with:
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const marker = '<!-- tank-benchmark -->';
+            const existing = comments.data.find(c => c.body.includes(marker));
+            return existing ? String(existing.id) : '';
+          result-encoding: string
+
+      - name: Post or update benchmark comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/comment.md', 'utf8');
+            const commentId = '${{ steps.find-comment.outputs.result }}';
+
+            if (commentId) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: parseInt(commentId),
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
