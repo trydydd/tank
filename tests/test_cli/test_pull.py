@@ -147,6 +147,21 @@ class TestPullCommand:
             conn.close()
             assert count == 0, "packages table should be empty after failed pull"
 
+    def test_pull_preserves_doc_version_status_from_manifest(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """doc_version_status in the DB must come from the manifest, not be hardcoded."""
+        monkeypatch.chdir(tmp_path)
+        ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
+        result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
+        assert result.exit_code == 0, f"pull failed: {result.output}"
+
+        db_path = tmp_path / ".tank" / "index.db"
+        conn = sqlite3.connect(str(db_path))
+        status = conn.execute("SELECT doc_version_status FROM packages").fetchone()[0]
+        conn.close()
+        assert status == "stable"  # manifest hardcodes "stable"; "imported" is wrong
+
     def test_pull_force_does_not_skip_verify(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

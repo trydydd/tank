@@ -36,7 +36,7 @@ def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
         name=str(manifest["package"]),
         version=str(manifest["version"]),
         lifecycle_state=str(manifest["lifecycle_state"]),
-        doc_version_status="imported",
+        doc_version_status=str(manifest.get("doc_version_status", "stable")),
         indexed_at=str(manifest.get("created_at", "")),
         policy_profile=str(manifest.get("policy_profile", "")),
         pack_digest=str(manifest["pack_digest"]),

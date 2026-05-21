@@ -2,8 +2,8 @@
 
 ## Bugs
 
-- [ ] **`src/tank/cli/pull.py:39` — hardcoded `doc_version_status`**
-  `_import_pack` sets `doc_version_status="imported"` instead of reading the value from the manifest. The manifest carries the real status (`stable`, `prerelease`, etc.) but pull ignores it.
+- [x] **`src/tank/cli/pull.py:39` — hardcoded `doc_version_status`** *(fixed)*
+  `_import_pack` now reads `doc_version_status` from the manifest instead of hardcoding `"imported"`.
 
 - [ ] **`src/tank/server.py` — `max_tokens` parameter is a stub**
   The `query-docs` MCP tool accepts `max_tokens` but never uses it. Now that `limit` is exposed (see fixed item below), the path is clear: implement token-budget logic that auto-selects `limit` to fit results within the requested token budget, using `len(content) // 4` as the estimator. Design question to settle first: trim from the bottom of the ranked list, or truncate content of the last result? Either implement or remove before v0.1.0 ships.
