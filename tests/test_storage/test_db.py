@@ -217,12 +217,20 @@ def test_import_pack_page_ids_remapped_for_second_pack(db: Database) -> None:
     # After import the second pack's chunk must reference its own page, not pack 1's.
     pack1 = _make_pack(name="lib-a", version="1.0.0")
     pages1 = [Page(id=1, package="lib-a", version="1.0.0", url="docs/a.md")]
-    chunks1 = [Chunk(id=1, package="lib-a", version="1.0.0", content="lib-a content", page_id=1)]
+    chunks1 = [
+        Chunk(
+            id=1, package="lib-a", version="1.0.0", content="lib-a content", page_id=1
+        )
+    ]
     db.import_pack(pack1, pages1, chunks1)
 
     pack2 = _make_pack(name="lib-b", version="1.0.0")
     pages2 = [Page(id=1, package="lib-b", version="1.0.0", url="docs/b.md")]
-    chunks2 = [Chunk(id=1, package="lib-b", version="1.0.0", content="lib-b content", page_id=1)]
+    chunks2 = [
+        Chunk(
+            id=1, package="lib-b", version="1.0.0", content="lib-b content", page_id=1
+        )
+    ]
     db.import_pack(pack2, pages2, chunks2)
 
     con = sqlite3.connect(db._db_path)
