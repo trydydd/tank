@@ -20,6 +20,9 @@
 - [x] Expose `limit` parameter on `query-docs` MCP tool and `query_docs()`
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
 - [x] GitHub Actions benchmark workflow — PR delta comparison via `tests/benchmarks/compare.py`
+- [x] WebFetch vs Tank benchmark — `tests/benchmarks/test_webfetch_vs_tank.py` with fastmcp fixture
+- [ ] Extend PR comment bot to include WebFetch vs Tank results alongside token overhead
+- [ ] Benchmark output cleanup — condense console tables to key figures only
 - [x] Fix `src/tank/storage/db.py:121-126` — page ID foreign key integrity on import
 - [x] Fix `src/tank/search/fts.py:76` — silent exception swallowing; all search errors return `[]`
 - [x] Fix `src/tank/cli/pull.py:39` — hardcoded `doc_version_status="imported"` instead of reading from manifest

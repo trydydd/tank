@@ -31,6 +31,17 @@
 - [ ] **No schema migrations (`src/tank/storage/db.py`)**
   Database setup uses `CREATE TABLE IF NOT EXISTS` only. No `PRAGMA user_version` tracking or forward-only migration support. Any future column additions will break existing databases.
 
+## v0.1.1
+
+- [ ] **Benchmark output cleanup + PR comment bot**
+  Both `test_token_overhead` and `test_webfetch_vs_tank` produce verbose console output and write results JSON, but results never surface in code review. Two changes needed:
+
+  1. **Output cleanup** — condense each benchmark's console table to the key figures only (schema cost, progressive disclosure saving, WebFetch vs Tank % saved). Current output is noisy enough that reviewers skip it.
+
+  2. **PR comment bot** — add a CI step that runs `pytest --benchmark -s` on every PR targeting `develop` or `main`, then posts the results JSON as a formatted markdown comment on the PR. This makes token regressions visible in review without anyone having to run the benchmarks manually.
+
+  The comment should show: current results, delta vs the baseline in `tests/benchmarks/results/latest.json` (token overhead) and `tests/benchmarks/results/webfetch_vs_tank_latest.json` (WebFetch comparison), and a pass/fail badge if either benchmark regresses beyond a threshold (TBD — suggest ±10%).
+
 ## Polish
 
 - [x] **Stale README** *(fixed)*

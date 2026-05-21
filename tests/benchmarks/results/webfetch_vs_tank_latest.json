@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-05-21T18:06:41.441263+00:00",
+  "git_commit": "a955c60",
+  "tank_version": "0.1.0",
+  "token_counter": "len_div_4",
+  "source_url": "https://gofastmcp.com/deployment/running-server",
+  "natural_language_query": "how do I configure a stdio implementation in fastmcp",
+  "fts5_query": "stdio transport run",
+  "note": "Two-step approach is AGENTLESS: all matched chunk IDs are fetched unconditionally. A real agent selecting only relevant chunks after reading summaries would reduce token cost further.",
+  "webfetch": {
+    "chars": 9274,
+    "tokens": 2318
+  },
+  "tank_single_step_full": {
+    "chunks_returned": 3,
+    "tokens": 1550,
+    "pct_of_webfetch": 67,
+    "tokens_saved": 768,
+    "pct_saved": 33
+  },
+  "tank_two_step_agentless": {
+    "step1_summary_tokens": 81,
+    "step2_full_tokens": 1550,
+    "total_tokens": 1631,
+    "pct_of_webfetch": 70,
+    "tokens_saved": 687,
+    "pct_saved": 30,
+    "chunk_breakdown": [
+      {
+        "chunk_id": 2,
+        "heading_path": "fastmcp-running-server",
+        "summary": "You can now run this MCP server by executing `python my_server.",
+        "content_chars": 1441,
+        "content_tokens": 360
+      },
+      {
+        "chunk_id": 3,
+        "heading_path": "fastmcp-running-server",
+        "summary": "STDIO is ideal for:  * Local development and testing * Claude Desktop integration * Command-line tools * Single-user applications  ### HTTP Transport (Streamable)  HTTP transport turns your MCP...",
+        "content_chars": 1035,
+        "content_tokens": 258
+      },
+      {
+        "chunk_id": 5,
+        "heading_path": "fastmcp-running-server",
+        "summary": "We recommend using HTTP transport instead of SSE for all new projects.",
+        "content_chars": 3729,
+        "content_tokens": 932
+      }
+    ]
+  }
+}
