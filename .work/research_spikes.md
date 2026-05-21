@@ -130,6 +130,11 @@ Cost: bounded to ~8000 tokens of only the content the agent decided it needs.
 
 60% of the full-content response (chunk 5, 932 tokens) was irrelevant to the query. BM25 matched it on "transport" and "run" without understanding the question was specifically about stdio.
 
+**Token savings vs WebFetch:**
+
+- Agentless full fetch: **709 tokens saved (31% reduction)**
+- Selective fetch (chunk 3 only, agent-in-loop): **2,001 tokens saved (89% reduction)**
+
 **⚠️ Agentless benchmark caveat**
 
 This benchmark does not simulate an agent making selective chunk decisions. The summary scan (81 tokens) was computed but not acted on — all three matched chunk IDs were fetched unconditionally:
