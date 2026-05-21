@@ -1,30 +1,32 @@
 {
-  "timestamp": "2026-05-21T18:06:41.441263+00:00",
-  "git_commit": "a955c60",
+  "timestamp": "2026-05-21T18:21:47.695119+00:00",
+  "git_commit": "05f7f1c",
   "tank_version": "0.1.0",
   "token_counter": "len_div_4",
   "source_url": "https://gofastmcp.com/deployment/running-server",
   "natural_language_query": "how do I configure a stdio implementation in fastmcp",
+  "nl_query_result_count": 0,
+  "nl_query_note": "The natural language query returned 0 results from FTS5. Tank cannot answer this query without term overlap with the document. The FTS5_QUERY below is a hand-crafted approximation used for the token-cost comparison only.",
   "fts5_query": "stdio transport run",
-  "note": "Two-step approach is AGENTLESS: all matched chunk IDs are fetched unconditionally. A real agent selecting only relevant chunks after reading summaries would reduce token cost further.",
   "webfetch": {
-    "chars": 9274,
-    "tokens": 2318
+    "chars": 9029,
+    "tokens": 2257,
+    "note": "HTML comment lines stripped (benchmark bookkeeping, not real page content)."
   },
   "tank_single_step_full": {
     "chunks_returned": 3,
     "tokens": 1550,
-    "pct_of_webfetch": 67,
-    "tokens_saved": 768,
-    "pct_saved": 33
+    "pct_of_webfetch": 69,
+    "tokens_saved": 707,
+    "pct_saved": 31
   },
   "tank_two_step_agentless": {
     "step1_summary_tokens": 81,
     "step2_full_tokens": 1550,
     "total_tokens": 1631,
-    "pct_of_webfetch": 70,
-    "tokens_saved": 687,
-    "pct_saved": 30,
+    "pct_of_webfetch": 72,
+    "tokens_saved": 626,
+    "pct_saved": 28,
     "chunk_breakdown": [
       {
         "chunk_id": 2,
@@ -48,5 +50,10 @@
         "content_tokens": 932
       }
     ]
-  }
+  },
+  "warnings": [
+    "All returned chunks share the same heading_path ('fastmcp-running-server'). The chunker did not extract section headings from this document \u2014 structural signal is absent.",
+    "Natural language query returned 0 results. The operative FTS5 query is a hand-crafted approximation, not what an agent would produce automatically."
+  ],
+  "notes": "Two-step approach is AGENTLESS: all matched chunk IDs are fetched unconditionally. A real agent selecting only relevant chunks after reading summaries would reduce token cost further."
 }

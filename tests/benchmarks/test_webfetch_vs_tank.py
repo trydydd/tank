@@ -16,10 +16,20 @@ Source fixture: tests/benchmarks/fixtures/fastmcp-running-server.md
   Fetched:      2026-05-21
 
 Natural language query: "how do I configure a stdio implementation in fastmcp"
-FTS5 query:             "stdio transport run"
-  (FTS5 requires terms present in the document; the natural language
-  version matched 0 results because "configure" and "implementation"
-  do not appear in the source page.)
+  ⚠️  This query returns 0 FTS5 results — "configure" and "implementation"
+  do not appear in the source document. This failure is measured and
+  reported explicitly in the results.
+
+FTS5 query: "stdio transport run"
+  Used as the operative benchmark query because it matches document terms.
+  This query was derived from the natural language intent — note that this
+  is a hand-crafted approximation, not what an agent would produce
+  automatically. The NL→FTS5 translation gap is a known limitation.
+
+WebFetch baseline: the raw fixture file content, with comment-metadata lines
+  (lines beginning with <!--) stripped. Those comment lines are benchmark
+  bookkeeping artifacts, not content that would appear in a real web fetch.
+  Stripping them ensures the WebFetch token count reflects real page content.
 
 Run:
     pytest tests/benchmarks/test_webfetch_vs_tank.py --benchmark -v -s
@@ -65,6 +75,17 @@ def _git_commit() -> str:
         ).strip()
     except Exception:
         return "unknown"
+
+
+def _strip_comment_lines(text: str) -> str:
+    """Remove HTML comment lines (<!-- ... -->) from page text.
+
+    These are benchmark bookkeeping annotations added when the fixture was
+    saved to disk. A real web fetch would never include them, so they must
+    be excluded from the WebFetch token count to keep the comparison fair.
+    """
+    lines = [l for l in text.splitlines() if not l.strip().startswith("<!--")]
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -161,11 +182,30 @@ def bench_db(tmp_path_factory: pytest.TempPathFactory) -> Database:
 @pytest.mark.benchmark
 def test_webfetch_vs_tank(bench_db: Database) -> None:
     # ------------------------------------------------------------------
-    # 1. WebFetch baseline — full page, no filtering
+    # 0. Natural-language query measurement
+    #    Run the original NL query first to record whether Tank can answer
+    #    it at all. A 0-result NL query is a real limitation and must be
+    #    surfaced in the results JSON, not buried in a comment.
+    # ------------------------------------------------------------------
+    nl_result = _query_docs(
+        bench_db,
+        query=NATURAL_LANGUAGE_QUERY,
+        packages=["fastmcp"],
+        detail="summary",
+        limit=10,
+    )
+    nl_hits = nl_result.get("results", [])
+    nl_result_count = len(nl_hits)
+
+    # ------------------------------------------------------------------
+    # 1. WebFetch baseline — full page, no filtering.
+    #    Strip HTML comment lines that are benchmark bookkeeping artifacts
+    #    (not real web content) before counting tokens.
     # ------------------------------------------------------------------
     raw_page = FIXTURE_FILE.read_text(encoding="utf-8")
-    webfetch_chars = len(raw_page)
-    webfetch_tokens = _count_tokens(raw_page)
+    page_content = _strip_comment_lines(raw_page)
+    webfetch_chars = len(page_content)
+    webfetch_tokens = _count_tokens(page_content)
 
     # ------------------------------------------------------------------
     # 2. Tank single-step full (agentless — no prior summary scan)
@@ -178,6 +218,10 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
         limit=10,
     )
     full_hits = full_result.get("results", [])
+    assert full_hits, (
+        f"FTS5 query {FTS5_QUERY!r} returned no results — benchmark is invalid. "
+        "Update FTS5_QUERY to a term that exists in the fixture document."
+    )
     full_tokens = sum(_count_tokens(r.get("content") or "") for r in full_hits)
     full_chunks_returned = len(full_hits)
 
@@ -193,6 +237,9 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
         limit=20,
     )
     summary_hits = summary_result.get("results", [])
+    assert summary_hits, (
+        f"FTS5 query {FTS5_QUERY!r} returned no summary results — benchmark is invalid."
+    )
     summary_tokens = sum(_count_tokens(r.get("summary") or "") for r in summary_hits)
 
     matched_ids = [r["chunk_id"] for r in summary_hits]
@@ -203,7 +250,10 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     two_step_total = summary_tokens + fetch_tokens
 
     # ------------------------------------------------------------------
-    # Per-chunk breakdown for two-step
+    # Per-chunk breakdown for two-step.
+    # heading_path_unique: flag when all chunks share the same heading_path,
+    # which indicates the chunker did not extract section headings and the
+    # structural signal is absent.
     # ------------------------------------------------------------------
     chunk_breakdown = []
     for r in fetch_hits:
@@ -219,6 +269,10 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
             }
         )
 
+    heading_paths = [c["heading_path"] for c in chunk_breakdown]
+    heading_paths_distinct = len(set(heading_paths))
+    heading_path_warning = heading_paths_distinct == 1 and len(chunk_breakdown) > 1
+
     # ------------------------------------------------------------------
     # Results payload
     # ------------------------------------------------------------------
@@ -229,15 +283,20 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
         "token_counter": "len_div_4",
         "source_url": SOURCE_URL,
         "natural_language_query": NATURAL_LANGUAGE_QUERY,
-        "fts5_query": FTS5_QUERY,
-        "note": (
-            "Two-step approach is AGENTLESS: all matched chunk IDs are fetched "
-            "unconditionally. A real agent selecting only relevant chunks after "
-            "reading summaries would reduce token cost further."
+        "nl_query_result_count": nl_result_count,
+        "nl_query_note": (
+            "The natural language query returned 0 results from FTS5. "
+            "Tank cannot answer this query without term overlap with the document. "
+            "The FTS5_QUERY below is a hand-crafted approximation used for the "
+            "token-cost comparison only."
+        ) if nl_result_count == 0 else (
+            f"The natural language query returned {nl_result_count} result(s)."
         ),
+        "fts5_query": FTS5_QUERY,
         "webfetch": {
             "chars": webfetch_chars,
             "tokens": webfetch_tokens,
+            "note": "HTML comment lines stripped (benchmark bookkeeping, not real page content).",
         },
         "tank_single_step_full": {
             "chunks_returned": full_chunks_returned,
@@ -265,7 +324,27 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
             else 0,
             "chunk_breakdown": chunk_breakdown,
         },
+        "warnings": [],
+        "notes": (
+            "Two-step approach is AGENTLESS: all matched chunk IDs are fetched "
+            "unconditionally. A real agent selecting only relevant chunks after "
+            "reading summaries would reduce token cost further."
+        ),
     }
+
+    if heading_path_warning:
+        results_payload["warnings"].append(
+            "All returned chunks share the same heading_path "
+            f"({heading_paths[0]!r}). The chunker did not extract section "
+            "headings from this document — structural signal is absent."
+        )
+
+    if nl_result_count == 0:
+        results_payload["warnings"].append(
+            "Natural language query returned 0 results. The operative FTS5 "
+            "query is a hand-crafted approximation, not what an agent would "
+            "produce automatically."
+        )
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS_DIR / "webfetch_vs_tank_latest.json"
@@ -281,10 +360,15 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     print(f"  query (NL)   : {NATURAL_LANGUAGE_QUERY}")
     print(f"  query (FTS5) : {FTS5_QUERY}")
     print()
+    if nl_result_count == 0:
+        print("  ⚠️  NL query returned 0 results — FTS5 query is a hand-crafted fallback.")
+    else:
+        print(f"  NL query returned {nl_result_count} result(s).")
+    print()
     print(f"  {'Approach':<35} {'tokens':>7}  {'vs WebFetch':>11}  {'saved':>7}")
     print(f"  {'-' * 35} {'-' * 7}  {'-' * 11}  {'-' * 7}")
     print(
-        f"  {'WebFetch (full page)':<35} {webfetch_tokens:>7}  {'100%':>11}  {'—':>7}"
+        f"  {'WebFetch (full page, comments stripped)':<35} {webfetch_tokens:>7}  {'100%':>11}  {'—':>7}"
     )
     pct = results_payload["tank_single_step_full"]["pct_of_webfetch"]
     saved = results_payload["tank_single_step_full"]["pct_saved"]
@@ -304,13 +388,26 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     )
     print()
     print("  Per-chunk breakdown (step 2):")
-    print(f"    {'chunk':>5}  {'tokens':>7}  summary")
+    print(f"    {'chunk':>5}  {'tokens':>7}  heading_path | summary")
     for c in chunk_breakdown:
-        summary_short = (c["summary"] or "")[:60]
-        print(f"    {c['chunk_id']:>5}  {c['content_tokens']:>7}  {summary_short}")
+        summary_short = (c["summary"] or "")[:50]
+        hp = (c["heading_path"] or "")
+        print(f"    {c['chunk_id']:>5}  {c['content_tokens']:>7}  {hp} | {summary_short}")
+    print()
+    if heading_path_warning:
+        print(
+            "  ⚠️  All chunks share the same heading_path — section headings not extracted."
+        )
     print()
     print("  ⚠️  Two-step is AGENTLESS: all matched chunks fetched unconditionally.")
     print("     A real agent selecting only relevant chunks after reading summaries")
     print("     would reduce token cost further. That path is not yet benchmarked.")
+
+    if results_payload["warnings"]:
+        print()
+        print("  Warnings:")
+        for w in results_payload["warnings"]:
+            print(f"    - {w}")
+
     print(f"\n  Results written to {out_path}")
     print("────────────────────────────────────────────────────────────────\n")
