@@ -32,11 +32,17 @@ def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
     from tank.builder.manifest import load_manifest
 
     manifest = load_manifest(ctx_path)
+    doc_version_status = str(manifest.get("doc_version_status", "unknown"))
+    if doc_version_status == "unknown":
+        console.print(
+            "[yellow]warning: manifest does not specify doc_version_status; "
+            "defaulting to 'unknown'[/yellow]"
+        )
     pack = Pack(
         name=str(manifest["package"]),
         version=str(manifest["version"]),
         lifecycle_state=str(manifest["lifecycle_state"]),
-        doc_version_status=str(manifest.get("doc_version_status", "stable")),
+        doc_version_status=doc_version_status,
         indexed_at=str(manifest.get("created_at", "")),
         policy_profile=str(manifest.get("policy_profile", "")),
         pack_digest=str(manifest["pack_digest"]),

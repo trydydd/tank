@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import zipfile
 from pathlib import Path
@@ -9,8 +10,40 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.cli.main import cli
 from tank.builder.build import build_pack
+from tank.builder.manifest import compute_pack_digest
+from tank.cli.main import cli
+
+_ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
+
+
+def _rebuild_ctx_with_status(source_ctx: Path, dest: Path, status: str) -> None:
+    """Copy a .ctx replacing doc_version_status, then recompute pack_digest."""
+    with zipfile.ZipFile(source_ctx, "r") as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        chunks = zf.read("chunks.jsonl")
+        pages = zf.read("pages.json")
+
+    manifest["doc_version_status"] = status
+    manifest["pack_digest"] = ""
+
+    def _write(m: dict[str, object]) -> None:
+        with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as out:
+            for name, content in [
+                ("manifest.json", json.dumps(m, indent=2, sort_keys=True)),
+                ("chunks.jsonl", chunks.decode()),
+                ("pages.json", pages.decode()),
+            ]:
+                info = zipfile.ZipInfo(name, date_time=_ZIP_EPOCH)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                out.writestr(info, content)
+            sig_info = zipfile.ZipInfo("signatures/", date_time=_ZIP_EPOCH)
+            sig_info.compress_type = zipfile.ZIP_STORED
+            out.writestr(sig_info, "")
+
+    _write(manifest)
+    manifest["pack_digest"] = compute_pack_digest(dest)
+    _write(manifest)
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:
@@ -161,6 +194,26 @@ class TestPullCommand:
         status = conn.execute("SELECT doc_version_status FROM packages").fetchone()[0]
         conn.close()
         assert status == "stable"  # manifest hardcodes "stable"; "imported" is wrong
+
+    def test_pull_unknown_doc_version_status_warns(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A manifest with doc_version_status='unknown' stores 'unknown' and warns."""
+        monkeypatch.chdir(tmp_path)
+        ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
+        unknown_ctx = tmp_path / "unknown.ctx"
+        _rebuild_ctx_with_status(ctx_path, unknown_ctx, "unknown")
+
+        result = CliRunner().invoke(cli, ["pull", str(unknown_ctx)])
+        assert result.exit_code == 0, f"pull failed: {result.output}"
+        assert "warning" in result.output.lower()
+        assert "unknown" in result.output.lower()
+
+        db_path = tmp_path / ".tank" / "index.db"
+        conn = sqlite3.connect(str(db_path))
+        status = conn.execute("SELECT doc_version_status FROM packages").fetchone()[0]
+        conn.close()
+        assert status == "unknown"
 
     def test_pull_force_does_not_skip_verify(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
