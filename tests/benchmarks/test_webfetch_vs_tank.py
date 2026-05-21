@@ -367,21 +367,21 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     else:
         print(f"  NL query returned {nl_result_count} result(s).")
     print()
-    print(f"  {'Approach':<35} {'tokens':>7}  {'vs WebFetch':>11}  {'saved':>7}")
-    print(f"  {'-' * 35} {'-' * 7}  {'-' * 11}  {'-' * 7}")
+    print(f"  {'Approach':<40} {'tokens':>7}  {'vs WebFetch':>11}  {'saved':>7}")
+    print(f"  {'-' * 40} {'-' * 7}  {'-' * 11}  {'-' * 7}")
     print(
-        f"  {'WebFetch (full page, comments stripped)':<35} {webfetch_tokens:>7}  {'100%':>11}  {'—':>7}"
+        f"  {'WebFetch (full page, comments stripped)':<40} {webfetch_tokens:>7}  {'100%':>11}  {'—':>7}"
     )
     pct = results_payload["tank_single_step_full"]["pct_of_webfetch"]
     saved = results_payload["tank_single_step_full"]["pct_saved"]
     print(
-        f"  {'Tank single-step full (agentless)':<35} {full_tokens:>7}"
+        f"  {'Tank single-step full (agentless)':<40} {full_tokens:>7}"
         f"  {pct:>10}%  {saved:>6}%"
     )
     pct2 = results_payload["tank_two_step_agentless"]["pct_of_webfetch"]
     saved2 = results_payload["tank_two_step_agentless"]["pct_saved"]
     print(
-        f"  {'Tank two-step (agentless)':<35} {two_step_total:>7}"
+        f"  {'Tank two-step (agentless)':<40} {two_step_total:>7}"
         f"  {pct2:>10}%  {saved2:>6}%"
     )
     print(f"    ↳ step 1 summary scan                {summary_tokens:>7}")
