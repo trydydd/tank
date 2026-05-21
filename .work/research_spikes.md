@@ -150,6 +150,72 @@ The honest agentless result is **1,550 tokens vs 2,259 for WebFetch (68%)**. The
 
 ---
 
+## Summary Heuristic — Heading-Aware Generation
+
+### Problem
+
+The current heuristic extracts the first non-trivial sentence from a chunk's content as its summary. This breaks when the first sentence is a transition or throwaway line rather than a description of what the chunk covers.
+
+Observed in the fastmcp stdio benchmark:
+
+| Chunk | Summary generated | What the chunk actually covers |
+|---|---|---|
+| 2 | "You can now run this MCP server by executing `python my_server." | The `run()` method intro — STDIO is the default |
+| 3 | "STDIO is ideal for: \* Local development..." | STDIO transport section |
+| 5 | "We recommend using HTTP transport instead of SSE for all new projects." | SSE deprecation + CLI reload |
+
+Chunk 2's summary is the sentence immediately after a code block (`mcp.run()`). It tells the agent nothing about the chunk's subject. An agent scanning summaries for "how to configure stdio" has no signal from chunk 2 — it looks like a generic "how to run the server" chunk, not an STDIO-specific one.
+
+In practice, the agent would correctly fetch chunk 3 (explicit STDIO signal) and skip chunk 5 (SSE, wrong topic), but would skip chunk 2 despite it containing the STDIO default behaviour (`run()` with no arguments = stdio). That's a missed relevant chunk, not just wasted tokens.
+
+### Root cause
+
+The heuristic is implemented in `src/tank/builder/chunking.py` (`_generate_summary()`). It picks the first sentence of the raw content string. For chunks that open with a code block or a short bridging sentence, this produces a summary that describes the transition, not the subject.
+
+### Proposed fix: heading path + first sentence
+
+A chunk's `heading_path` already encodes where in the document the chunk lives (e.g. `"fastmcp-running-server > STDIO Transport (Default)"`). The summary heuristic should prefer this structural signal:
+
+```
+summary = "<leaf heading>: <first prose sentence>"
+```
+
+For chunk 2, which sits under `## The run() Method`, this would produce:
+
+```
+The run() method: You can now run this MCP server by executing `python my_server.py`.
+```
+
+For chunk 3, under `### STDIO Transport (Default)`:
+
+```
+STDIO Transport (Default): STDIO (Standard Input/Output) is the default transport for FastMCP servers.
+```
+
+The heading provides the subject; the first sentence provides the detail. An agent scanning these for "stdio configuration" would immediately recognize both chunks 2 and 3 as relevant.
+
+### Edge cases to handle
+
+- **No heading path** (preamble chunks): fall back to current first-sentence behaviour.
+- **Heading path equals the page/doc title** (top-level chunk): skip the heading prefix to avoid redundancy — it adds no signal.
+- **Heading longer than ~60 chars**: truncate or use only the leaf node.
+- **First sentence is a list or code block**: skip to the next prose sentence, same as current behaviour.
+
+### Where to implement
+
+`src/tank/builder/chunking.py` — `_generate_summary(content: str, heading_path: str | None) -> str`
+
+The `heading_path` field is already computed before `_generate_summary` is called; it just isn't passed through. The change is additive with no schema impact — `summary` is still a plain string, it just has a richer value.
+
+### Acceptance criteria
+
+- Chunk 2 summary includes "run()" or "STDIO" so an agent querying for stdio configuration has a signal.
+- Existing summaries that were already informative (chunk 3, chunk 5) are not degraded.
+- Preamble chunks (no heading) fall back gracefully.
+- No change to the `summary` field schema or storage model.
+
+---
+
 ### Related files
 
 - `src/tank/server.py` — `query_docs()`, `_apply_token_budget()`
