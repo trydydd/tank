@@ -73,6 +73,8 @@ The file path prefix ensures that identically-named headings in different files 
 
 **Chunks per file**: a file with no headings produces a single chunk containing the full file content, with `heading_path` set to the file path prefix only.
 
+**Future — hybrid search**: a later phase will add an embedding generation step immediately after chunking. Each chunk's vector would be computed at build time (no model dependency on the consumer) and bundled into the `.ctx` archive. See [`docs/hybrid-search.md`](hybrid-search.md).
+
 ## 4. Summary Generation
 
 Each chunk receives a one-line summary, generated heuristically at build time.
@@ -153,8 +155,9 @@ my-lib@1.0.0.ctx
 ├── manifest.json
 ├── chunks.jsonl
 ├── pages.json
-└── signatures/
-    └── manifest.sig    (empty directory unless signing is configured)
+├── signatures/
+│   └── manifest.sig    (empty directory unless signing is configured)
+└── embeddings.bin      (future — hybrid search only, see docs/hybrid-search.md)
 ```
 
 Assembly sequence:
