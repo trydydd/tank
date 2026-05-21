@@ -63,10 +63,30 @@ _PACK = Pack(
 )
 
 _PAGES = [
-    Page(id=1, package="mylib", version="2.0.0", url="docs/auth.md", title="Authentication"),
-    Page(id=2, package="mylib", version="2.0.0", url="docs/config.md", title="Configuration"),
-    Page(id=3, package="mylib", version="2.0.0", url="docs/api.md", title="API Reference"),
-    Page(id=4, package="mylib", version="2.0.0", url="docs/integration.md", title="Integration"),
+    Page(
+        id=1,
+        package="mylib",
+        version="2.0.0",
+        url="docs/auth.md",
+        title="Authentication",
+    ),
+    Page(
+        id=2,
+        package="mylib",
+        version="2.0.0",
+        url="docs/config.md",
+        title="Configuration",
+    ),
+    Page(
+        id=3, package="mylib", version="2.0.0", url="docs/api.md", title="API Reference"
+    ),
+    Page(
+        id=4,
+        package="mylib",
+        version="2.0.0",
+        url="docs/integration.md",
+        title="Integration",
+    ),
 ]
 
 _CHUNKS_DATA = [
@@ -703,7 +723,11 @@ def test_token_overhead(bench_db: Database) -> None:
 
     two_step_total = step1_tokens + step2_tokens
     naive_full = response_data["full_n20"]["tokens"]
-    saving_pct = round((naive_full - two_step_total) / naive_full * 100, 1) if naive_full else 0.0
+    saving_pct = (
+        round((naive_full - two_step_total) / naive_full * 100, 1)
+        if naive_full
+        else 0.0
+    )
 
     results_payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -735,20 +759,24 @@ def test_token_overhead(bench_db: Database) -> None:
     print(f"  git commit     : {results_payload['git_commit']}")
     print(f"  tank version   : {results_payload['tank_version']}")
     print(f"  token counter  : {results_payload['token_counter']} (approx ±15%)")
-    print(f"\n  Corpus: {len(corpus_chunks)} chunks, "
-          f"avg summary {results_payload['corpus']['avg_summary_chars']} chars, "
-          f"avg content {results_payload['corpus']['avg_content_chars']} chars")
-    print(f"\n  Schema overhead")
+    print(
+        f"\n  Corpus: {len(corpus_chunks)} chunks, "
+        f"avg summary {results_payload['corpus']['avg_summary_chars']} chars, "
+        f"avg content {results_payload['corpus']['avg_content_chars']} chars"
+    )
+    print("\n  Schema overhead")
     for t in schema["tools"]:
         print(f"    {t['name']:20s}  {t['tokens']:>5} tokens")
-    print(f"    {'TOTAL':20s}  {schema['total_tokens']:>5} tokens  "
-          f"({schema['pct_of_200k_context']}% of 200K ctx, "
-          f"{schema['pct_of_128k_context']}% of 128K ctx)")
-    print(f"\n  Response sizes")
+    print(
+        f"    {'TOTAL':20s}  {schema['total_tokens']:>5} tokens  "
+        f"({schema['pct_of_200k_context']}% of 200K ctx, "
+        f"{schema['pct_of_128k_context']}% of 128K ctx)"
+    )
+    print("\n  Response sizes")
     print(f"    {'':20s}  {'tokens':>7}  {'tokens/result':>14}")
     for key, data in response_data.items():
         print(f"    {key:20s}  {data['tokens']:>7}  {data['tokens_per_result']:>14}")
-    print(f"\n  Progressive disclosure (summary scan → targeted full fetch)")
+    print("\n  Progressive disclosure (summary scan → targeted full fetch)")
     pd = results_payload["progressive_disclosure"]
     print(f"    step 1 (summary, all)    {pd['step1_summary_all_tokens']:>7} tokens")
     print(f"    step 2 (full, top 3)     {pd['step2_full_top3_tokens']:>7} tokens")

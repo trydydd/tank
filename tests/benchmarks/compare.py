@@ -91,7 +91,9 @@ def compare(baseline: dict, candidate: dict) -> dict[str, Any]:
     schema_delta = _pct_delta(b_schema, c_schema)
     schema_warn = schema_delta is not None and schema_delta > _SCHEMA_TOKENS_WARN_PCT
     if schema_warn:
-        warnings.append(f"schema tokens +{schema_delta:.1f}% (threshold +{_SCHEMA_TOKENS_WARN_PCT}%)")
+        warnings.append(
+            f"schema tokens +{schema_delta:.1f}% (threshold +{_SCHEMA_TOKENS_WARN_PCT}%)"
+        )
 
     # Per-tool breakdown
     b_tools = {t["name"]: t["tokens"] for t in baseline["schema"]["tools"]}
@@ -101,7 +103,14 @@ def compare(baseline: dict, candidate: dict) -> dict[str, Any]:
     # Response sizes (tokens per result)
     response_rows = []
     summary_warns = []
-    for key in ("summary_n5", "summary_n10", "summary_n20", "full_n5", "full_n10", "full_n20"):
+    for key in (
+        "summary_n5",
+        "summary_n10",
+        "summary_n20",
+        "full_n5",
+        "full_n10",
+        "full_n20",
+    ):
         b_tpr = baseline["responses"][key]["tokens_per_result"]
         c_tpr = candidate["responses"][key]["tokens_per_result"]
         delta = _pct_delta(b_tpr, c_tpr)
@@ -109,13 +118,15 @@ def compare(baseline: dict, candidate: dict) -> dict[str, Any]:
         warn = is_summary and delta is not None and delta > _SUMMARY_PER_RESULT_WARN_PCT
         if warn:
             summary_warns.append(key)
-        response_rows.append({
-            "key": key,
-            "before": b_tpr,
-            "after": c_tpr,
-            "delta_pct": delta,
-            "warn": warn,
-        })
+        response_rows.append(
+            {
+                "key": key,
+                "before": b_tpr,
+                "after": c_tpr,
+                "delta_pct": delta,
+                "warn": warn,
+            }
+        )
     if summary_warns:
         warnings.append(
             f"summary tokens/result exceeded +{_SUMMARY_PER_RESULT_WARN_PCT}% threshold: "
@@ -160,10 +171,14 @@ def compare(baseline: dict, candidate: dict) -> dict[str, Any]:
         "progressive_disclosure": {
             "step1_before": b_pd["step1_summary_all_tokens"],
             "step1_after": c_pd["step1_summary_all_tokens"],
-            "step1_delta": _pct_delta(b_pd["step1_summary_all_tokens"], c_pd["step1_summary_all_tokens"]),
+            "step1_delta": _pct_delta(
+                b_pd["step1_summary_all_tokens"], c_pd["step1_summary_all_tokens"]
+            ),
             "step2_before": b_pd["step2_full_top3_tokens"],
             "step2_after": c_pd["step2_full_top3_tokens"],
-            "step2_delta": _pct_delta(b_pd["step2_full_top3_tokens"], c_pd["step2_full_top3_tokens"]),
+            "step2_delta": _pct_delta(
+                b_pd["step2_full_top3_tokens"], c_pd["step2_full_top3_tokens"]
+            ),
             "total_before": b_pd["total_tokens"],
             "total_after": c_pd["total_tokens"],
             "total_delta": _pct_delta(b_pd["total_tokens"], c_pd["total_tokens"]),
@@ -208,10 +223,14 @@ def format_text(c: dict) -> str:
     s = c["schema"]
     for tool in s["tools"]:
         d = _fmt_pct(tool["delta_pct"]) if tool["delta_pct"] else "—"
-        lines.append(f"    {tool['name']:22s}  {tool['before']:>6} → {tool['after']:>6}  {d}")
+        lines.append(
+            f"    {tool['name']:22s}  {tool['before']:>6} → {tool['after']:>6}  {d}"
+        )
     total_d = _fmt_pct(s["delta_pct"]) if s["delta_pct"] else "—"
     status = _status(s["warn"])
-    lines.append(f"    {'TOTAL':22s}  {s['before']:>6} → {s['after']:>6}  {total_d:>8}  {status}")
+    lines.append(
+        f"    {'TOTAL':22s}  {s['before']:>6} → {s['after']:>6}  {total_d:>8}  {status}"
+    )
     lines.append(
         f"    {'% of 200K ctx':22s}  {s['pct_200k_before']:.3f}% → {s['pct_200k_after']:.3f}%"
     )
@@ -221,21 +240,45 @@ def format_text(c: dict) -> str:
     lines.append("  Response sizes (tokens/result)")
     lines.append(f"    {'':20s}  {'before':>7}  {'after':>7}  {'delta':>8}  status")
     for row in c["responses"]:
-        label = row["key"].replace("_n", " N=").replace("summary", "summary").replace("full", "full   ")
+        label = (
+            row["key"]
+            .replace("_n", " N=")
+            .replace("summary", "summary")
+            .replace("full", "full   ")
+        )
         d = _fmt_pct(row["delta_pct"]) if row["delta_pct"] else "—"
         st = _status(row["warn"])
-        lines.append(f"    {label:20s}  {row['before']:>7}  {row['after']:>7}  {d:>8}  {st}")
+        lines.append(
+            f"    {label:20s}  {row['before']:>7}  {row['after']:>7}  {d:>8}  {st}"
+        )
 
     # Progressive disclosure
     pd = c["progressive_disclosure"]
     lines.append("")
     lines.append("  Progressive disclosure")
     rows = [
-        ("step 1 (summary)", pd["step1_before"], pd["step1_after"], pd["step1_delta"], False),
-        ("step 2 (full top 3)", pd["step2_before"], pd["step2_after"], pd["step2_delta"], False),
+        (
+            "step 1 (summary)",
+            pd["step1_before"],
+            pd["step1_after"],
+            pd["step1_delta"],
+            False,
+        ),
+        (
+            "step 2 (full top 3)",
+            pd["step2_before"],
+            pd["step2_after"],
+            pd["step2_delta"],
+            False,
+        ),
         ("total", pd["total_before"], pd["total_after"], pd["total_delta"], False),
-        ("naive full N=20", pd["naive_before"], pd["naive_after"],
-         _pct_delta(pd["naive_before"], pd["naive_after"]), False),
+        (
+            "naive full N=20",
+            pd["naive_before"],
+            pd["naive_after"],
+            _pct_delta(pd["naive_before"], pd["naive_after"]),
+            False,
+        ),
     ]
     for label, bef, aft, delta, warn in rows:
         d = _fmt_pct(delta) if delta else "—"
@@ -287,7 +330,8 @@ def format_markdown(c: dict) -> str:
 
     lines.append("<!-- tank-benchmark -->")
     result_line = (
-        "✅ **PASS**" if c["passed"]
+        "✅ **PASS**"
+        if c["passed"]
         else f"⚠️ **WARN** — {len(c['warnings'])} threshold(s) exceeded"
     )
     lines.append(f"## 📊 Tank benchmark delta  {result_line}")
@@ -314,7 +358,9 @@ def format_markdown(c: dict) -> str:
         d = _md_delta_pct(tool["delta_pct"])
         lines.append(f"| `{tool['name']}` | {tool['before']} | {tool['after']} | {d} |")
     total_d = _md_delta_pct(s["delta_pct"], s["warn"])
-    lines.append(f"| **Total** | **{s['before']}** | **{s['after']}** | **{total_d}** |")
+    lines.append(
+        f"| **Total** | **{s['before']}** | **{s['after']}** | **{total_d}** |"
+    )
     lines.append(
         f"| % of 200K ctx | {s['pct_200k_before']:.3f}% | {s['pct_200k_after']:.3f}% | — |"
     )
@@ -338,11 +384,30 @@ def format_markdown(c: dict) -> str:
     lines.append("| | baseline | PR | Δ |")
     lines.append("|---|---:|---:|---|")
     for label, bef, aft, delta in [
-        ("step 1 (summary scan)", pd["step1_before"], pd["step1_after"], pd["step1_delta"]),
-        ("step 2 (full, top 3)", pd["step2_before"], pd["step2_after"], pd["step2_delta"]),
-        ("**total two-step**", pd["total_before"], pd["total_after"], pd["total_delta"]),
-        ("naive full N=20", pd["naive_before"], pd["naive_after"],
-         _pct_delta(pd["naive_before"], pd["naive_after"])),
+        (
+            "step 1 (summary scan)",
+            pd["step1_before"],
+            pd["step1_after"],
+            pd["step1_delta"],
+        ),
+        (
+            "step 2 (full, top 3)",
+            pd["step2_before"],
+            pd["step2_after"],
+            pd["step2_delta"],
+        ),
+        (
+            "**total two-step**",
+            pd["total_before"],
+            pd["total_after"],
+            pd["total_delta"],
+        ),
+        (
+            "naive full N=20",
+            pd["naive_before"],
+            pd["naive_after"],
+            _pct_delta(pd["naive_before"], pd["naive_after"]),
+        ),
     ]:
         d = _md_delta_pct(delta)
         lines.append(f"| {label} | {bef} | {aft} | {d} |")
@@ -360,8 +425,12 @@ def format_markdown(c: dict) -> str:
     lines.append("| Metric | Threshold |")
     lines.append("|---|---|")
     lines.append(f"| Schema total tokens | > +{_SCHEMA_TOKENS_WARN_PCT:.0f}% → warn |")
-    lines.append(f"| Summary tokens/result | > +{_SUMMARY_PER_RESULT_WARN_PCT:.0f}% → warn |")
-    lines.append(f"| Progressive disclosure saving | < {_PD_SAVING_WARN_FLOOR:.0f}% → warn |")
+    lines.append(
+        f"| Summary tokens/result | > +{_SUMMARY_PER_RESULT_WARN_PCT:.0f}% → warn |"
+    )
+    lines.append(
+        f"| Progressive disclosure saving | < {_PD_SAVING_WARN_FLOOR:.0f}% → warn |"
+    )
     lines.append("")
     lines.append("</details>")
 
@@ -378,7 +447,10 @@ def main() -> None:
     flags = [a for a in sys.argv[1:] if a.startswith("--")]
 
     if len(args) != 2:
-        print("usage: compare.py <baseline.json> <candidate.json> [--markdown]", file=sys.stderr)
+        print(
+            "usage: compare.py <baseline.json> <candidate.json> [--markdown]",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     markdown = "--markdown" in flags

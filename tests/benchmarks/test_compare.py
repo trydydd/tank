@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -56,12 +57,36 @@ def _make_result(
             "tools": [{"name": k, "tokens": v} for k, v in tool_tokens.items()],
         },
         "responses": {
-            "summary_n5": {"tokens": int(summary_n5_tpr * 5), "actual_results": 5, "tokens_per_result": summary_n5_tpr},
-            "summary_n10": {"tokens": int(summary_n10_tpr * 10), "actual_results": 10, "tokens_per_result": summary_n10_tpr},
-            "summary_n20": {"tokens": int(summary_n20_tpr * 20), "actual_results": 20, "tokens_per_result": summary_n20_tpr},
-            "full_n5": {"tokens": int(full_n5_tpr * 5), "actual_results": 5, "tokens_per_result": full_n5_tpr},
-            "full_n10": {"tokens": int(full_n10_tpr * 10), "actual_results": 10, "tokens_per_result": full_n10_tpr},
-            "full_n20": {"tokens": int(full_n20_tpr * 20), "actual_results": 20, "tokens_per_result": full_n20_tpr},
+            "summary_n5": {
+                "tokens": int(summary_n5_tpr * 5),
+                "actual_results": 5,
+                "tokens_per_result": summary_n5_tpr,
+            },
+            "summary_n10": {
+                "tokens": int(summary_n10_tpr * 10),
+                "actual_results": 10,
+                "tokens_per_result": summary_n10_tpr,
+            },
+            "summary_n20": {
+                "tokens": int(summary_n20_tpr * 20),
+                "actual_results": 20,
+                "tokens_per_result": summary_n20_tpr,
+            },
+            "full_n5": {
+                "tokens": int(full_n5_tpr * 5),
+                "actual_results": 5,
+                "tokens_per_result": full_n5_tpr,
+            },
+            "full_n10": {
+                "tokens": int(full_n10_tpr * 10),
+                "actual_results": 10,
+                "tokens_per_result": full_n10_tpr,
+            },
+            "full_n20": {
+                "tokens": int(full_n20_tpr * 20),
+                "actual_results": 20,
+                "tokens_per_result": full_n20_tpr,
+            },
         },
         "progressive_disclosure": {
             "step1_summary_all_tokens": step1_tokens,
@@ -248,7 +273,9 @@ def test_compare_pd_saving_delta_pp_correct() -> None:
     b = _make_result(pd_saving_pct=52.2)
     c = _make_result(pd_saving_pct=45.0)
     result = compare(b, c)
-    assert result["progressive_disclosure"]["saving_delta_pp"] == pytest.approx(45.0 - 52.2)
+    assert result["progressive_disclosure"]["saving_delta_pp"] == pytest.approx(
+        45.0 - 52.2
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +298,9 @@ def test_compare_multiple_thresholds_exceeded() -> None:
 
 def test_compare_tool_added_in_candidate() -> None:
     b = _make_result(tool_tokens={"query-docs": 185, "resolve-deps": 75})
-    c = _make_result(tool_tokens={"query-docs": 185, "resolve-deps": 75, "new-tool": 50})
+    c = _make_result(
+        tool_tokens={"query-docs": 185, "resolve-deps": 75, "new-tool": 50}
+    )
     result = compare(b, c)
     tools = {t["name"]: t for t in result["schema"]["tools"]}
     assert "new-tool" in tools
@@ -383,13 +412,13 @@ def test_format_text_contains_version_info() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_load_missing_file_exits_2(tmp_path: "Path") -> None:
+def test_load_missing_file_exits_2(tmp_path: Path) -> None:
     with pytest.raises(SystemExit) as exc:
         _load(str(tmp_path / "nonexistent.json"))
     assert exc.value.code == 2
 
 
-def test_load_valid_file_returns_dict(tmp_path: "Path") -> None:
+def test_load_valid_file_returns_dict(tmp_path: Path) -> None:
     data = {"foo": "bar"}
     p = tmp_path / "data.json"
     p.write_text(json.dumps(data))
@@ -437,8 +466,13 @@ def test_main_exit_2_on_wrong_arg_count(monkeypatch) -> None:
 
 def test_main_exit_2_on_missing_file(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
-        sys, "argv",
-        ["compare.py", str(tmp_path / "missing.json"), str(tmp_path / "also_missing.json")],
+        sys,
+        "argv",
+        [
+            "compare.py",
+            str(tmp_path / "missing.json"),
+            str(tmp_path / "also_missing.json"),
+        ],
     )
     with pytest.raises(SystemExit) as exc:
         main()
@@ -452,7 +486,9 @@ def test_main_markdown_flag_does_not_change_exit_code(tmp_path, monkeypatch) -> 
     c_path = tmp_path / "candidate.json"
     b_path.write_text(json.dumps(b))
     c_path.write_text(json.dumps(c))
-    monkeypatch.setattr(sys, "argv", ["compare.py", str(b_path), str(c_path), "--markdown"])
+    monkeypatch.setattr(
+        sys, "argv", ["compare.py", str(b_path), str(c_path), "--markdown"]
+    )
     with pytest.raises(SystemExit) as exc:
         main()
     assert exc.value.code == 0
