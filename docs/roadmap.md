@@ -21,7 +21,7 @@
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
 - [x] GitHub Actions benchmark workflow — PR delta comparison via `tests/benchmarks/compare.py`
 - [x] WebFetch vs Tank benchmark — `tests/benchmarks/test_webfetch_vs_tank.py` with fastmcp fixture
-- [ ] Extend PR comment bot to include WebFetch vs Tank results alongside token overhead
+- [x] Extend PR comment bot to include WebFetch vs Tank results alongside token overhead
 - [x] Benchmark output cleanup — PR comment redesigned with plain-English headline table and collapsed detail; raw JSON dump replaced with formatted standalone output. Console output unchanged (runs under `-s`, not in reviewers' way).
 - [x] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
 
