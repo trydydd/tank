@@ -23,6 +23,7 @@
 - [x] Fix `src/tank/storage/db.py:121-126` — page ID foreign key integrity on import
 - [x] Fix `src/tank/search/fts.py:76` — silent exception swallowing; all search errors return `[]`
 - [x] Fix `src/tank/cli/pull.py:39` — hardcoded `doc_version_status="imported"` instead of reading from manifest
+- [ ] Fix `src/tank/builder/manifest.py:43` — `doc_version_status` hardcoded to `"stable"`; accept it as a parameter to `build_manifest()`
 - [ ] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
 
 ---
