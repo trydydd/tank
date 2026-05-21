@@ -481,3 +481,86 @@ def test_resolve_deps_does_not_omit_deprecated(db: Database) -> None:
     assert "old-lib" in packages_seen, (
         "resolve-deps must include deprecated packs in its output"
     )
+
+
+# ---------------------------------------------------------------------------
+# test_query_docs_max_tokens — large budget is equivalent to no budget
+# ---------------------------------------------------------------------------
+
+
+def test_query_docs_max_tokens_large_budget(db: Database) -> None:
+    _seed_approved_pack(db)
+
+    unbounded = query_docs(db, query="configure", detail="summary")
+    budgeted = query_docs(db, query="configure", detail="summary", max_tokens=10_000)
+
+    assert budgeted["results"] == unbounded["results"]
+
+
+# ---------------------------------------------------------------------------
+# test_query_docs_max_tokens — trims and preserves BM25 prefix
+# ---------------------------------------------------------------------------
+
+
+def test_query_docs_max_tokens_trims_to_ranked_prefix(db: Database) -> None:
+    _seed_approved_pack(db)
+
+    unbounded = query_docs(db, query="configure", detail="summary")
+    assert len(unbounded["results"]) > 1
+
+    # Compute total estimated cost across all returned summaries.
+    total_cost = sum(len(r["summary"] or "") // 4 for r in unbounded["results"])
+
+    # A budget one token below the total must drop at least the last result.
+    trimmed = query_docs(
+        db, query="configure", detail="summary", max_tokens=total_cost - 1
+    )
+    assert len(trimmed["results"]) < len(unbounded["results"])
+
+    # Retained results must be the top-ranked prefix — same order, same chunk IDs.
+    for i, r in enumerate(trimmed["results"]):
+        assert r["chunk_id"] == unbounded["results"][i]["chunk_id"]
+
+
+# ---------------------------------------------------------------------------
+# test_query_docs_max_tokens — full detail uses content length
+# ---------------------------------------------------------------------------
+
+
+def test_query_docs_max_tokens_full_detail(db: Database) -> None:
+    _seed_approved_pack(db)
+
+    # Budget of 1 cannot fit any chunk (all content strings are > 4 chars).
+    empty = query_docs(db, query="configure", detail="full", max_tokens=1)
+    assert empty["results"] == []
+
+    # Large budget returns same results as no budget.
+    unbounded = query_docs(db, query="configure", detail="full")
+    big = query_docs(db, query="configure", detail="full", max_tokens=10_000)
+    assert big["results"] == unbounded["results"]
+
+
+# ---------------------------------------------------------------------------
+# test_query_docs_max_tokens — chunk_ids path applies budget against content
+# ---------------------------------------------------------------------------
+
+
+def test_query_docs_max_tokens_chunk_ids(db: Database) -> None:
+    _seed_approved_pack(db)
+
+    # chunk_ids always fetches full content; budget is applied against content length.
+    # Chunk 1 content: "To configure OAuth2 client credentials flow..." (46 chars → 11 tokens)
+    # Chunk 2 content: "Set the max retries to 3." (25 chars → 6 tokens)
+    # Combined cost: 17 tokens.
+
+    # Budget 17 fits both chunks.
+    both = query_docs(db, query="", chunk_ids=[1, 2], max_tokens=17)
+    assert {r["chunk_id"] for r in both["results"]} == {1, 2}
+
+    # Budget 11 fits chunk 1 (cost 11) but stops before chunk 2 (11+6=17 > 11).
+    one = query_docs(db, query="", chunk_ids=[1, 2], max_tokens=11)
+    assert [r["chunk_id"] for r in one["results"]] == [1]
+
+    # Budget 10 cannot fit chunk 1 (cost 11 > 10).
+    none = query_docs(db, query="", chunk_ids=[1, 2], max_tokens=10)
+    assert none["results"] == []

@@ -56,14 +56,21 @@ def query_docs(
     detail: str = "summary",
     chunk_ids: list[int] | None = None,
     limit: int = 10,
+    max_tokens: int | None = None,
 ) -> dict[str, Any]:
     """FTS5 search with attribution.
 
     Supports summary/full detail levels and chunk_ids for targeted retrieval.
+    When max_tokens is set, results are accumulated in rank order and stopped
+    before the estimated token cost would exceed the budget. Chunks are never
+    partially truncated — the cut always falls between whole chunks.
     """
     if chunk_ids:
         results = get_chunks_by_id(db, chunk_ids, detail="full")
-        return {"results": [_to_dict(r) for r in results]}
+        hits = [_to_dict(r) for r in results]
+        if max_tokens is not None:
+            hits = _apply_token_budget(hits, max_tokens, "full")
+        return {"results": hits}
 
     if not query.strip():
         return {"results": []}
@@ -77,8 +84,36 @@ def query_docs(
         if row["cnt"] < len(packages):
             return {"status": "not_indexed"}
 
-    hits = search(db, query, packages=packages, detail=detail, limit=limit)
-    return {"results": [_to_dict(r) for r in hits]}
+    hits = [
+        _to_dict(r)
+        for r in search(db, query, packages=packages, detail=detail, limit=limit)
+    ]
+    if max_tokens is not None:
+        hits = _apply_token_budget(hits, max_tokens, detail)
+    return {"results": hits}
+
+
+def _apply_token_budget(
+    hits: list[dict[str, Any]], max_tokens: int, detail: str
+) -> list[dict[str, Any]]:
+    """Return the longest BM25-ranked prefix of hits that fits within max_tokens.
+
+    Token cost per chunk: len(content) // 4 for full detail,
+    len(summary) // 4 for summary detail. Matches the token_count estimator
+    used at build time. Whole chunks only — no partial truncation.
+    """
+    budget = 0
+    kept: list[dict[str, Any]] = []
+    for hit in hits:
+        if detail == "full":
+            cost = len(hit.get("content") or "") // 4
+        else:
+            cost = len(hit.get("summary") or "") // 4
+        if budget + cost > max_tokens:
+            break
+        budget += cost
+        kept.append(hit)
+    return kept
 
 
 def _to_dict(r: SearchResult) -> dict[str, Any]:
@@ -135,6 +170,7 @@ def _register_tools(mcp: FastMCP) -> None:
                 detail=detail,
                 chunk_ids=chunk_ids,
                 limit=limit,
+                max_tokens=max_tokens,
             )
             return json.dumps(result)
         finally:
