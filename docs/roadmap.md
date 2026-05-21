@@ -25,6 +25,7 @@
 - [x] Fix `src/tank/cli/pull.py:39` — hardcoded `doc_version_status="imported"` instead of reading from manifest
 - [ ] Fix `src/tank/builder/manifest.py:43` — `doc_version_status` hardcoded to `"stable"`; accept it as a parameter to `build_manifest()`
 - [ ] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
+- [ ] Add `schemas/manifest.v2.schema.json` — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it
 
 ---
 

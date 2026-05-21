@@ -22,6 +22,9 @@
 
 ## Incomplete Implementations
 
+- [ ] **No machine-readable manifest schema (`schemas/manifest.v2.schema.json`)**
+  The `manifest.json` field definitions live in `docs/architecture.md` (prose) and `src/tank/validator/verify.py` (code) and can drift apart. A JSON Schema file at `schemas/manifest.v2.schema.json` would be the single source of truth: the verifier validates against it at runtime, the builder's output is tested against it, and the architecture docs reference it rather than duplicating the field table.
+
 - [ ] **Signature verification is a stub (`src/tank/validator/verify.py`, Step 8)**
   Only checks whether `signatures/manifest.sig` exists in the archive. No actual cryptographic verification (ed25519, Sigstore, etc.) is performed.
 
