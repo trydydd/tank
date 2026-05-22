@@ -6,14 +6,22 @@ See v0.1.1 checklist below.
 
 ---
 
-## v0.1.0 — "Ship It" ✓
+## v0.1.0 — "MVP" ✓
 
-**Theme**: Get on PyPI. Make it installable. Let people try it.
+**Theme**: Working end-to-end implementation. Build, verify, pull, query.
 
-**Status**: Shipped.
+**Status**: Tagged. Not on PyPI (blocked — see v0.2.0).
 
-- [x] mypy error in `src/tank/builder/build.py:133`
-- [x] MCP server configuration examples for Claude Code, Cursor, VS Code — see `docs/MCP.md`
+- [x] `tank build` — source tree → `.ctx` pack (Markdown/HTML, lexicographic walk, deterministic chunk IDs)
+- [x] `tank verify` — 8-step archive safety validator, policy enforcement, `pack_digest` integrity check
+- [x] `tank pull` — verify-before-import, atomic SQLite transaction, WAL mode
+- [x] `tank query` — FTS5 BM25 search with source attribution
+- [x] MCP server — `query-docs` and `resolve-deps` tools over stdio
+- [x] Policy engine — lifecycle state gating (`draft` / `approved` / `deprecated` / `revoked`)
+- [x] CI workflow — lint, typecheck, test on push/PR
+- [x] Release workflow — builds wheel + `.ctx` packs on `v*` tags, creates GitHub release
+- [x] fastmcp@3.3.0 `.ctx` pack — first release artifact (1190 chunks)
+- [x] mypy clean — builder type errors resolved
 
 ---
 
@@ -21,6 +29,7 @@ See v0.1.1 checklist below.
 
 **Theme**: Fix data integrity bugs found post-tag; ship benchmark infrastructure.
 
+- [x] MCP server configuration examples for Claude Code, Cursor, VS Code — see `docs/MCP.md`
 - [x] Polish README — "implementation is beginning" replaced with accurate status
 - [x] Expose `limit` parameter on `query-docs` MCP tool and `query_docs()`
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
