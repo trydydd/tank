@@ -93,6 +93,6 @@ Hybrid search is explicitly deferred past MVP. CLAUDE.md states:
 Preconditions for revisiting:
 - Evidence from a real multi-document corpus that 0-result FTS5 failures are frequent
   enough to justify the added build complexity and `.ctx` size increase.
-- The `search-docs` / `fetch-docs` endpoint split (see `.work/research_spikes.md`) is
+- The `search-docs` / `fetch-docs` endpoint split (see `docs/decisions.md` D12) is
   the higher-priority search improvement — it enforces the two-step pattern
   architecturally and eliminates the single-step footgun without adding any dependencies.

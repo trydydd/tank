@@ -153,3 +153,24 @@ Each entry records: the decision, the alternatives considered, why we chose what
 - **Custom tokenizer** — porter stemmer or unicode61 with diacritics removal. Deferred: low-priority for technical documentation where exact terms dominate.
 
 **Revisit when**: v0.2.0 FTS5 tuning work begins. The four improvements are ordered by impact: (1) add `heading_path` to `chunks_fts` with 2.5× weight, (2) tune BM25 column weights, (3) query preprocessing, (4) synonym expansion. Measure search quality before and after before considering embeddings.
+
+---
+
+## D12: `query-docs` Tool Surface — Single Tool vs Split
+
+**Decision**: ship MVP with a single `query-docs` tool accepting a `detail` parameter (`"summary"` or `"full"`).
+
+**The problem with this surface**: `detail="full"` sounds better than `detail="summary"` to an LLM agent. The parameter name nudges agents toward the expensive single-step path — fetching full content speculatively without a prior relevance pass — which is the footgun the two-step pattern is designed to prevent.
+
+**Proposed split (deferred)**:
+
+```
+search-docs   query, packages, limit     → always returns summaries only
+fetch-docs    chunk_ids, max_tokens      → always returns full content by ID
+```
+
+This enforces the two-step pattern architecturally: `search-docs` cannot return full content; `fetch-docs` cannot do speculative full-content search. Eliminates the footgun without any stateful enforcement.
+
+**Why deferred**: breaking change to `query-docs`. Any existing MCP client configuration referencing `query-docs` would need to migrate. The immediate mitigation is a clear tool description stating that `detail="full"` without `chunk_ids` should always be paired with an explicit `max_tokens`.
+
+**Revisit when**: the two-step workflow is validated with real users and a breaking change to the tool surface is acceptable. The split is the right architecture; the question is timing.
