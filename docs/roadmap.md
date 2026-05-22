@@ -1,8 +1,8 @@
 # Tank — Semver Roadmap
 
-## Current Focus — v0.2.0
+## Current Focus — v0.1.1
 
-See v0.2.0 checklist below.
+See v0.1.1 checklist below.
 
 ---
 
