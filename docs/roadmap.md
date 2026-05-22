@@ -51,7 +51,8 @@
   - Tune BM25 weights: heading 2.5× > summary 1.5× > content 1.0×
   - Query preprocessing: stopword filtering, term normalization
   - Synonym expansion: `auth` → `authentication`, `JWT` → `JSON Web Token`, etc.
-- [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. Hash entries in a defined order instead.
+- [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. The current implementation reads the entire ZIP into memory, then reconstructs a second in-memory ZIP — decompressing and re-compressing every file — solely to zero out `pack_digest` and hash the result. Near the 500MB archive limit this allocates 500MB+, decompresses everything, and holds it all in memory simultaneously. Fix: hash individual entries in a defined order instead of reconstructing the archive.
+- [ ] **Query latency benchmark** — measure actual FTS5 query time against a representative index (target: 100K chunks); replace the unbenchmarked sub-10ms claim in `architecture.md` with a measured number. Add to `tests/benchmarks/` alongside the existing token overhead and WebFetch benchmarks.
 
 ---
 

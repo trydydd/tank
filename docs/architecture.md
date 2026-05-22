@@ -12,6 +12,19 @@ A local, enterprise-governed documentation pack system: build versioned `.ctx` p
 - **Fast**: sub-10ms queries against pre-indexed content via SQLite FTS5
 - **Token-efficient**: layered retrieval (summary scan → targeted full-content fetch) minimises context window usage without sacrificing accuracy
 
+## Design Context
+
+Tank is not the only tool that gives AI coding agents access to documentation. The competitive landscape explains why the design makes the trade-offs it does.
+
+| Tool | Approach | Why Tank differs |
+|---|---|---|
+| **Context7** (Upstash, ~55k GitHub stars) | Cloud-hosted MCP server; indexes thousands of public libraries; zero config | Tank is local-first — no cloud dependency, works offline, supports private/internal docs |
+| **Grounded Docs MCP / DevDocs MCP** | Open-source local doc crawlers, Docker-based | Tank adds cryptographic pack integrity, governance lifecycle states, and a portable verifiable format |
+| **Cursor / Copilot / JetBrains AI** | Editor-native context from open files, import graphs, project structure | Tank provides *external* library documentation — what the library you depend on actually says, not just what is in your project files |
+| **llms.txt** | Web convention exposing AI-readable doc summaries | Tank turns `llms.txt` into versioned, searchable, verifiable local packs |
+
+Tank's differentiated position is the set of requirements that cloud-first tools cannot meet: private and internal documentation that cannot leave the organisation; cryptographic proof that pack content has not been tampered with; enterprise policy governance over what documentation enters agent context; offline and air-gapped operation. These are enterprise requirements. Tank does not compete with Context7 for the individual developer market; the design optimises for teams and enterprises that need trust guarantees on the documentation their agents consume.
+
 ## MVP Definition
 
 The MVP loop is four commands:
@@ -510,7 +523,7 @@ Package and version filters are applied as additional `AND c.package = ?` / `AND
 
 ### Performance target
 
-Under 10ms for queries against up to 100,000 indexed chunks on commodity hardware. FTS5's inverted index makes this straightforwardly achievable without tuning; BM25 is computed during traversal, not post-hoc.
+Target: sub-10ms queries against up to 100,000 indexed chunks on commodity hardware. FTS5's inverted index makes this achievable; BM25 is computed during traversal, not post-hoc. This target is unbenchmarked — see roadmap v0.2.0.
 
 ### Progressive disclosure
 

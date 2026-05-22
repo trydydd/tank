@@ -131,3 +131,25 @@ Each entry records: the decision, the alternatives considered, why we chose what
 - **Programmatic fixtures only**: build all test data in code. Rejected because: archive validation tests need real `.ctx` files with known byte-level properties (corrupted archives, path traversal entries, bad signatures). These are hard to construct programmatically and easier to inspect as static files.
 
 **Revisit when**: the test suite grows large enough that fixture management becomes a problem.
+
+---
+
+## D11: FTS5 Configuration — Minimal for MVP, Tuning Deferred
+
+**Decision**: ship MVP with a minimal FTS5 configuration: raw query passthrough, uniform BM25 column weights, default tokenizer, and `heading_path` stored in the `chunks` table but not indexed in FTS5.
+
+**What this means in practice**: the MVP implementation uses roughly 30–40% of FTS5's available capability. Specifically:
+
+- `fts.py` passes queries directly to `MATCH` with no preprocessing — stopwords, articles, and filler terms consume BM25 capacity
+- BM25 column weights are uniform `(1.0, 1.0, 1.0)` — `summary` and `content` are weighted identically
+- Default tokenizer — no stemming, no code-aware tokenization, no prefix matching
+- `heading_path` is the strongest relevance signal in documentation search and is not indexed
+
+**Alternatives considered (deferred, not rejected)**:
+
+- **Column weighting** — `bm25(chunks_fts, 2.5, 1.5, 1.0)` with heading > summary > content. Deferred: requires adding `heading_path` to the FTS5 virtual table, which is a schema migration.
+- **Query preprocessing** — stopword filtering, term normalisation. Deferred: adds code with no correctness risk but material quality impact; belongs in v0.2.0 where FTS5 tuning is scoped.
+- **Prefix queries and synonym expansion** — `auth*` matching `authentication`; a small static dict for common technical abbreviations. Deferred: same scope.
+- **Custom tokenizer** — porter stemmer or unicode61 with diacritics removal. Deferred: low-priority for technical documentation where exact terms dominate.
+
+**Revisit when**: v0.2.0 FTS5 tuning work begins. The four improvements are ordered by impact: (1) add `heading_path` to `chunks_fts` with 2.5× weight, (2) tune BM25 column weights, (3) query preprocessing, (4) synonym expansion. Measure search quality before and after before considering embeddings.
