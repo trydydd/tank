@@ -232,7 +232,7 @@ def format_text(c: dict[str, Any]) -> str:
         f"    {'TOTAL':22s}  {s['before']:>6} → {s['after']:>6}  {total_d:>8}  {status}"
     )
     lines.append(
-        f"    {'% of 200K ctx':22s}  {s['pct_200k_before']:.3f}% → {s['pct_200k_after']:.3f}%"
+        f"    {'% of 200K context':22s}  {s['pct_200k_before']:.3f}% → {s['pct_200k_after']:.3f}%"
     )
 
     # Responses
@@ -325,32 +325,78 @@ def _md_delta_pp(v: float, warn: bool = False) -> str:
     return f"{s} {_md_status(warn)}" if warn else s
 
 
+def _md_threshold_details() -> list[str]:
+    return [
+        "<details>",
+        "<summary>Thresholds</summary>",
+        "",
+        "| Metric | Threshold |",
+        "|---|---|",
+        f"| Schema total tokens | > +{_SCHEMA_TOKENS_WARN_PCT:.0f}% → warn |",
+        f"| Summary tokens/result | > +{_SUMMARY_PER_RESULT_WARN_PCT:.0f}% → warn |",
+        f"| Two-step saving | < {_PD_SAVING_WARN_FLOOR:.0f}% → warn |",
+        "",
+        "</details>",
+    ]
+
+
 def format_markdown(c: dict[str, Any]) -> str:
     lines: list[str] = []
 
+    result_badge = "✅ PASS" if c["passed"] else "⚠️ WARN"
     lines.append("<!-- tank-benchmark -->")
-    result_line = (
-        "✅ **PASS**"
-        if c["passed"]
-        else f"⚠️ **WARN** — {len(c['warnings'])} threshold(s) exceeded"
-    )
-    lines.append(f"## 📊 Tank benchmark delta  {result_line}")
+    lines.append(f"## 📊 Tank benchmark — {result_badge}")
     lines.append("")
     lines.append(
-        f"**baseline** `{c['baseline_commit']}` (v{c['baseline_version']}) → "
-        f"**PR** `{c['candidate_commit']}` (v{c['candidate_version']})"
+        f"`{c['baseline_commit']}` (v{c['baseline_version']}) → "
+        f"`{c['candidate_commit']}` (v{c['candidate_version']}) "
+        f"· `{c['token_counter']}` counter (±15%)"
     )
-    lines.append(f"*Token counter: `{c['token_counter']}` (±15% approximate)*")
 
     if c["warnings"]:
         lines.append("")
         for w in c["warnings"]:
             lines.append(f"> ⚠️ {w}")
 
-    # Schema
+    # Headline — three numbers anyone can read
     s = c["schema"]
+    pd = c["progressive_disclosure"]
+    summary_row = next(r for r in c["responses"] if r["key"] == "summary_n10")
+    schema_warn_badge = f" {_md_status(s['warn'])}" if s["warn"] else ""
+    pd_warn_badge = f" {_md_status(pd['warn'])}" if pd["warn"] else ""
+    summary_warn_badge = (
+        f" {_md_status(summary_row['warn'])}" if summary_row["warn"] else ""
+    )
+
     lines.append("")
-    lines.append("### Schema overhead")
+    lines.append("| Metric | baseline | PR | change |")
+    lines.append("|---|---:|---:|:---|")
+    lines.append(
+        f"| Tool schema cost | {s['before']} tok · {s['pct_200k_before']:.3f}% of 200K context "
+        f"| {s['after']} tok · {s['pct_200k_after']:.3f}%"
+        f" | {_md_delta_pct(s['delta_pct'], s['warn'])}{schema_warn_badge} |"
+    )
+    lines.append(
+        f"| Summary tokens/result | {summary_row['before']} "
+        f"| {summary_row['after']}"
+        f" | {_md_delta_pct(summary_row['delta_pct'], summary_row['warn'])}{summary_warn_badge} |"
+    )
+    lines.append(
+        f"| Two-step saving vs naive | {pd['saving_before']:.1f}% "
+        f"| {pd['saving_after']:.1f}%"
+        f" | {_md_delta_pp(pd['saving_delta_pp'], pd['warn'])}{pd_warn_badge} |"
+    )
+
+    # Full breakdown in collapsible
+    lines.append("")
+    lines.append("<details>")
+    lines.append("<summary>Full breakdown</summary>")
+    lines.append("")
+
+    # Schema per-tool
+    lines.append(
+        "**Schema** — tokens added to every request by Tank's tool definitions"
+    )
     lines.append("")
     lines.append("| Tool | baseline | PR | Δ |")
     lines.append("|---|---:|---:|---|")
@@ -361,37 +407,43 @@ def format_markdown(c: dict[str, Any]) -> str:
     lines.append(
         f"| **Total** | **{s['before']}** | **{s['after']}** | **{total_d}** |"
     )
-    lines.append(
-        f"| % of 200K ctx | {s['pct_200k_before']:.3f}% | {s['pct_200k_after']:.3f}% | — |"
-    )
 
     # Responses
     lines.append("")
-    lines.append("### Response sizes (tokens per result)")
+    lines.append("**Response sizes** — tokens returned per result at each detail level")
     lines.append("")
     lines.append("| | baseline | PR | Δ |")
     lines.append("|---|---:|---:|---|")
+    _RESPONSE_LABELS = {
+        "summary_n5": "summary · 5 results",
+        "summary_n10": "summary · 10 results",
+        "summary_n20": "summary · 20 results",
+        "full_n5": "full content · 5 results",
+        "full_n10": "full content · 10 results",
+        "full_n20": "full content · 20 results",
+    }
     for row in c["responses"]:
-        label = row["key"].replace("_n", " N=")
+        label = _RESPONSE_LABELS.get(row["key"], row["key"])
         d = _md_delta_pct(row["delta_pct"], row["warn"])
         lines.append(f"| {label} | {row['before']} | {row['after']} | {d} |")
 
     # Progressive disclosure
-    pd = c["progressive_disclosure"]
     lines.append("")
-    lines.append("### Progressive disclosure")
+    lines.append(
+        "**Two-step pattern** — summary scan → targeted full fetch vs fetching everything"
+    )
     lines.append("")
     lines.append("| | baseline | PR | Δ |")
     lines.append("|---|---:|---:|---|")
     for label, bef, aft, delta in [
         (
-            "step 1 (summary scan)",
+            "step 1: summary scan (20 chunks)",
             pd["step1_before"],
             pd["step1_after"],
             pd["step1_delta"],
         ),
         (
-            "step 2 (full, top 3)",
+            "step 2: full fetch (top 3)",
             pd["step2_before"],
             pd["step2_after"],
             pd["step2_delta"],
@@ -403,7 +455,7 @@ def format_markdown(c: dict[str, Any]) -> str:
             pd["total_delta"],
         ),
         (
-            "naive full N=20",
+            "naive full fetch (20 chunks)",
             pd["naive_before"],
             pd["naive_after"],
             _pct_delta(pd["naive_before"], pd["naive_after"]),
@@ -413,26 +465,103 @@ def format_markdown(c: dict[str, Any]) -> str:
         lines.append(f"| {label} | {bef} | {aft} | {d} |")
     saving_d = _md_delta_pp(pd["saving_delta_pp"], pd["warn"])
     lines.append(
-        f"| **saving %** | **{pd['saving_before']:.1f}%** | "
+        f"| **saving** | **{pd['saving_before']:.1f}%** | "
         f"**{pd['saving_after']:.1f}%** | **{saving_d}** |"
     )
 
-    # Threshold reference
-    lines.append("")
-    lines.append("<details>")
-    lines.append("<summary>Threshold reference</summary>")
-    lines.append("")
-    lines.append("| Metric | Threshold |")
-    lines.append("|---|---|")
-    lines.append(f"| Schema total tokens | > +{_SCHEMA_TOKENS_WARN_PCT:.0f}% → warn |")
-    lines.append(
-        f"| Summary tokens/result | > +{_SUMMARY_PER_RESULT_WARN_PCT:.0f}% → warn |"
-    )
-    lines.append(
-        f"| Progressive disclosure saving | < {_PD_SAVING_WARN_FLOOR:.0f}% → warn |"
-    )
     lines.append("")
     lines.append("</details>")
+    lines.append("")
+    lines.extend(_md_threshold_details())
+
+    return "\n".join(lines)
+
+
+def format_markdown_standalone(data: dict[str, Any]) -> str:
+    """Format a single benchmark result for a PR with no baseline on main."""
+    lines: list[str] = []
+
+    schema = data["schema"]
+    pd = data["progressive_disclosure"]
+    responses = data["responses"]
+    summary_tpr = responses["summary_n10"]["tokens_per_result"]
+    pd_saving = pd["saving_pct"]
+    pd_warn = pd_saving < _PD_SAVING_WARN_FLOOR
+
+    lines.append("<!-- tank-benchmark -->")
+    lines.append("## 📊 Tank benchmark — first run (no baseline on `main`)")
+    lines.append("")
+    lines.append(
+        f"`{data.get('git_commit', 'unknown')}` (v{data.get('tank_version', '?')}) "
+        f"· `{data.get('token_counter', 'len_div_4')}` counter (±15%)"
+    )
+    lines.append("")
+    lines.append(
+        "_No baseline exists on `main` yet — numbers below are for this PR only._"
+    )
+
+    lines.append("")
+    lines.append("| Metric | value |")
+    lines.append("|---|---:|")
+    lines.append(
+        f"| Tool schema cost | {schema['total_tokens']} tok "
+        f"({schema['pct_of_200k_context']:.3f}% of 200K context) |"
+    )
+    lines.append(f"| Summary tokens/result | {summary_tpr} |")
+    pd_badge = f" {_md_status(pd_warn)}" if pd_warn else ""
+    lines.append(f"| Two-step saving vs naive | {pd_saving:.1f}%{pd_badge} |")
+
+    lines.append("")
+    lines.append("<details>")
+    lines.append("<summary>Full breakdown</summary>")
+    lines.append("")
+
+    lines.append(
+        "**Schema** — tokens added to every request by Tank's tool definitions"
+    )
+    lines.append("")
+    lines.append("| Tool | tokens |")
+    lines.append("|---|---:|")
+    for tool in schema["tools"]:
+        lines.append(f"| `{tool['name']}` | {tool['tokens']} |")
+    lines.append(f"| **Total** | **{schema['total_tokens']}** |")
+
+    lines.append("")
+    lines.append("**Response sizes** — tokens returned per result at each detail level")
+    lines.append("")
+    lines.append("| | tokens/result |")
+    lines.append("|---|---:|")
+    _RESPONSE_LABELS = {
+        "summary_n5": "summary · 5 results",
+        "summary_n10": "summary · 10 results",
+        "summary_n20": "summary · 20 results",
+        "full_n5": "full content · 5 results",
+        "full_n10": "full content · 10 results",
+        "full_n20": "full content · 20 results",
+    }
+    for key, label in _RESPONSE_LABELS.items():
+        tpr = responses[key]["tokens_per_result"]
+        lines.append(f"| {label} | {tpr} |")
+
+    lines.append("")
+    lines.append(
+        "**Two-step pattern** — summary scan → targeted full fetch vs fetching everything"
+    )
+    lines.append("")
+    lines.append("| | tokens |")
+    lines.append("|---|---:|")
+    lines.append(
+        f"| step 1: summary scan (20 chunks) | {pd['step1_summary_all_tokens']} |"
+    )
+    lines.append(f"| step 2: full fetch (top 3) | {pd['step2_full_top3_tokens']} |")
+    lines.append(f"| **total two-step** | **{pd['total_tokens']}** |")
+    lines.append(f"| naive full fetch (20 chunks) | {pd['vs_naive_full_n20_tokens']} |")
+    lines.append(f"| **saving** | **{pd['saving_pct']:.1f}%** |")
+
+    lines.append("")
+    lines.append("</details>")
+    lines.append("")
+    lines.extend(_md_threshold_details())
 
     return "\n".join(lines)
 
@@ -442,9 +571,179 @@ def format_markdown(c: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+def format_markdown_webfetch(
+    baseline: dict[str, Any], candidate: dict[str, Any]
+) -> str:
+    """Append-only webfetch section for a PR comment that has a baseline."""
+    lines: list[str] = []
+
+    b_single = baseline["tank_single_step_full"]
+    c_single = candidate["tank_single_step_full"]
+    b_two = baseline["tank_two_step_agentless"]
+    c_two = candidate["tank_two_step_agentless"]
+
+    single_delta = _pp_delta(b_single["pct_saved"], c_single["pct_saved"])
+    two_delta = _pp_delta(b_two["pct_saved"], c_two["pct_saved"])
+
+    lines.append("---")
+    lines.append("")
+    lines.append("### 🔍 WebFetch vs Tank")
+    lines.append("")
+    lines.append(
+        f"Query: `{candidate['fts5_query']}` "
+        f"· source: [{candidate['source_url'].split('/')[-1]}]({candidate['source_url']})"
+    )
+    lines.append("")
+    lines.append("| Metric | baseline | PR | change |")
+    lines.append("|---|---:|---:|:---|")
+    lines.append(
+        f"| Single-step: tokens fewer than WebFetch "
+        f"| {b_single['tokens_saved']} tok · {b_single['pct_saved']}% "
+        f"| {c_single['tokens_saved']} tok · {c_single['pct_saved']}% "
+        f"| {_md_delta_pp(single_delta)} |"
+    )
+    lines.append(
+        f"| Two-step (agentless): tokens fewer than WebFetch "
+        f"| {b_two['tokens_saved']} tok · {b_two['pct_saved']}% "
+        f"| {c_two['tokens_saved']} tok · {c_two['pct_saved']}% "
+        f"| {_md_delta_pp(two_delta)} |"
+    )
+
+    lines.append("")
+    lines.append("<details>")
+    lines.append("<summary>Detail</summary>")
+    lines.append("")
+    lines.append("| Approach | baseline | PR | Δ tokens |")
+    lines.append("|---|---:|---:|---:|")
+    b_wf = baseline["webfetch"]["tokens"]
+    c_wf = candidate["webfetch"]["tokens"]
+    lines.append(
+        f"| WebFetch (full page) | {b_wf} tok | {c_wf} tok "
+        f"| {_md_delta_pct(_pct_delta(b_wf, c_wf))} |"
+    )
+    lines.append(
+        f"| Tank single-step | {b_single['tokens']} tok | {c_single['tokens']} tok "
+        f"| {_md_delta_pct(_pct_delta(b_single['tokens'], c_single['tokens']))} |"
+    )
+    lines.append(
+        f"| Tank two-step (agentless) | {b_two['total_tokens']} tok "
+        f"| {c_two['total_tokens']} tok "
+        f"| {_md_delta_pct(_pct_delta(b_two['total_tokens'], c_two['total_tokens']))} |"
+    )
+    lines.append("")
+
+    lines.append(_md_webfetch_chunk_breakdown(candidate))
+
+    lines.append("</details>")
+
+    return "\n".join(lines)
+
+
+def format_markdown_webfetch_standalone(data: dict[str, Any]) -> str:
+    """Append-only webfetch section for a PR comment with no baseline."""
+    lines: list[str] = []
+
+    single = data["tank_single_step_full"]
+    two = data["tank_two_step_agentless"]
+    wf_tokens = data["webfetch"]["tokens"]
+
+    lines.append("---")
+    lines.append("")
+    lines.append("### 🔍 WebFetch vs Tank")
+    lines.append("")
+    lines.append(
+        f"Query: `{data['fts5_query']}` "
+        f"· source: [{data['source_url'].split('/')[-1]}]({data['source_url']})"
+    )
+    lines.append("")
+    lines.append("| Approach | tokens | tokens fewer than WebFetch |")
+    lines.append("|---|---:|---:|")
+    lines.append(f"| WebFetch (full page) | {wf_tokens} | — |")
+    lines.append(
+        f"| Tank single-step | {single['tokens']} "
+        f"| {single['tokens_saved']} ({single['pct_saved']}%) |"
+    )
+    lines.append(
+        f"| Tank two-step (agentless) | {two['total_tokens']} "
+        f"| {two['tokens_saved']} ({two['pct_saved']}%) |"
+    )
+
+    lines.append("")
+    lines.append("<details>")
+    lines.append("<summary>Detail</summary>")
+    lines.append("")
+    lines.append("| | tokens |")
+    lines.append("|---|---:|")
+    lines.append(f"| step 1: summary scan | {two['step1_summary_tokens']} |")
+    lines.append(f"| step 2: full fetch | {two['step2_full_tokens']} |")
+    lines.append("")
+
+    lines.append(_md_webfetch_chunk_breakdown(data))
+
+    lines.append("</details>")
+
+    return "\n".join(lines)
+
+
+def _safe_cell(text: str, max_len: int = 60) -> str:
+    """Sanitize text for use in a markdown table cell."""
+    truncated = text[:max_len]
+    # Escape pipes (would create extra columns) and strip backticks (unclosed
+    # code spans corrupt the table when the text is truncated mid-span).
+    return truncated.replace("|", "\\|").replace("`", "'")
+
+
+def _md_webfetch_chunk_breakdown(data: dict[str, Any]) -> str:
+    breakdown = data["tank_two_step_agentless"].get("chunk_breakdown", [])
+    if not breakdown:
+        return ""
+    lines = [
+        "**Chunks returned**",
+        "",
+        "| chunk | tokens | heading | summary |",
+        "|---|---:|---|---|",
+    ]
+    for c in breakdown:
+        hp = _safe_cell((c.get("heading_path") or "").split(" / ")[-1])
+        summary = _safe_cell(c.get("summary") or "")
+        lines.append(f"| {c['chunk_id']} | {c['content_tokens']} | {hp} | {summary} |")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     flags = [a for a in sys.argv[1:] if a.startswith("--")]
+
+    if "--webfetch" in flags:
+        if "--standalone" in flags or len(args) == 1:
+            if len(args) != 1:
+                print(
+                    "usage: compare.py <webfetch.json> --webfetch --standalone",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
+            print(format_markdown_webfetch_standalone(_load(args[0])))
+        else:
+            if len(args) != 2:
+                print(
+                    "usage: compare.py <baseline.json> <candidate.json> --webfetch",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
+            print(format_markdown_webfetch(_load(args[0]), _load(args[1])))
+        sys.exit(0)
+
+    if "--standalone" in flags:
+        if len(args) != 1:
+            print(
+                "usage: compare.py <result.json> --standalone [--markdown]",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        data = _load(args[0])
+        print(format_markdown_standalone(data))
+        sys.exit(0)
 
     if len(args) != 2:
         print(

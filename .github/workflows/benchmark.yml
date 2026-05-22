@@ -49,7 +49,9 @@ jobs:
         run: /tmp/venv-pr/bin/python -m pytest tests/benchmarks/ --benchmark -s -q
 
       - name: Save PR results
-        run: cp pr/tests/benchmarks/results/latest.json /tmp/pr.json
+        run: |
+          cp pr/tests/benchmarks/results/latest.json /tmp/pr.json
+          cp pr/tests/benchmarks/results/webfetch_vs_tank_latest.json /tmp/pr_webfetch.json
 
       - name: Run benchmark on main
         working-directory: baseline
@@ -62,6 +64,9 @@ jobs:
         run: |
           if [ -f baseline/tests/benchmarks/results/latest.json ]; then
             cp baseline/tests/benchmarks/results/latest.json /tmp/main.json
+          fi
+          if [ -f baseline/tests/benchmarks/results/webfetch_vs_tank_latest.json ]; then
+            cp baseline/tests/benchmarks/results/webfetch_vs_tank_latest.json /tmp/main_webfetch.json
           fi
 
       - name: Generate comparison
@@ -78,15 +83,18 @@ jobs:
       - name: Build comment body (no baseline)
         if: steps.compare.outputs.has_baseline == 'false'
         run: |
-          cat > /tmp/comment.md << 'EOF'
-          <!-- tank-benchmark -->
-          ## 📊 Tank benchmark
+          python3 pr/tests/benchmarks/compare.py \
+            /tmp/pr.json --standalone > /tmp/comment.md
 
-          No baseline found on `main` — this is likely the first PR that includes
-          the benchmark harness. Results for this PR:
-
-          EOF
-          cat /tmp/pr.json >> /tmp/comment.md
+      - name: Append WebFetch vs Tank section
+        run: |
+          if [ -f /tmp/main_webfetch.json ]; then
+            python3 pr/tests/benchmarks/compare.py \
+              /tmp/main_webfetch.json /tmp/pr_webfetch.json --webfetch >> /tmp/comment.md
+          else
+            python3 pr/tests/benchmarks/compare.py \
+              /tmp/pr_webfetch.json --webfetch --standalone >> /tmp/comment.md
+          fi
 
       - name: Find existing benchmark comment
         uses: actions/github-script@v7
