@@ -173,4 +173,61 @@ This enforces the two-step pattern architecturally: `search-docs` cannot return 
 
 **Why deferred**: breaking change to `query-docs`. Any existing MCP client configuration referencing `query-docs` would need to migrate. The immediate mitigation is a clear tool description stating that `detail="full"` without `chunk_ids` should always be paired with an explicit `max_tokens`.
 
+**`max_tokens` default rationale**: `max_tokens` defaults to `None` (no budget enforcement) by design. A default of e.g. `4000` would silently trade away recall — with BM25 noise, the most relevant chunk can land at position 8 or 12, and a tight budget would exclude it with no signal to the agent. `limit` is the right knob for controlling result count; `max_tokens` is an explicit opt-in for agents with known token constraints.
+
 **Revisit when**: the two-step workflow is validated with real users and a breaking change to the tool surface is acceptable. The split is the right architecture; the question is timing.
+
+---
+
+## D13: Summary Heuristic — First Sentence vs Heading-Aware Generation
+
+**Decision**: generate summaries by extracting the first non-trivial sentence from chunk content.
+
+**The problem**: this fails when a chunk opens with a code block or a short bridging sentence rather than a topic-describing sentence. Observed in the fastmcp stdio benchmark:
+
+| Chunk | Summary generated | What the chunk actually covers |
+|---|---|---|
+| 2 | "You can now run this MCP server by executing `python my_server." | STDIO is the default transport |
+| 3 | "STDIO is ideal for: * Local development..." | STDIO transport section |
+| 5 | "We recommend using HTTP transport instead of SSE for all new projects." | SSE deprecation + CLI reload |
+
+Chunk 2's summary gives an agent scanning for "stdio configuration" no signal that this chunk is the relevant one. The missed chunk contains the correct answer.
+
+**Proposed fix (deferred)**: prefix the summary with the leaf heading node.
+
+```
+summary = "<leaf heading>: <first prose sentence>"
+```
+
+For chunk 2 under `### STDIO Transport (Default)`:
+```
+STDIO Transport (Default): STDIO (Standard Input/Output) is the default transport for FastMCP servers.
+```
+
+`heading_path` is already computed before `_generate_summary()` is called in `src/tank/builder/chunking.py`; it just isn't passed through. The change is additive — `summary` remains a plain string, no schema impact.
+
+**Edge cases**: preamble chunks (no heading) fall back to first-sentence behaviour; top-level chunks where heading equals the page title skip the prefix to avoid redundancy; headings over ~60 chars use only the leaf node; chunks opening with a list or code block skip to the next prose sentence.
+
+**Revisit when**: v0.2.0 chunker work begins. Depends on D14 — if chunkana is replaced with a heading-boundary chunker, `heading_path` will be accurate by construction and the prefix heuristic becomes more reliable.
+
+---
+
+## D14: Chunker — chunkana Limitations and Replacement Strategy
+
+**Decision**: use chunkana for MVP structural chunking, accepting its limitations.
+
+**chunkana verdict**: does not support heading-based splitting at arbitrary depth. The `structural` strategy splits only at `##` level, keeping all `###` subsections together. `header_path` is always `[]`; Tank works around this by reading `section_tags[0]`, but this is the ceiling of what chunkana can provide. Observed impact: in the fastmcp benchmark, chunk 5 spans six `###` sections (932 tokens) and is matched by FTS5 on incidental keyword overlap rather than relevance.
+
+**semchunk evaluated and ruled out**: general-purpose recursive delimiter splitter with no markdown heading awareness — a `###` boundary is not a privileged split point. Token-counter-driven rather than structure-driven; would reproduce the multi-section chunk problem. Requires a tokenizer dependency at build time.
+
+**What a replacement needs**:
+- Split at heading boundaries at all levels (`##`, `###`, and deeper) as the primary split point
+- Treat fenced code blocks as atomic — never split mid-fence
+- Split oversized sections at paragraph boundaries
+- Build `heading_path` accurately by construction, not inferred from metadata
+
+**Custom chunker option**: the core logic is ~150 lines — parse line by line tracking heading level and fence state, emit a chunk on each heading boundary outside a fence, split oversized chunks at paragraph boundaries. Edge cases are well-defined and the payoff is one-chunk-per-section with correct `heading_path`, which makes D13's heading-prefix summary reliable.
+
+**Before building**: survey available libraries for a production-ready markdown-structure-aware chunker meeting the above criteria. No candidates have been evaluated beyond chunkana and semchunk. Any replacement must be benchmarked against the fastmcp fixture to confirm it resolves the multi-section chunk problem.
+
+**Revisit when**: after D12 (tool split) lands. The chunker affects build quality; the tool surface change affects agent behaviour and is the higher-priority breaking change.
