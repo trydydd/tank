@@ -29,7 +29,6 @@ See v0.1.1 checklist below.
 
 **Theme**: Fix data integrity bugs found post-tag; ship benchmark infrastructure.
 
-- [ ] MCP server configuration examples for Claude Code, Cursor, VS Code — see `docs/MCP.md`
 - [x] Polish README — "implementation is beginning" replaced with accurate status
 - [x] Expose `limit` parameter on `query-docs` MCP tool and `query_docs()`
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
@@ -48,6 +47,7 @@ See v0.1.1 checklist below.
 **Theme**: Make it effortless to start. Polish the rough edges that stop adoption.
 
 - [ ] **PyPI release** (`pip install tank`, `pip install tank[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
+- [ ] **MCP layer refactor** — split `query-docs` into `search-docs` (summaries, no chunk_ids) and `fetch-docs` (full content by ID, no query); ship `.claude/mcp_servers.json`, `.cursor/mcp.json`, `.vscode/mcp.json` config files. See decisions.md D12 and docs/spikes.yaml S3.
 - [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it
 
 - [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
