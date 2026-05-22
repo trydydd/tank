@@ -29,6 +29,8 @@ See v0.1.1 checklist below.
 - [x] Extend PR comment bot to include WebFetch vs Tank results alongside token overhead
 - [x] Benchmark output cleanup — PR comment redesigned with plain-English headline table and collapsed detail; raw JSON dump replaced with formatted standalone output. Console output unchanged (runs under `-s`, not in reviewers' way).
 - [x] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
+- [ ] Docs cleanup — consolidate `.work/` artifacts, merge `todo.md` into `roadmap.md`, migrate gotchas to `CLAUDE.md`, absorb `ultraplan` findings into canonical docs
+- [ ] Choose a dependency to build the first bundled `.ctx` pack for the v0.1.1 release artifact
 
 ---
 
