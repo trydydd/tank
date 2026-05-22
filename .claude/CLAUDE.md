@@ -63,8 +63,6 @@
 
 ## Known Gotchas
 
-Non-obvious issues that have cost real debugging time. Each one has been verified against the current codebase.
-
 - **Alpine Linux / PEP 668**: `pip install` fails with "externally-managed-environment" unless `--break-system-packages` is passed or a virtualenv is used. Affects any executor in a PEP 668 environment.
 
 - **FTS5 join syntax**: Use comma-style joins, not `JOIN ... ON`. `FROM chunks_fts, chunks c, packages p WHERE chunks_fts.rowid = c.id` works; `JOIN chunks c ON c.id = chunks_fts.rowid` produces a syntax error. Also: `bm25()` must be called with explicit column weights — `bm25(chunks_fts, 1.0, 1.0, 1.0)` — or it returns a tuple instead of a float.
