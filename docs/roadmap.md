@@ -29,7 +29,7 @@ See v0.1.1 checklist below.
 
 **Theme**: Fix data integrity bugs found post-tag; ship benchmark infrastructure.
 
-- [x] MCP server configuration examples for Claude Code, Cursor, VS Code — see `docs/MCP.md`
+- [ ] MCP server configuration examples for Claude Code, Cursor, VS Code — see `docs/MCP.md`
 - [x] Polish README — "implementation is beginning" replaced with accurate status
 - [x] Expose `limit` parameter on `query-docs` MCP tool and `query_docs()`
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
