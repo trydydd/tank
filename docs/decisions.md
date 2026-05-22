@@ -231,3 +231,24 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 **Before building**: survey available libraries for a production-ready markdown-structure-aware chunker meeting the above criteria. No candidates have been evaluated beyond chunkana and semchunk. Any replacement must be benchmarked against the fastmcp fixture to confirm it resolves the multi-section chunk problem.
 
 **Revisit when**: after D12 (tool split) lands. The chunker affects build quality; the tool surface change affects agent behaviour and is the higher-priority breaking change.
+
+---
+
+## D15: Pack #2 — httpx@0.28.1
+
+**Decision**: ship httpx@0.28.1 as the v0.1.1 release artifact alongside fastmcp@3.3.0.
+
+**Rationale**: httpx is directly needed for the v0.2.0 URL fetch feature (`tank build --source <url>/llms-full.txt`) and the v0.3.0 llms.txt crawler — indexing it demonstrates Tank's value on a dependency that agents working on Tank itself will query. The docs are well-structured Markdown (~23 files, ~150–250 estimated chunks) with good heading coverage and code examples throughout.
+
+**Alternatives considered**:
+- **requests**: simpler, sync-only. Rejected because httpx covers the same use case and the async path matters for v0.3.0.
+- **FastAPI / Pydantic**: widely used but their doc sites don't publish llms-full.txt and the Markdown sources are less cleanly separated from site scaffolding.
+- **Click**: Tank's CLI framework, relevant, but Click's docs are sparse compared to httpx's.
+
+**Source**: no llms-full.txt published. Build from GitHub Markdown docs:
+```
+git clone https://github.com/encode/httpx --depth=1 --branch 0.28.1 /tmp/httpx-src
+tank build httpx@0.28.1 --source /tmp/httpx-src/docs --output ./packs
+```
+
+**Revisit when**: never — this is a release artifact decision. Future packs follow the same evaluation process.

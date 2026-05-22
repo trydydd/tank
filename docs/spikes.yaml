@@ -84,7 +84,16 @@ spikes:
 
   - id: S4
     title: "Pack #2 — dependency selection for v0.1.1 release artifact"
-    status: open
+    status: done
+    outcome: |
+      httpx@0.28.1. Chosen because it is directly needed for the v0.2.0 URL fetch
+      feature (tank build --source <url>/llms-full.txt) and pays off again in the
+      v0.3.0 llms.txt crawler. No llms-full.txt published; build from GitHub Markdown
+      docs (~23 files across docs/ and docs/advanced/, estimated 150-250 chunks).
+      Build command:
+        git clone https://github.com/encode/httpx --depth=1 --branch 0.28.1 /tmp/httpx-src
+        tank build httpx@0.28.1 --source /tmp/httpx-src/docs --output ./packs
+      See decisions.md D15.
     context: |
       v0.1.0 ships with a fastmcp .ctx pack as its release artifact. v0.1.1 needs
       pack #2. The pack should demonstrate Tank's value on a widely-used library with
