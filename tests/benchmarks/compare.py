@@ -343,7 +343,7 @@ def _md_threshold_details() -> list[str]:
 def format_markdown(c: dict[str, Any]) -> str:
     lines: list[str] = []
 
-    result_badge = "✅ PASS" if c["passed"] else f"⚠️ WARN"
+    result_badge = "✅ PASS" if c["passed"] else "⚠️ WARN"
     lines.append("<!-- tank-benchmark -->")
     lines.append(f"## 📊 Tank benchmark — {result_badge}")
     lines.append("")
@@ -364,7 +364,9 @@ def format_markdown(c: dict[str, Any]) -> str:
     summary_row = next(r for r in c["responses"] if r["key"] == "summary_n10")
     schema_warn_badge = f" {_md_status(s['warn'])}" if s["warn"] else ""
     pd_warn_badge = f" {_md_status(pd['warn'])}" if pd["warn"] else ""
-    summary_warn_badge = f" {_md_status(summary_row['warn'])}" if summary_row["warn"] else ""
+    summary_warn_badge = (
+        f" {_md_status(summary_row['warn'])}" if summary_row["warn"] else ""
+    )
 
     lines.append("")
     lines.append("| Metric | baseline | PR | change |")
@@ -392,7 +394,9 @@ def format_markdown(c: dict[str, Any]) -> str:
     lines.append("")
 
     # Schema per-tool
-    lines.append("**Schema** — tokens added to every request by Tank's tool definitions")
+    lines.append(
+        "**Schema** — tokens added to every request by Tank's tool definitions"
+    )
     lines.append("")
     lines.append("| Tool | baseline | PR | Δ |")
     lines.append("|---|---:|---:|---|")
@@ -432,11 +436,30 @@ def format_markdown(c: dict[str, Any]) -> str:
     lines.append("| | baseline | PR | Δ |")
     lines.append("|---|---:|---:|---|")
     for label, bef, aft, delta in [
-        ("step 1: summary scan (20 chunks)", pd["step1_before"], pd["step1_after"], pd["step1_delta"]),
-        ("step 2: full fetch (top 3)", pd["step2_before"], pd["step2_after"], pd["step2_delta"]),
-        ("**total two-step**", pd["total_before"], pd["total_after"], pd["total_delta"]),
-        ("naive full fetch (20 chunks)", pd["naive_before"], pd["naive_after"],
-         _pct_delta(pd["naive_before"], pd["naive_after"])),
+        (
+            "step 1: summary scan (20 chunks)",
+            pd["step1_before"],
+            pd["step1_after"],
+            pd["step1_delta"],
+        ),
+        (
+            "step 2: full fetch (top 3)",
+            pd["step2_before"],
+            pd["step2_after"],
+            pd["step2_delta"],
+        ),
+        (
+            "**total two-step**",
+            pd["total_before"],
+            pd["total_after"],
+            pd["total_delta"],
+        ),
+        (
+            "naive full fetch (20 chunks)",
+            pd["naive_before"],
+            pd["naive_after"],
+            _pct_delta(pd["naive_before"], pd["naive_after"]),
+        ),
     ]:
         d = _md_delta_pct(delta)
         lines.append(f"| {label} | {bef} | {aft} | {d} |")
@@ -493,7 +516,9 @@ def format_markdown_standalone(data: dict[str, Any]) -> str:
     lines.append("<summary>Full breakdown</summary>")
     lines.append("")
 
-    lines.append("**Schema** — tokens added to every request by Tank's tool definitions")
+    lines.append(
+        "**Schema** — tokens added to every request by Tank's tool definitions"
+    )
     lines.append("")
     lines.append("| Tool | tokens |")
     lines.append("|---|---:|")
@@ -525,7 +550,9 @@ def format_markdown_standalone(data: dict[str, Any]) -> str:
     lines.append("")
     lines.append("| | tokens |")
     lines.append("|---|---:|")
-    lines.append(f"| step 1: summary scan (20 chunks) | {pd['step1_summary_all_tokens']} |")
+    lines.append(
+        f"| step 1: summary scan (20 chunks) | {pd['step1_summary_all_tokens']} |"
+    )
     lines.append(f"| step 2: full fetch (top 3) | {pd['step2_full_top3_tokens']} |")
     lines.append(f"| **total two-step** | **{pd['total_tokens']}** |")
     lines.append(f"| naive full fetch (20 chunks) | {pd['vs_naive_full_n20_tokens']} |")
@@ -544,7 +571,9 @@ def format_markdown_standalone(data: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def format_markdown_webfetch(baseline: dict[str, Any], candidate: dict[str, Any]) -> str:
+def format_markdown_webfetch(
+    baseline: dict[str, Any], candidate: dict[str, Any]
+) -> str:
     """Append-only webfetch section for a PR comment that has a baseline."""
     lines: list[str] = []
 
@@ -677,9 +706,7 @@ def _md_webfetch_chunk_breakdown(data: dict[str, Any]) -> str:
     for c in breakdown:
         hp = _safe_cell((c.get("heading_path") or "").split(" / ")[-1])
         summary = _safe_cell(c.get("summary") or "")
-        lines.append(
-            f"| {c['chunk_id']} | {c['content_tokens']} | {hp} | {summary} |"
-        )
+        lines.append(f"| {c['chunk_id']} | {c['content_tokens']} | {hp} | {summary} |")
     lines.append("")
     return "\n".join(lines)
 
