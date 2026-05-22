@@ -656,7 +656,7 @@ def format_markdown_webfetch_standalone(data: dict[str, Any]) -> str:
         f"· source: [{data['source_url'].split('/')[-1]}]({data['source_url']})"
     )
     lines.append("")
-    lines.append("| Approach | tokens | tokens fewer than WebFetch |")
+    lines.append("| Approach | tokens | Savings |")
     lines.append("|---|---:|---:|")
     lines.append(f"| WebFetch (full page) | {wf_tokens} | — |")
     lines.append(
