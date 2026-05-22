@@ -136,3 +136,33 @@ spikes:
       - src/tank/server.py
       - .github/workflows/
     blocked_by: []
+
+  - id: S6
+    title: HTML-to-markdown library selection for URL fetch
+    status: open
+    context: |
+      tank build --source <url>/llms-full.txt (v0.2.0) needs to fetch HTML doc pages
+      and convert them to clean text for chunking. This must work without an LLM —
+      the conversion must be deterministic, reproducible, and free of network
+      dependencies at build time beyond the initial fetch. WebFetch (Claude's tool)
+      uses html_extraction_method: "markdown" but requires a model in the loop and
+      cannot be used in tank build. A Python library is required.
+      Candidates: html2text, markdownify, trafilatura.
+    task: |
+      Evaluate html2text, markdownify, and trafilatura against these criteria:
+      - Output quality: does it strip nav, headers, footers, sidebars cleanly?
+      - Code block preservation: are fenced blocks and inline code intact?
+      - Table handling: are markdown tables produced or collapsed to plain text?
+      - Maintenance status and dependency weight
+      - License compatibility with Tank (MIT/Apache preferred)
+      Test each against a rendered HTML page from requests.readthedocs.io and the
+      fastmcp docs site. Compare output quality for a page with mixed prose, code
+      blocks, and a navigation sidebar.
+    success: |
+      A library recommendation with sample output from both test pages. Enough
+      detail to wire it into src/tank/builder/fetch.py without further research.
+    files:
+      - src/tank/builder/fetch.py
+      - src/tank/builder/build.py
+      - docs/decisions.md
+    blocked_by: []
