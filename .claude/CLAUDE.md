@@ -47,6 +47,12 @@
 - Static fixtures in `tests/fixtures/` for integration-level tests (sample source trees, known-good .ctx packs, malformed archives for validator tests). Pytest factory functions for unit tests (individual chunks, normalization edge cases, policy evaluation).
 - **Never bypass the public API in tests or benchmarks.** Call the same functions and entry points that real callers use. Reaching past the public interface to call internal helpers directly (e.g. calling `search()` instead of `query_docs()` to work around a limit) masks bugs rather than surfacing them — if the public API can't do what the test needs, that is the bug to fix.
 
+## Docs Structure
+
+- `docs/decisions.md` — permanent record of settled design decisions and their reasoning. Add an entry when a question is resolved.
+- `docs/spikes.yaml` — actionable research tasks for parallel subagent dispatch. Add a spike when a question is open; mark it `done` and record the outcome in `decisions.md` when resolved.
+- `docs/roadmap.md` — versioned implementation checklist. Current focus version is pinned at the top.
+
 ## Architecture Constraints
 
 - The normalization code path (`tank.builder.normalizer`) is shared between builder and verifier. Never duplicate or reimplement normalization logic — both must use the same function to preserve the hash stability guarantee.
