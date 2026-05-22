@@ -54,3 +54,21 @@
 - SQLite FTS5 is the only search backend for MVP. No embedding dependencies.
 - SQLite WAL mode enabled on database creation. Busy timeout set to 5000ms.
 - HTML handling: for MVP, `.html` files are converted to text via basic tag removal. Boilerplate stripping (nav, footer, breadcrumbs) is deferred to Phase 2 when the crawler lands. Markdown files are the primary supported format.
+
+## Known Gotchas
+
+Non-obvious issues that have cost real debugging time. Each one has been verified against the current codebase.
+
+- **Alpine Linux / PEP 668**: `pip install` fails with "externally-managed-environment" unless `--break-system-packages` is passed or a virtualenv is used. Affects any executor in a PEP 668 environment.
+
+- **FTS5 join syntax**: Use comma-style joins, not `JOIN ... ON`. `FROM chunks_fts, chunks c, packages p WHERE chunks_fts.rowid = c.id` works; `JOIN chunks c ON c.id = chunks_fts.rowid` produces a syntax error. Also: `bm25()` must be called with explicit column weights — `bm25(chunks_fts, 1.0, 1.0, 1.0)` — or it returns a tuple instead of a float.
+
+- **FTS5 functions take `Database`, not `sqlite3.Connection`**: `search()` and `get_chunks_by_id()` accept `db: Database` and read `conn = db.conn`. Do not pass a bare `sqlite3.Connection`. `db.conn` has `row_factory = sqlite3.Row` set, so both integer index (`row[0]`) and named key (`row["name"]`) access work — pick one and be consistent within a function.
+
+- **Circular import in `fts.py`**: Importing `Database` at the top of `fts.py` creates a circular import with `storage.db`. Use a `TYPE_CHECKING` guard: `if TYPE_CHECKING: from tank.storage.db import Database`, then annotate with the string `"Database"`. `server.py` has no circular import issue and uses an unconditional top-level import.
+
+- **FastMCP tool names**: `@mcp.tool()` registers the Python function name, not a hyphenated name. `def resolve_deps_tool()` becomes `"resolve_deps_tool"`, not `"resolve-deps"`. Always pass `name=` explicitly: `@mcp.tool(name="resolve-deps")`.
+
+- **CliRunner and working directory**: `CliRunner.invoke()` does not accept a `cwd=` parameter. CLI commands that use relative `.tank/` paths need the process cwd set. Pattern used in the test suite: `os.chdir(tmp_path)` with a `try/finally` to restore the original cwd. See `_cli_in_cwd()` in `tests/test_integration.py`.
+
+- **Tamper tests must recompute `pack_digest`**: Re-zipping a modified archive changes its binary representation even with identical `manifest.json` bytes, so `pack_digest` verification fails at step 6 before reaching the intended step 7 content hash check. After tampering with chunk content, zero the digest in the manifest, re-zip, hash the result, and write the real digest back before asserting on the verification step.
