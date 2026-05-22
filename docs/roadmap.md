@@ -1,21 +1,19 @@
 # Tank — Semver Roadmap
 
-## Current Focus — v0.1.0
+## Current Focus — v0.2.0
 
-- [ ] MCP server configuration examples for Claude Code, Cursor, VS Code
-- [ ] Tag and release v0.1.0 on PyPI — release workflow exists and produces artifacts (wheel, sdist, `.ctx` packs) but has no `twine upload` / `pypi-publish` step
+See v0.2.0 checklist below.
 
 ---
 
-## v0.1.0 — "Ship It"
+## v0.1.0 — "Ship It" ✓
 
 **Theme**: Get on PyPI. Make it installable. Let people try it.
 
-**Status**: Tagged. PyPI publish pending.
+**Status**: Shipped.
 
 - [x] mypy error in `src/tank/builder/build.py:133`
-- [ ] MCP server configuration examples for Claude Code, Cursor, VS Code
-- [ ] Tag and release v0.1.0 on PyPI (`pip install tank`, `pip install tank[build]`) — release workflow exists but has no `twine upload` / `pypi-publish` step
+- [x] MCP server configuration examples for Claude Code, Cursor, VS Code — see `docs/MCP.md`
 
 ---
 
@@ -38,6 +36,7 @@
 
 **Theme**: Make it effortless to start. Polish the rough edges that stop adoption.
 
+- [ ] **PyPI release** (`pip install tank`, `pip install tank[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
 - [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it
 
 - [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
