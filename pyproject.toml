@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tank"
-version = "0.1.1"
+version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "click",
@@ -44,7 +44,7 @@ markers = ["network: requires real network access (opt-in via --network)"]
 target-version = "py311"
 
 [tool.bumpversion]
-current_version = "0.1.1"
+current_version = "0.1.0"
 commit = true
 tag = true
 tag_name = "v{new_version}"
