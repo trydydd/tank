@@ -1,14 +1,11 @@
 name: Cut Release
 
-# Manually trigger a release from the GitHub Actions UI.
-# Runs pre-flight checks, bumps the version in pyproject.toml, commits,
-# and pushes a vX.Y.Z tag — which in turn triggers the Release workflow
-# to build artifacts and create the GitHub release.
+# Manually trigger a version bump from the GitHub Actions UI.
+# Runs pre-flight checks, bumps pyproject.toml, commits, pushes to a
+# release/vX.Y.Z branch, and opens a PR against main.
 #
-# Note: this workflow pushes a commit directly to the triggering branch.
-# If main has branch-protection rules that require PRs, replace
-# GITHUB_TOKEN with a PAT that has "bypass branch protection" permission
-# (or a GitHub App token), and set it in repo Settings → Secrets.
+# Merging that PR triggers auto-release.yml, which detects the version change
+# and creates the GitHub release. No branch-protection bypass needed.
 
 on:
   workflow_dispatch:
@@ -28,11 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history so bump-my-version can tag correctly
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -55,16 +53,25 @@ jobs:
       - name: pytest
         run: pytest tests/
 
-      # ── bump, commit, tag ─────────────────────────────────────────────────
+      # ── bump, branch, PR ──────────────────────────────────────────────────
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version
-        run: bump-my-version bump ${{ inputs.bump }}
+      - name: Bump version (commit only — auto-release tags on merge)
+        run: bump-my-version bump ${{ inputs.bump }} --no-tag
 
-      - name: Push commit and tag
+      - name: Push release branch and open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git push origin HEAD:${{ github.ref_name }}
-          git push origin --tags
+          NEW=$(bump-my-version show current_version)
+          BRANCH="release/v${NEW}"
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: release v${NEW}" \
+            --body "Automated version bump to \`${NEW}\`. Merging will trigger the Auto Release workflow." \
+            --base main \
+            --head "$BRANCH"
