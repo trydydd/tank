@@ -245,20 +245,22 @@ spikes:
       text, or something else — this choice affects the chunker interface, heading
       detection, code fence handling, and FTS5 index quality.
 
-      KNOWN SHORTCUT — Mintlify .md endpoint:
-      Mintlify-hosted doc sites (FastMCP, MCP spec, Prisma, etc.) serve clean markdown
-      for any page by appending ".md" to the URL. For example:
-        https://gofastmcp.com/concepts/tools       → rendered HTML (with JSX noise)
-        https://gofastmcp.com/concepts/tools.md    → clean markdown (JSX stripped by Mintlify)
-      This means for Mintlify sites the llms.txt pipeline becomes:
-        1. Fetch llms.txt to enumerate page URLs
-        2. Append ".md" to each URL, fetch → clean markdown
-        3. Feed directly to the chunker — no HTML-to-markdown library needed
-      The heading pollution problem (ClassName <sup>...</sup>) is resolved because
-      Mintlify's renderer strips JSX before serialising as markdown.
-      Confirm this holds for: gofastmcp.com, modelcontextprotocol.io, docs.pydantic.dev.
-      S6 (HTML-to-markdown library) remains needed for non-Mintlify sites (ReadTheDocs,
-      Docusaurus, etc.) that serve HTML only.
+      KNOWN MINTLIFY BEHAVIOUR — .md links in llms.txt:
+      Mintlify-hosted doc sites (FastMCP, MCP spec, Prisma, etc.) already include
+      .md URLs in their llms.txt index — no URL manipulation required. Example from
+      modelcontextprotocol.io/llms.txt:
+        - [Build an MCP server](https://modelcontextprotocol.io/docs/develop/build-server.md)
+      Fetching those .md URLs returns markdown directly — no HTML-to-markdown
+      conversion library needed. However the content is MDX, not clean CommonMark.
+      JSX components are present in the raw .md response and must be stripped:
+        <Frame><img .../></Frame>   → discard (image, not text content)
+        <Note>...</Note>            → keep inner text, discard wrapper
+        <Tabs><Tab title="Python">  → keep inner text, discard wrapper
+        <Warning>...</Warning>      → keep inner text, discard wrapper
+      Heading pollution (ClassName <sup><a href="..."><Icon /></a></sup>) also
+      originates from MDX source and must be cleaned the same way.
+      S6 (HTML-to-markdown library) remains needed only for non-Mintlify sites
+      (ReadTheDocs, Docusaurus, etc.) that serve HTML at their page URLs.
     task: |
       Research and recommend a complete fetch-and-convert pipeline for
       tank build --source <url>/llms.txt:
@@ -277,11 +279,13 @@ spikes:
          flavour (CommonMark) and what non-content elements must be stripped first.
       2. HTTP fetch: evaluate httpx vs requests for async/sync tradeoffs; confirm
          rate limiting approach (token bucket or simple sleep); User-Agent policy.
-      3. Mintlify .md endpoint: confirm the ".md" suffix approach works for
-         gofastmcp.com, modelcontextprotocol.io, and at least one other Mintlify site.
-         Characterise the output: is it clean CommonMark? Are callout tags (<Tip>,
-         <Note>, etc.) stripped or preserved? Does heading markup survive?
-         If confirmed, this path bypasses the need for S6 on Mintlify sites entirely.
+      3. Mintlify .md behaviour: llms.txt already contains .md URLs — fetch them
+         directly (no URL manipulation). Characterise the MDX content: which JSX
+         components appear (confirmed: <Frame>, <Note>, <Tabs>, <Tab>, <Warning>,
+         <img> inside frames); which carry inner text to preserve vs. which are
+         pure presentational and should be discarded. Produce a regex or parser
+         approach that handles the confirmed tag set cleanly. This path has no
+         HTML-to-markdown step — S6 is not needed for Mintlify sites.
       4. Content extraction for non-Mintlify sites: evaluate trafilatura vs
          readability-lxml vs BeautifulSoup manual extraction for stripping
          nav/sidebar/footer. Test against: a ReadTheDocs site

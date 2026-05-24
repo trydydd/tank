@@ -92,9 +92,9 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
   - **Note:** `llms-full.txt` from Mintlify-based docs sites (FastMCP, MCP, and many others) is a raw MDX concatenation, not clean markdown. Passing it through the existing pipeline without preprocessing produces garbage heading paths (`llms-full / \`ClassName\` <sup>...</sup>`), polluted summaries (`Source: https://...`), and section collisions (identical heading names from different pages merged). The preprocessor is required for usable pack quality, not optional.
 - [ ] **`tank build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched individually, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
   - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) and [S8](docs/spikes.yaml) (web page to markdown pipeline research) to be completed before work can begin.*
-  - **Mintlify shortcut**: Mintlify-hosted sites (FastMCP, MCP spec, Prisma, etc.) serve clean markdown at `<page-url>.md` — JSX components stripped by Mintlify's renderer. For these sites: append `.md` to each URL, fetch, feed directly to chunker. No HTML-to-markdown library needed; heading pollution problem resolved. S8 must confirm this holds.
+  - **Mintlify behaviour**: `llms.txt` on Mintlify sites already contains `.md` URLs (no URL manipulation needed). Fetching them returns MDX directly — no HTML-to-markdown conversion required. JSX components (`<Frame>`, `<Note>`, `<Tabs>`, `<Warning>`, etc.) must still be stripped; inner text kept, wrappers discarded. Images inside `<Frame>` are discarded.
   - For non-Mintlify sites (ReadTheDocs, Docusaurus, etc.): HTML fetch → S6 library → markdown
-  - Strip inline MDX/JSX callout tags (`<Tip>`, `<Note>`, `<Warning>`, `<Info>`, etc.) — keep inner text (fallback for non-.md-endpoint content)
+  - Strip MDX/JSX components from Mintlify content; strip HTML boilerplate from non-Mintlify content
   - Use the page URL as `source_url`; derive title from first `#` heading
 - [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
 
