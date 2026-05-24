@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-05-24T23:25:01.273027+00:00",
-  "git_commit": "c127451",
+  "timestamp": "2026-05-24T23:26:35.322480+00:00",
+  "git_commit": "5178def",
   "tank_version": "0.1.0",
   "token_counter": "len_div_4",
   "corpus": {
@@ -9,21 +9,21 @@
     "avg_content_chars": 939
   },
   "schema": {
-    "total_tokens": 301,
+    "total_tokens": 293,
     "tools": [
       {
         "name": "search",
-        "tokens": 197,
-        "chars": 791
+        "tokens": 195,
+        "chars": 782
       },
       {
         "name": "fetch",
-        "tokens": 104,
-        "chars": 417
+        "tokens": 98,
+        "chars": 392
       }
     ],
-    "pct_of_200k_context": 0.15,
-    "pct_of_128k_context": 0.235
+    "pct_of_200k_context": 0.146,
+    "pct_of_128k_context": 0.229
   },
   "responses": {
     "summary_n5": {
