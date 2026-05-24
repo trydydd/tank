@@ -244,6 +244,21 @@ spikes:
       An open question is whether the intermediate format should be markdown, plain
       text, or something else — this choice affects the chunker interface, heading
       detection, code fence handling, and FTS5 index quality.
+
+      KNOWN SHORTCUT — Mintlify .md endpoint:
+      Mintlify-hosted doc sites (FastMCP, MCP spec, Prisma, etc.) serve clean markdown
+      for any page by appending ".md" to the URL. For example:
+        https://gofastmcp.com/concepts/tools       → rendered HTML (with JSX noise)
+        https://gofastmcp.com/concepts/tools.md    → clean markdown (JSX stripped by Mintlify)
+      This means for Mintlify sites the llms.txt pipeline becomes:
+        1. Fetch llms.txt to enumerate page URLs
+        2. Append ".md" to each URL, fetch → clean markdown
+        3. Feed directly to the chunker — no HTML-to-markdown library needed
+      The heading pollution problem (ClassName <sup>...</sup>) is resolved because
+      Mintlify's renderer strips JSX before serialising as markdown.
+      Confirm this holds for: gofastmcp.com, modelcontextprotocol.io, docs.pydantic.dev.
+      S6 (HTML-to-markdown library) remains needed for non-Mintlify sites (ReadTheDocs,
+      Docusaurus, etc.) that serve HTML only.
     task: |
       Research and recommend a complete fetch-and-convert pipeline for
       tank build --source <url>/llms.txt:
@@ -262,27 +277,33 @@ spikes:
          flavour (CommonMark) and what non-content elements must be stripped first.
       2. HTTP fetch: evaluate httpx vs requests for async/sync tradeoffs; confirm
          rate limiting approach (token bucket or simple sleep); User-Agent policy.
-      3. Content extraction: evaluate trafilatura vs readability-lxml vs
-         BeautifulSoup manual extraction for stripping nav/sidebar/footer.
-         Test against: fastmcp docs (gofastmcp.com), MCP spec (modelcontextprotocol.io),
-         a ReadTheDocs site (requests.readthedocs.io), a Docusaurus site.
-      4. HTML-to-markdown: build on S6 outcome if resolved; otherwise evaluate
-         markdownify vs html2text vs trafilatura's built-in markdown output.
-      5. MDX/JSX tag handling: what regex or parser approach cleanly strips
+      3. Mintlify .md endpoint: confirm the ".md" suffix approach works for
+         gofastmcp.com, modelcontextprotocol.io, and at least one other Mintlify site.
+         Characterise the output: is it clean CommonMark? Are callout tags (<Tip>,
+         <Note>, etc.) stripped or preserved? Does heading markup survive?
+         If confirmed, this path bypasses the need for S6 on Mintlify sites entirely.
+      4. Content extraction for non-Mintlify sites: evaluate trafilatura vs
+         readability-lxml vs BeautifulSoup manual extraction for stripping
+         nav/sidebar/footer. Test against: a ReadTheDocs site
+         (requests.readthedocs.io), a Docusaurus site.
+      5. HTML-to-markdown for non-Mintlify sites: build on S6 outcome if resolved;
+         otherwise evaluate markdownify vs html2text vs trafilatura's built-in
+         markdown output.
+      6. MDX/JSX tag handling (fallback for llms-full.txt or non-.md-endpoint
+         Mintlify content): what regex or parser approach cleanly strips
          <Tip>, <Note>, <Warning>, <FeatureBadge />, <Icon />, inline
          <sup><a href="...">...</a></sup> — keeping inner text, discarding
-         component wrappers. Test against modelcontextprotocol.io/llms-full.txt.
+         component wrappers.
       Produce a recommended pipeline with the specific library versions, a
       code sketch of the fetch-and-convert function, and sample output from
-      each of the four test sites.
+      the test sites.
     success: |
       A recommended output format with rationale (markdown vs plain text vs
-      structured intermediate). A recommended pipeline with library choices
-      justified against the test sites. A code sketch of
-      fetch_page(url: str) -> str (returns normalised text ready for the chunker).
-      MDX/JSX stripping approach confirmed to handle the fastmcp heading pollution
-      case. Enough detail to implement src/tank/builder/fetch.py without further
-      research.
+      structured intermediate). Mintlify .md endpoint confirmed (or refuted) with
+      sample output. A recommended pipeline with library choices justified against
+      the test sites. A code sketch of fetch_page(url: str) -> str (returns
+      normalised text ready for the chunker). Enough detail to implement
+      src/tank/builder/fetch.py without further research.
     files:
       - src/tank/builder/fetch.py
       - src/tank/builder/llms_full.py
