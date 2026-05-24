@@ -47,6 +47,10 @@
     - Use each `Source:` URL as the page `source_url`; derive page title from the first `#` heading
     - Feed resulting per-page documents into the existing chunker individually so `heading_path` values are page-relative and meaningful
   - **Note:** `llms-full.txt` from Mintlify-based docs sites (FastMCP, MCP, and many others) is a raw MDX concatenation, not clean markdown. Passing it through the existing pipeline without preprocessing produces garbage heading paths (`llms-full / \`ClassName\` <sup>...</sup>`), polluted summaries (`Source: https://...`), and section collisions (identical heading names from different pages merged). The preprocessor is required for usable pack quality, not optional.
+- [ ] **`tank build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched as rendered HTML→markdown, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
+  - Extend `src/tank/builder/fetch.py` to handle `llms.txt` index parsing and per-page fetching
+  - Strip inline MDX/JSX callout tags (`<Tip>`, `<Note>`, `<Warning>`, `<Info>`, etc.) — keep inner text
+  - Use the page URL as `source_url`; derive title from first `#` heading
 - [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
 - [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` in `tank build`. Modify `src/tank/builder/chunking.py`
 - [ ] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
@@ -65,8 +69,6 @@
 
 **Theme**: Multi-user, multi-project, CI-integrated. Start looking like infrastructure.
 
-- [ ] **`tank build --source <url>/llms.txt`** — fetch `llms.txt` index, download each linked doc page, build a `.ctx` pack. Basic rate limiting + `User-Agent`. No general crawler.
-  - Extend `src/tank/builder/fetch.py` to handle llms.txt index parsing
 - [ ] **Pack registry (static hosting)** — `tank pull fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
   - New module: `src/tank/registry/` (client only; server is a static file host)
   - `tank pull` accepts `package@version` in addition to file paths
