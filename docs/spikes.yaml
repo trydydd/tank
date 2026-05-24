@@ -226,33 +226,49 @@ spikes:
     blocked_by: []
 
   - id: S8
-    title: Web page to markdown conversion — library and pipeline research
+    title: Web page to markdown conversion — library, pipeline, and output format research
     status: open
     context: |
       tank build --source <url>/llms.txt (v0.2.0 roadmap) fetches individual doc
-      pages and must convert them to clean markdown for the chunker. S6 covers
-      HTML-to-markdown library selection for the raw conversion step, but the
-      full pipeline involves more: HTTP fetch with rate limiting and User-Agent,
-      content extraction (stripping nav/sidebar/footer boilerplate), HTML-to-markdown
-      conversion, and MDX/JSX callout tag handling (Mintlify sites use <Tip>,
-      <Note>, <Warning> etc. that must be unwrapped to their inner text).
+      pages and must convert them to a clean intermediate format for the chunker.
+      S6 covers HTML-to-markdown library selection for the raw conversion step, but
+      the full pipeline involves more: HTTP fetch with rate limiting and User-Agent,
+      content extraction (stripping nav/sidebar/footer boilerplate), format conversion,
+      and MDX/JSX callout tag handling (Mintlify sites use <Tip>, <Note>, <Warning>
+      etc. that must be unwrapped to their inner text).
       The quality of this pipeline directly determines heading_path accuracy and
       summary quality in the resulting pack — garbage in, garbage chunks out.
       The fastmcp and MCP packs built from llms-full.txt demonstrate the problem:
       JSX components in headings produce heading_path values like
       'ClassName <sup><a href="..."><Icon /></a></sup>'.
+      An open question is whether the intermediate format should be markdown, plain
+      text, or something else — this choice affects the chunker interface, heading
+      detection, code fence handling, and FTS5 index quality.
     task: |
       Research and recommend a complete fetch-and-convert pipeline for
       tank build --source <url>/llms.txt:
-      1. HTTP fetch: evaluate httpx vs requests for async/sync tradeoffs; confirm
+      1. Output format decision: should pages be normalised to markdown, plain text,
+         or another format before chunking? Consider:
+         - Markdown preserves heading structure (##, ###) that the chunker (S7) uses
+           to build heading_path — converting to plain text loses this signal entirely.
+         - Plain text is simpler and avoids markdown formatting noise in FTS5 content,
+           but requires a separate heading extraction pass.
+         - A structured intermediate (e.g. list of {heading_level, heading_text,
+           body_text} dicts) decouples extraction from chunking but changes the
+           chunker interface.
+         - The existing local-file pipeline uses raw markdown files; the URL pipeline
+           should produce equivalent input so the same chunker handles both paths.
+         Recommend a format with clear rationale. If markdown, specify what markdown
+         flavour (CommonMark) and what non-content elements must be stripped first.
+      2. HTTP fetch: evaluate httpx vs requests for async/sync tradeoffs; confirm
          rate limiting approach (token bucket or simple sleep); User-Agent policy.
-      2. Content extraction: evaluate trafilatura vs readability-lxml vs
+      3. Content extraction: evaluate trafilatura vs readability-lxml vs
          BeautifulSoup manual extraction for stripping nav/sidebar/footer.
          Test against: fastmcp docs (gofastmcp.com), MCP spec (modelcontextprotocol.io),
          a ReadTheDocs site (requests.readthedocs.io), a Docusaurus site.
-      3. HTML-to-markdown: build on S6 outcome if resolved; otherwise evaluate
+      4. HTML-to-markdown: build on S6 outcome if resolved; otherwise evaluate
          markdownify vs html2text vs trafilatura's built-in markdown output.
-      4. MDX/JSX tag handling: what regex or parser approach cleanly strips
+      5. MDX/JSX tag handling: what regex or parser approach cleanly strips
          <Tip>, <Note>, <Warning>, <FeatureBadge />, <Icon />, inline
          <sup><a href="...">...</a></sup> — keeping inner text, discarding
          component wrappers. Test against modelcontextprotocol.io/llms-full.txt.
@@ -260,8 +276,10 @@ spikes:
       code sketch of the fetch-and-convert function, and sample output from
       each of the four test sites.
     success: |
-      A recommended pipeline with library choices justified against the test sites.
-      A code sketch of fetch_page(url: str) -> str (returns clean markdown).
+      A recommended output format with rationale (markdown vs plain text vs
+      structured intermediate). A recommended pipeline with library choices
+      justified against the test sites. A code sketch of
+      fetch_page(url: str) -> str (returns normalised text ready for the chunker).
       MDX/JSX stripping approach confirmed to handle the fastmcp heading pollution
       case. Enough detail to implement src/tank/builder/fetch.py without further
       research.
