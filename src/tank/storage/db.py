@@ -46,19 +46,19 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
-    summary, content,
+    heading_path, summary, content,
     content='chunks',
     content_rowid='id'
 );
 
 CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
-    INSERT INTO chunks_fts(rowid, summary, content)
-    VALUES (new.id, new.summary, new.content);
+    INSERT INTO chunks_fts(rowid, heading_path, summary, content)
+    VALUES (new.id, new.heading_path, new.summary, new.content);
 END;
 
 CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
-    INSERT INTO chunks_fts(chunks_fts, rowid, summary, content)
-    VALUES ('delete', old.id, old.summary, old.content);
+    INSERT INTO chunks_fts(chunks_fts, rowid, heading_path, summary, content)
+    VALUES ('delete', old.id, old.heading_path, old.summary, old.content);
 END;
 """
 

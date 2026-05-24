@@ -367,3 +367,47 @@ def test_search_best_match_first() -> None:
     results = search(db, "python")
     assert len(results) == 2
     assert results[0].chunk_id == 1
+
+
+def test_search_heading_path_weighted_higher() -> None:
+    """heading_path matches boost rank above summary-only matches (2.5x vs 1.5x weight)."""
+    db = _make_db()
+    pack = Pack(
+        name="docs",
+        version="1.0.0",
+        lifecycle_state="approved",
+        doc_version_status="stable",
+        indexed_at="2026-01-01T00:00:00Z",
+    )
+    pages = [Page(id=1, package="docs", version="1.0.0", url="index.md")]
+    chunks = [
+        Chunk(
+            id=1,
+            package="docs",
+            version="1.0.0",
+            page_id=1,
+            # heading_path does NOT contain the query term
+            heading_path="General Overview",
+            summary="oauth token authentication",
+            content="Details about the system.",
+            source_url="index.md",
+        ),
+        Chunk(
+            id=2,
+            package="docs",
+            version="1.0.0",
+            page_id=1,
+            # heading_path ALSO contains the query term — should rank higher
+            heading_path="oauth authentication flow",
+            summary="oauth token authentication",
+            content="Details about the system.",
+            source_url="index.md",
+        ),
+    ]
+    _import_pack(db, pack, pages, chunks)
+
+    results = search(db, "oauth")
+    assert len(results) == 2
+    # Chunk 2 matches in both heading_path (2.5x weight) and summary (1.5x weight);
+    # chunk 1 matches only in summary (1.5x weight). Chunk 2 must rank first.
+    assert results[0].chunk_id == 2

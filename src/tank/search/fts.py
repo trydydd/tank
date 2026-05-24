@@ -15,7 +15,9 @@ class SearchResult:
     version: str
     heading_path: str | None
     summary: str | None
-    content: str | None  # None when detail='summary'
+    content: (
+        str | None
+    )  # None when returned from search(); always populated from get_chunks_by_id()
     source_url: str | None
     source_commit: str | None
     content_hash: str | None
@@ -62,7 +64,7 @@ def search(
 
         sql = f"""\
 SELECT {select_cols}
-       -bm25(chunks_fts, 1.0, 1.0, 1.0) AS score
+       -bm25(chunks_fts, 2.5, 1.5, 1.0) AS score
 FROM chunks_fts, chunks c, packages p
 WHERE chunks_fts.rowid = c.id
   AND c.package = p.name
@@ -80,8 +82,9 @@ LIMIT ?"""
         raise SearchError(str(exc)) from exc
 
     # SELECT columns: 0=id, 1=package, 2=version, 3=heading_path, 4=summary,
-    # 5=content, 6=source_url, 7=source_commit, 8=content_hash,
+    # 5=content (NULL in summary mode), 6=source_url, 7=source_commit, 8=content_hash,
     # 9=lifecycle_state, 10=doc_version_status, 11=indexed_at, 12=score
+    # BM25 weights: heading_path 2.5x, summary 1.5x, content 1.0x
     results: list[SearchResult] = []
     for row in rows:
         lifecycle_state = row[9]
