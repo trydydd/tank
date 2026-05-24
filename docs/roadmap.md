@@ -31,6 +31,10 @@
 
 **Theme**: Make it effortless to start. Polish the rough edges that stop adoption.
 
+- [x] **MCP two-tool refactor** — replace `query-docs` (single tool with `detail` parameter) with separate `search` (summaries + chunk IDs) and `fetch` (full content by ID) tools. Enforces the two-step agent pattern structurally. `resolve-deps` retained as internal helper.
+- [x] **`tank serve` CLI command** — `tank serve` launches the MCP stdio server, discoverable from `tank --help`. Replaces the undiscoverable `python -m tank.server` invocation.
+- [x] **MCP documentation refresh** — `docs/MCP.md` rewritten with accurate `search`/`fetch` API; all config examples updated to `tank serve`; `README.md` MCP snippet updated with `cwd`.
+- [x] **FTS5 heading_path + BM25 weight tuning** — `heading_path` added as first column in `chunks_fts` with 2.5× weight; BM25 tuned to heading 2.5× > summary 1.5× > content 1.0×.
 - [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it
 
 - [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
