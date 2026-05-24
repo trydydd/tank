@@ -38,9 +38,15 @@
   - Parse `requirements.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`
   - Map package names to `.ctx` pack URLs (static JSON registry on GitHub)
   - Generate MCP config (`.cursor/mcp.json` or Claude Code equivalent)
-- [ ] **`tank build --source <url>/llms-full.txt`** — fetch a single `llms-full.txt` URL, chunk it, build a `.ctx` pack. No crawler — just HTTP GET + existing build pipeline.
+- [ ] **`tank build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
   - Modify `src/tank/builder/build.py` to accept URL sources
   - New module: `src/tank/builder/fetch.py` (single-file HTTP fetch, no crawl logic)
+  - New module: `src/tank/builder/llms_full.py` — Mintlify-aware preprocessor:
+    - Split on `Source: <url>` boundary lines to recover individual pages
+    - Strip MDX/JSX tags (e.g. `<FeatureBadge />`, `<Note>`, `<McpClient>`, `<Icon />`, inline `<sup><a ...>`) — keep inner text, discard component wrappers
+    - Use each `Source:` URL as the page `source_url`; derive page title from the first `#` heading
+    - Feed resulting per-page documents into the existing chunker individually so `heading_path` values are page-relative and meaningful
+  - **Note:** `llms-full.txt` from Mintlify-based docs sites (FastMCP, MCP, and many others) is a raw MDX concatenation, not clean markdown. Passing it through the existing pipeline without preprocessing produces garbage heading paths (`llms-full / \`ClassName\` <sup>...</sup>`), polluted summaries (`Source: https://...`), and section collisions (identical heading names from different pages merged). The preprocessor is required for usable pack quality, not optional.
 - [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
 - [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` in `tank build`. Modify `src/tank/builder/chunking.py`
 - [ ] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
