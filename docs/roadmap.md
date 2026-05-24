@@ -59,6 +59,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - [x] **MCP documentation refresh** — `docs/MCP.md` rewritten with accurate `search`/`fetch` API; all config examples updated to `tank serve`; `README.md` MCP snippet updated with `cwd`.
 - [x] **FTS5 heading_path + BM25 weight tuning** — `heading_path` added as first column in `chunks_fts` with 2.5× weight; BM25 tuned to heading 2.5× > summary 1.5× > content 1.0×.
 - [ ] **PyPI release** (`pip install tank`, `pip install tank[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
+  - *Requires [S5](docs/spikes.yaml) (PyPI packaging diagnosis) to be completed before work can begin.*
 - [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it
 
 - [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
@@ -67,6 +68,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
   - Map package names to `.ctx` pack URLs (static JSON registry on GitHub)
   - Generate MCP config (`.cursor/mcp.json` or Claude Code equivalent)
 - [ ] **`tank build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
+  - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) to be completed before work can begin.*
   - Modify `src/tank/builder/build.py` to accept URL sources
   - New module: `src/tank/builder/fetch.py` (single-file HTTP fetch, no crawl logic)
   - New module: `src/tank/builder/llms_full.py` — Mintlify-aware preprocessor:
@@ -76,10 +78,17 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
     - Feed resulting per-page documents into the existing chunker individually so `heading_path` values are page-relative and meaningful
   - **Note:** `llms-full.txt` from Mintlify-based docs sites (FastMCP, MCP, and many others) is a raw MDX concatenation, not clean markdown. Passing it through the existing pipeline without preprocessing produces garbage heading paths (`llms-full / \`ClassName\` <sup>...</sup>`), polluted summaries (`Source: https://...`), and section collisions (identical heading names from different pages merged). The preprocessor is required for usable pack quality, not optional.
 - [ ] **`tank build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched as rendered HTML→markdown, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
+  - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) and [S8](docs/spikes.yaml) (web page to markdown pipeline research) to be completed before work can begin.*
   - Extend `src/tank/builder/fetch.py` to handle `llms.txt` index parsing and per-page fetching
   - Strip inline MDX/JSX callout tags (`<Tip>`, `<Note>`, `<Warning>`, `<Info>`, etc.) — keep inner text
   - Use the page URL as `source_url`; derive title from first `#` heading
 - [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
+- [ ] **Custom markdown chunker** — replace chunkana with a `markdown-it-py`-backed chunker that splits at all heading levels (`#` through `######`), keeps code fences atomic, and builds `heading_path` accurately by construction. Removes the `##`-only limitation that produces 900-token multi-section chunks. See `decisions.md` D14.
+  - *Requires [S7](docs/spikes.yaml) (custom chunker implementation plan) to be completed before work can begin.*
+  - Replace `src/tank/builder/chunking.py`; remove chunkana from dependencies; add `markdown-it-py>=3.0`
+- [ ] **Heading-aware summary heuristic** — prefix chunk summaries with the leaf heading node (`"STDIO Transport: STDIO is the default transport..."` instead of `"You can now run this server..."`). Eliminates false-positive summaries for chunks that open with transitional sentences or code. See `decisions.md` D13.
+  - *Requires [S2](docs/spikes.yaml) (heading-aware summary implementation) to be completed before work can begin.*
+  - Modify `generate_summary()` in `src/tank/builder/chunking.py`; no schema changes
 - [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` in `tank build`. Modify `src/tank/builder/chunking.py`
 - [ ] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
 - [ ] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
