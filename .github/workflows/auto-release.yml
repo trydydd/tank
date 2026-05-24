@@ -1,0 +1,96 @@
+name: Auto Release
+
+# Triggers when pyproject.toml changes on main (i.e. after a version-bump PR
+# is merged). Compares the version in the new commit against the previous one;
+# all expensive steps are gated on the version actually having changed, so a
+# dependency bump or config tweak that doesn't touch the version field exits
+# in seconds without running tests or building anything.
+#
+# Creates the GitHub release (and its tag) via the GitHub API, so release.yml
+# (triggered by git tag push) does not double-fire.
+
+on:
+  push:
+    branches: [main]
+    paths: [pyproject.toml]
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2        # need HEAD and HEAD~1 to compare versions
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Check if version changed
+        id: version
+        run: |
+          OLD=$(git show HEAD~1:pyproject.toml \
+                | python3 -c "import sys,tomllib; \
+                              print(tomllib.load(sys.stdin.buffer)['project']['version'])")
+          NEW=$(python3 -c "import tomllib; \
+                            print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "old=$OLD" | tee -a "$GITHUB_OUTPUT"
+          echo "new=$NEW" | tee -a "$GITHUB_OUTPUT"
+          [ "$OLD" != "$NEW" ] \
+            && echo "changed=true"  >> "$GITHUB_OUTPUT" \
+            || echo "changed=false" >> "$GITHUB_OUTPUT"
+
+      # ── everything below is gated on the version having actually changed ──
+
+      - name: Install dependencies
+        if: steps.version.outputs.changed == 'true'
+        run: pip install -e ".[all]" build -q
+
+      - name: ruff check
+        if: steps.version.outputs.changed == 'true'
+        run: ruff check .
+
+      - name: ruff format check
+        if: steps.version.outputs.changed == 'true'
+        run: ruff format --check .
+
+      - name: mypy
+        if: steps.version.outputs.changed == 'true'
+        run: mypy src/
+
+      - name: pytest (including network)
+        if: steps.version.outputs.changed == 'true'
+        run: pytest tests/ --network
+
+      - name: Build wheel and sdist
+        if: steps.version.outputs.changed == 'true'
+        run: python -m build
+
+      - name: Build packs
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          mkdir -p source packs
+          curl -sf --max-time 120 -o source/llms-full.md https://gofastmcp.com/llms-full.txt
+          tank build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
+
+      - name: Extract changelog notes
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.new }}"
+          awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" \
+              CHANGELOG.md > release_notes.md
+
+      - name: Create GitHub release
+        if: steps.version.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.new }}
+          body_path: release_notes.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            packs/*.ctx

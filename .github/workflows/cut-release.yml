@@ -1,0 +1,77 @@
+name: Cut Release
+
+# Manually trigger a version bump from the GitHub Actions UI.
+# Runs pre-flight checks, bumps pyproject.toml, commits, pushes to a
+# release/vX.Y.Z branch, and opens a PR against main.
+#
+# Merging that PR triggers auto-release.yml, which detects the version change
+# and creates the GitHub release. No branch-protection bypass needed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version component to bump"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  cut-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[all]" bump-my-version -q
+
+      # ── pre-flight checks (mirrors CI) ───────────────────────────────────
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format check
+        run: ruff format --check .
+
+      - name: mypy
+        run: mypy src/
+
+      - name: pytest
+        run: pytest tests/
+
+      # ── bump, branch, PR ──────────────────────────────────────────────────
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version (commit only — auto-release tags on merge)
+        run: bump-my-version bump ${{ inputs.bump }} --no-tag
+
+      - name: Push release branch and open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW=$(bump-my-version show current_version)
+          BRANCH="release/v${NEW}"
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: release v${NEW}" \
+            --body "Automated version bump to \`${NEW}\`. Merging will trigger the Auto Release workflow." \
+            --base main \
+            --head "$BRANCH"

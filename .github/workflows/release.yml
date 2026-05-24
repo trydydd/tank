@@ -13,8 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
       - run: pip install -e ".[all]" -q
       - run: ruff check .
+      - run: ruff format --check .
       - run: mypy src/
       - run: pytest tests/ --network
 
@@ -28,6 +30,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
       - run: pip install -e ".[all]" build -q
 
       - name: Build wheel and sdist
@@ -39,9 +42,20 @@ jobs:
           curl -sf --max-time 120 -o source/llms-full.md https://gofastmcp.com/llms-full.txt
           tank build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
 
+      - name: Extract changelog notes
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          # Write to a file to avoid quoting issues
+          echo "$NOTES" > release_notes.md
+          echo "Release notes for $VERSION:"
+          cat release_notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release_notes.md
           files: |
             dist/*.whl
             dist/*.tar.gz

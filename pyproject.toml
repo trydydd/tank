@@ -18,6 +18,7 @@ dev = [
     "pytest",
     "mypy",
     "ruff==0.15.8",
+    "bump-my-version",
 ]
 all = [
     "tank[dev]",
@@ -41,3 +42,16 @@ markers = [
 
 [tool.ruff]
 target-version = "py311"
+
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+commit_args = "--no-verify"
+message = "chore: bump version {current_version} → {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
