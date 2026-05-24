@@ -173,11 +173,7 @@ without requiring sandbox infrastructure.
 
 ### What is not yet measured
 
-The ultraplan (line 274) cites the 40–50% context overhead figure from the Scalekit
-and Sideko benchmarks as justification for Tank's progressive disclosure pattern.
-The actual Scalekit numbers (4–32× overhead) suggest the problem is more severe than
-stated, which strengthens the argument — but Tank has no internal benchmark confirming
-its own tool's token footprint.
+The industry benchmarks above (Scalekit: 4–32× overhead, Apideck: 72% of context window consumed) cite the progressive disclosure pattern as a primary mitigation. Tank's two-step design aligns with this, but Tank has no internal benchmark confirming its own tool's token footprint.
 
 **A token overhead benchmark for Tank should measure**:
 
@@ -201,7 +197,7 @@ borrowing figures measured against a different tool.
 | Document progressive disclosure pattern | v0.1.0 | Add agent usage example to README showing the two-step summary→full pattern |
 | Expose `token_budget` on `query-docs` | v0.3.0 | Return maximum content within a caller-specified token budget, auto-balancing result count vs. detail level |
 | Consider schema compression | v1.0.0 | If Tank registers more tools in future, audit description verbosity against StackOne's compression tradeoffs |
-| Fix silent failure in `fts.py:76` | open bug | Currently all search errors return `[]` silently — a query over-budget or schema mismatch is invisible to the caller; tracked in `docs/todo.md` |
+| ~~Fix silent failure in `fts.py:76`~~ | ~~open bug~~ | ✅ Fixed — `search()` now raises `SearchError` on `sqlite3.Error` |
 
 ---
 

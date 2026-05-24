@@ -1,5 +1,0 @@
-detour: WARNING: --model-api uses http:// to a non-loopback host — your prompts and responses will be sent unencrypted over the network.
-detour: WARNING: Use an SSH tunnel (ssh -L) or TLS termination to protect this traffic.
-detour: proxy on 127.0.0.1:8888  [red → local | * → anthropic]
-detour: proxy error: listen tcp 127.0.0.1:8888: bind: address already in use
-Error: Reached max turns (50)detour: exit status 1

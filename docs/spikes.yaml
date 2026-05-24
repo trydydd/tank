@@ -1,0 +1,167 @@
+# Research spikes — open questions requiring investigation before implementation.
+# Each spike is self-contained: a subagent can be handed a single entry with no
+# other context needed.
+# status: open | in_progress | done
+
+spikes:
+
+  - id: S1
+    title: Markdown chunker replacement
+    status: open
+    context: |
+      chunkana splits only at ## level; all ### subsections stay together, producing
+      coarse multi-section chunks. The section_tags workaround is the ceiling of what
+      chunkana can give. semchunk has been evaluated and ruled out — no heading
+      awareness, token-counter-driven, would reproduce the multi-section problem.
+      See decisions.md D14.
+    task: |
+      Survey available Python markdown chunking libraries against these criteria:
+      splits at heading boundaries at all levels (##, ###, deeper); treats fenced
+      code blocks as atomic; no heavy dependencies (no PyTorch, no LLM calls at
+      build time); actively maintained; handles preamble, deeply nested headings,
+      and oversized sections. If no library qualifies, scope the custom chunker
+      described in D14 (~150 lines). Benchmark any candidate against
+      tests/benchmarks/fixtures/ to confirm multi-section chunks like the 932-token
+      chunk 5 in the fastmcp fixture are resolved.
+    success: |
+      A library recommendation with benchmark results against the fastmcp fixture,
+      or a scoped custom implementation plan with line count estimate and test approach.
+    files:
+      - src/tank/builder/chunking.py
+      - tests/benchmarks/test_webfetch_vs_tank.py
+      - docs/decisions.md
+    blocked_by: []
+
+  - id: S2
+    title: Heading-aware summary heuristic
+    status: open
+    context: |
+      generate_summary() picks the first sentence of raw chunk content. Fails when
+      a chunk opens with a code block or bridging sentence — the summary describes
+      the transition, not the subject. heading_path is already computed before
+      _generate_summary() is called in chunking.py; it just is not passed through.
+      See decisions.md D13.
+    task: |
+      Implement and test: generate_summary(content, heading_path) -> str
+      Logic: prefix with leaf heading node + ": " + first prose sentence.
+      Edge cases: no heading (preamble) falls back to first-sentence only; heading
+      equals page title skips the prefix; heading over 60 chars uses leaf node only;
+      chunk opens with a list or code block skips to next prose sentence.
+      Validate against the fastmcp fixture: chunk 2 summary must include "run()" or
+      "STDIO"; existing informative summaries (chunks 3 and 5) must not degrade.
+      No schema changes — summary remains a plain string.
+    success: |
+      Passing tests covering all edge cases. Chunk 2 gains a heading signal.
+      Preamble chunks degrade gracefully.
+    files:
+      - src/tank/builder/chunking.py
+      - tests/test_builder/
+      - docs/decisions.md
+    blocked_by: []
+
+  - id: S3
+    title: "query-docs tool split: search-docs / fetch-docs"
+    status: open
+    context: |
+      detail="full" on query-docs nudges agents toward expensive single-step queries
+      without a prior relevance pass. The architectural fix is two tools: search-docs
+      (summaries only, no chunk_ids) and fetch-docs (full content by chunk_ids only,
+      no query). Deferred because it is a breaking change to any existing MCP client
+      config. See decisions.md D12.
+    task: |
+      Produce a concrete migration plan: what changes in src/tank/server.py to register
+      two tools; what happens to query-docs (deprecated alias or removed); what MCP
+      client config changes consumers need; whether FastMCP supports registering a
+      deprecated tool alongside its replacements. Estimate scope in lines changed.
+    success: |
+      A migration plan covering server.py changes, client config impact, deprecation
+      strategy, and effort estimate. Enough detail to implement without further research.
+    files:
+      - src/tank/server.py
+      - docs/MCP.md
+      - docs/decisions.md
+    blocked_by: []
+
+  - id: S4
+    title: "Pack #2 — dependency selection for v0.1.1 release artifact"
+    status: done
+    outcome: |
+      mcp@2025-11-25 (Model Context Protocol spec). Chosen because Tank depends on
+      mcp directly, the MCP layer refactor (D12/S3) is the largest v0.2.0 work item,
+      and modelcontextprotocol.io publishes llms-full.txt — no crawler or HTML
+      extraction needed. Build command (download locally until v0.2.0 URL fetch lands):
+        mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt
+        tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
+      See decisions.md D15.
+    context: |
+      v0.1.0 ships with a fastmcp .ctx pack as its release artifact. v0.1.1 needs
+      pack #2. The pack should demonstrate Tank's value on a widely-used library with
+      good documentation coverage. Prefer libraries that publish llms-full.txt or
+      have clean Markdown docs buildable with tank build --source <local-path>.
+    task: |
+      Propose 3-5 candidate libraries with rationale. For each: confirm documentation
+      source availability (llms-full.txt URL, official Markdown repo, or crawlable
+      site); estimate pack size (pages and likely chunk count); assess documentation
+      quality for RAG use (well-structured headings, code examples, conceptual
+      coverage). Recommend one with the exact tank build command needed to produce
+      the pack.
+    success: |
+      A ranked shortlist with a clear top recommendation, source URL or path confirmed
+      accessible, and the tank build command ready to run.
+    files:
+      - docs/MCP.md
+      - tests/benchmarks/fixtures/
+    blocked_by: []
+
+  - id: S5
+    title: PyPI packaging — CLI-only release vs MCP server layer refactor
+    status: open
+    context: |
+      PyPI release is blocked on the MCP server packaging. The release workflow
+      already produces artifacts (wheel, sdist, .ctx packs) but has no publish step.
+      The conflict needs diagnosis. Options are a CLI-only release that excludes the
+      server, or a refactor of the server layer. See roadmap v0.2.0.
+    task: |
+      Diagnose the exact conflict: what dependency or structure in pyproject.toml
+      causes the problem; whether the base tank package and tank[build] can be cleanly
+      separated from the server; what a CLI-only release would exclude and what
+      consumers would lose; what a server layer refactor would require and at what
+      scope. Produce a recommendation with effort estimate for each option.
+    success: |
+      A clear diagnosis of the conflict and a recommended path (CLI-only or refactor)
+      with enough detail to implement.
+    files:
+      - pyproject.toml
+      - src/tank/server.py
+      - .github/workflows/
+    blocked_by: []
+
+  - id: S6
+    title: HTML-to-markdown library selection for URL fetch
+    status: open
+    context: |
+      tank build --source <url>/llms-full.txt (v0.2.0) needs to fetch HTML doc pages
+      and convert them to clean text for chunking. This must work without an LLM —
+      the conversion must be deterministic, reproducible, and free of network
+      dependencies at build time beyond the initial fetch. WebFetch (Claude's tool)
+      uses html_extraction_method: "markdown" but requires a model in the loop and
+      cannot be used in tank build. A Python library is required.
+      Candidates: html2text, markdownify, trafilatura.
+    task: |
+      Evaluate html2text, markdownify, and trafilatura against these criteria:
+      - Output quality: does it strip nav, headers, footers, sidebars cleanly?
+      - Code block preservation: are fenced blocks and inline code intact?
+      - Table handling: are markdown tables produced or collapsed to plain text?
+      - Maintenance status and dependency weight
+      - License compatibility with Tank (MIT/Apache preferred)
+      Test each against a rendered HTML page from requests.readthedocs.io and the
+      fastmcp docs site. Compare output quality for a page with mixed prose, code
+      blocks, and a navigation sidebar.
+    success: |
+      A library recommendation with sample output from both test pages. Enough
+      detail to wire it into src/tank/builder/fetch.py without further research.
+    files:
+      - src/tank/builder/fetch.py
+      - src/tank/builder/build.py
+      - docs/decisions.md
+    blocked_by: []

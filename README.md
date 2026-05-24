@@ -98,11 +98,11 @@ Works with Claude Code, Claude Desktop, Cursor, VS Code, and any MCP-compatible 
 | [Document Processing](docs/document-processing.md) | How `tank build` transforms source files into packs |
 | [Decisions](docs/decisions.md) | Design decisions with reasoning and rejected alternatives |
 | [Glossary](docs/glossary.md) | Definitions of all Tank-specific terminology |
-| [Status](docs/STATUS.md) | Current project state and implementation roadmap |
+| [Roadmap](docs/roadmap.md) | Semver checklist and current focus |
 
 ## Status
 
-Tank Phase 1 / MVP is code-complete with a full test suite. See [STATUS.md](docs/STATUS.md) for details.
+Tank v0.1.1 is code-complete with a full test suite (205/206 passing). Active development is on v0.2.0. See [roadmap.md](docs/roadmap.md) for current focus.
 
 ## License
 

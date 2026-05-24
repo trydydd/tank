@@ -1,14 +1,35 @@
 # Tank — Semver Roadmap
 
-## v0.1.0 — "Ship It"
+## Current Focus — v0.2.0
 
-**Theme**: Get on PyPI. Make it installable. Let people try it.
+v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
-**Status**: Tagged. PyPI publish pending.
+**Implementation complete (205/206 tests passing):**
+- MCP two-tool refactor (`search` / `fetch`)
+- `tank serve` CLI command
+- FTS5 `heading_path` column with 2.5× BM25 weight
+- Full docs refresh (MCP.md, ranking.md, architecture.md, roadmap.md)
 
-- [x] mypy error in `src/tank/builder/build.py:133`
-- [x] MCP server configuration examples for Claude Code, Cursor, VS Code
-- [ ] Tag and release v0.1.0 on PyPI (`pip install tank`, `pip install tank[build]`)
+**Next up:** PyPI release (blocked on packaging), `schemas/manifest.v2.schema.json`, `tank init`, URL fetch sources.
+
+---
+
+## v0.1.0 — "MVP" ✓
+
+**Theme**: Working end-to-end implementation. Build, verify, pull, query.
+
+**Status**: Tagged. Not on PyPI (blocked — see v0.2.0).
+
+- [x] `tank build` — source tree → `.ctx` pack (Markdown/HTML, lexicographic walk, deterministic chunk IDs)
+- [x] `tank verify` — 8-step archive safety validator, policy enforcement, `pack_digest` integrity check
+- [x] `tank pull` — verify-before-import, atomic SQLite transaction, WAL mode
+- [x] `tank query` — FTS5 BM25 search with source attribution
+- [x] MCP server — `query-docs` and `resolve-deps` tools over stdio
+- [x] Policy engine — lifecycle state gating (`draft` / `approved` / `deprecated` / `revoked`)
+- [x] CI workflow — lint, typecheck, test on push/PR
+- [x] Release workflow — builds wheel + `.ctx` packs on `v*` tags, creates GitHub release
+- [x] fastmcp@3.3.0 `.ctx` pack — first release artifact (1190 chunks)
+- [x] mypy clean — builder type errors resolved
 
 ---
 
@@ -24,6 +45,8 @@
 - [x] Extend PR comment bot to include WebFetch vs Tank results alongside token overhead
 - [x] Benchmark output cleanup — PR comment redesigned with plain-English headline table and collapsed detail; raw JSON dump replaced with formatted standalone output. Console output unchanged (runs under `-s`, not in reviewers' way).
 - [x] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
+- [x] Docs cleanup — consolidate `.work/` artifacts, merge `todo.md` into `roadmap.md`, migrate gotchas to `CLAUDE.md`, absorb `ultraplan` findings into canonical docs
+- [ ] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
 
 ---
 
@@ -35,6 +58,7 @@
 - [x] **`tank serve` CLI command** — `tank serve` launches the MCP stdio server, discoverable from `tank --help`. Replaces the undiscoverable `python -m tank.server` invocation.
 - [x] **MCP documentation refresh** — `docs/MCP.md` rewritten with accurate `search`/`fetch` API; all config examples updated to `tank serve`; `README.md` MCP snippet updated with `cwd`.
 - [x] **FTS5 heading_path + BM25 weight tuning** — `heading_path` added as first column in `chunks_fts` with 2.5× weight; BM25 tuned to heading 2.5× > summary 1.5× > content 1.0×.
+- [ ] **PyPI release** (`pip install tank`, `pip install tank[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
 - [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it
 
 - [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
@@ -65,7 +89,8 @@
   - [x] Tune BM25 weights: heading 2.5× > summary 1.5× > content 1.0×
   - [ ] Query preprocessing: stopword filtering, term normalization
   - [ ] Synonym expansion: `auth` → `authentication`, `JWT` → `JSON Web Token`, etc.
-- [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. Hash entries in a defined order instead.
+- [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. The current implementation reads the entire ZIP into memory, then reconstructs a second in-memory ZIP — decompressing and re-compressing every file — solely to zero out `pack_digest` and hash the result. Near the 500MB archive limit this allocates 500MB+, decompresses everything, and holds it all in memory simultaneously. Fix: hash individual entries in a defined order instead of reconstructing the archive.
+- [ ] **Query latency benchmark** — measure actual FTS5 query time against a representative index (target: 100K chunks); replace the unbenchmarked sub-10ms claim in `architecture.md` with a measured number. Add to `tests/benchmarks/` alongside the existing token overhead and WebFetch benchmarks.
 
 ---
 
