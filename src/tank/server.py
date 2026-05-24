@@ -1,4 +1,4 @@
-"""MCP server with summary and detail tools.
+"""MCP server with search and fetch tools.
 
 Invokable as: python -m tank.server
 """
@@ -49,7 +49,7 @@ def resolve_deps(db: Database) -> dict[str, Any]:
     return {"status": "ok", "packs": packs}
 
 
-def search_summaries(
+def search_docs(
     db: Database,
     query: str,
     packages: list[str] | None = None,
@@ -59,7 +59,7 @@ def search_summaries(
     """FTS5 search returning chunk summaries only.
 
     Returns heading_path, summary, chunk_id, and provenance fields for each
-    matched chunk. Content is never included — call fetch_detail with the
+    matched chunk. Content is never included — call fetch_docs with the
     chunk_ids you select to retrieve full text.
 
     When packages contains a package that is not indexed, returns
@@ -90,7 +90,7 @@ def search_summaries(
     return {"results": hits}
 
 
-def fetch_detail(
+def fetch_docs(
     db: Database,
     chunk_ids: list[int],
     max_tokens: int | None = None,
@@ -158,10 +158,10 @@ def _to_dict(r: SearchResult) -> dict[str, Any]:
 
 
 def _register_tools(mcp: FastMCP) -> None:
-    """Register summary and detail tools on the given server."""
+    """Register search and fetch tools on the given server."""
 
-    @mcp.tool(name="summary")
-    def summary_tool(
+    @mcp.tool(name="search")
+    def search_tool(
         query: str,
         packages: list[str] | None = None,
         limit: int = 10,
@@ -169,14 +169,14 @@ def _register_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Search indexed documentation and return chunk summaries.
 
-        Use the returned chunk_ids to call the detail tool for full content.
+        Use the returned chunk_ids to call the fetch tool for full content.
         FTS5 is lexical — translate natural language to key terms before
         calling (e.g. "OAuth2 client credentials" not "how do I authenticate").
         If a package in packages is not indexed, returns {"status": "not_indexed"}.
         """
         db = Database(_db_path())
         try:
-            result = search_summaries(
+            result = search_docs(
                 db,
                 query=query,
                 packages=packages,
@@ -187,26 +187,26 @@ def _register_tools(mcp: FastMCP) -> None:
         finally:
             db.close()
 
-    @mcp.tool(name="detail")
-    def detail_tool(
+    @mcp.tool(name="fetch")
+    def fetch_tool(
         chunk_ids: list[int],
         max_tokens: int | None = None,
     ) -> str:
         """Fetch full content of specific chunks by ID.
 
-        Call after summary to retrieve complete documentation for the chunks
+        Call after search to retrieve complete documentation for the chunks
         you identified as relevant. Revoked chunks are silently excluded.
         """
         db = Database(_db_path())
         try:
-            result = fetch_detail(db, chunk_ids=chunk_ids, max_tokens=max_tokens)
+            result = fetch_docs(db, chunk_ids=chunk_ids, max_tokens=max_tokens)
             return json.dumps(result)
         finally:
             db.close()
 
 
 def create_server() -> FastMCP:
-    """Create the MCP server with summary and detail tools."""
+    """Create the MCP server with search and fetch tools."""
     mcp = FastMCP("tank")
     _register_tools(mcp)
     return mcp

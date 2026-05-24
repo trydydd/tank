@@ -12,12 +12,12 @@
     "total_tokens": 260,
     "tools": [
       {
-        "name": "summary",
+        "name": "search",
         "tokens": 185,
         "chars": 743
       },
       {
-        "name": "detail",
+        "name": "fetch",
         "tokens": 75,
         "chars": 301
       }

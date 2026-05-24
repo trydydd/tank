@@ -8,9 +8,9 @@ import pytest
 from tank.storage.db import Database
 from tank.storage.models import Chunk, Pack, Page
 from tank.server import (
-    fetch_detail,
+    fetch_docs,
     resolve_deps,
-    search_summaries,
+    search_docs,
 )
 
 
@@ -286,14 +286,14 @@ def test_resolve_deps_does_not_omit_deprecated(db: Database) -> None:
 
 
 # ---------------------------------------------------------------------------
-# search_summaries — summary MCP tool backend
+# search_docs — summary MCP tool backend
 # ---------------------------------------------------------------------------
 
 
-def test_search_summaries_returns_summaries(db: Database) -> None:
+def test_search_docs_returns_summaries(db: Database) -> None:
     _seed_approved_pack(db)
 
-    result: dict[str, Any] = search_summaries(db, query="OAuth2")
+    result: dict[str, Any] = search_docs(db, query="OAuth2")
     assert "results" in result
     assert len(result["results"]) > 0
 
@@ -305,45 +305,45 @@ def test_search_summaries_returns_summaries(db: Database) -> None:
         assert "lifecycle_warning" not in r
 
 
-def test_search_summaries_no_content_field(db: Database) -> None:
+def test_search_docs_no_content_field(db: Database) -> None:
     """Content must be absent (None) in every summary result."""
     _seed_approved_pack(db)
 
-    result: dict[str, Any] = search_summaries(db, query="configure")
+    result: dict[str, Any] = search_docs(db, query="configure")
     assert "results" in result
     for r in result["results"]:
         assert r.get("content") is None
 
 
-def test_search_summaries_empty_query_returns_empty(db: Database) -> None:
+def test_search_docs_empty_query_returns_empty(db: Database) -> None:
     _seed_approved_pack(db)
 
-    result: dict[str, Any] = search_summaries(db, query="")
+    result: dict[str, Any] = search_docs(db, query="")
     assert result == {"results": []}
 
-    result_ws: dict[str, Any] = search_summaries(db, query="   ")
+    result_ws: dict[str, Any] = search_docs(db, query="   ")
     assert result_ws == {"results": []}
 
 
-def test_search_summaries_limit(db: Database) -> None:
+def test_search_docs_limit(db: Database) -> None:
     _seed_approved_pack(db)
 
     # "configure" matches chunks 1, 2, 4, 5 in the fixture (4 results).
-    full = search_summaries(db, query="configure")
+    full = search_docs(db, query="configure")
     assert len(full["results"]) == 4
 
-    capped = search_summaries(db, query="configure", limit=2)
+    capped = search_docs(db, query="configure", limit=2)
     assert len(capped["results"]) == 2
 
     # limit larger than available results should return all matches without error.
-    uncapped = search_summaries(db, query="configure", limit=100)
+    uncapped = search_docs(db, query="configure", limit=100)
     assert len(uncapped["results"]) == 4
 
 
-def test_search_summaries_not_indexed_package(db: Database) -> None:
+def test_search_docs_not_indexed_package(db: Database) -> None:
     _seed_approved_pack(db)
 
-    result: dict[str, Any] = search_summaries(
+    result: dict[str, Any] = search_docs(
         db,
         query="anything",
         packages=["nonexistent-pkg"],
@@ -351,10 +351,10 @@ def test_search_summaries_not_indexed_package(db: Database) -> None:
     assert result["status"] == "not_indexed"
 
 
-def test_search_summaries_deprecated_warning(db: Database) -> None:
+def test_search_docs_deprecated_warning(db: Database) -> None:
     _seed_deprecated_pack(db)
 
-    result: dict[str, Any] = search_summaries(db, query="deprecated")
+    result: dict[str, Any] = search_docs(db, query="deprecated")
     assert "results" in result
 
     found_deprecated = False
@@ -366,7 +366,7 @@ def test_search_summaries_deprecated_warning(db: Database) -> None:
     assert found_deprecated
 
 
-def test_search_summaries_does_not_return_revoked(db: Database) -> None:
+def test_search_docs_does_not_return_revoked(db: Database) -> None:
     """Revoked packs must return zero results.
 
     NEG: Any result with lifecycle_state='revoked' in summary output.
@@ -374,7 +374,7 @@ def test_search_summaries_does_not_return_revoked(db: Database) -> None:
     _seed_approved_pack(db)
     _seed_revoked_pack(db)
 
-    result: dict[str, Any] = search_summaries(db, query="content")
+    result: dict[str, Any] = search_docs(db, query="content")
     assert "results" in result
 
     for r in result["results"]:
@@ -384,26 +384,26 @@ def test_search_summaries_does_not_return_revoked(db: Database) -> None:
         )
 
 
-def test_search_summaries_max_tokens_large_budget(db: Database) -> None:
+def test_search_docs_max_tokens_large_budget(db: Database) -> None:
     _seed_approved_pack(db)
 
-    unbounded = search_summaries(db, query="configure")
-    budgeted = search_summaries(db, query="configure", max_tokens=10_000)
+    unbounded = search_docs(db, query="configure")
+    budgeted = search_docs(db, query="configure", max_tokens=10_000)
 
     assert budgeted["results"] == unbounded["results"]
 
 
-def test_search_summaries_max_tokens_trims_to_ranked_prefix(db: Database) -> None:
+def test_search_docs_max_tokens_trims_to_ranked_prefix(db: Database) -> None:
     _seed_approved_pack(db)
 
-    unbounded = search_summaries(db, query="configure")
+    unbounded = search_docs(db, query="configure")
     assert len(unbounded["results"]) > 1
 
     # Compute total estimated cost across all returned summaries.
     total_cost = sum(len(r["summary"] or "") // 4 for r in unbounded["results"])
 
     # A budget one token below the total must drop at least the last result.
-    trimmed = search_summaries(db, query="configure", max_tokens=total_cost - 1)
+    trimmed = search_docs(db, query="configure", max_tokens=total_cost - 1)
     assert len(trimmed["results"]) < len(unbounded["results"])
 
     # Retained results must be the top-ranked prefix — same order, same chunk IDs.
@@ -412,14 +412,14 @@ def test_search_summaries_max_tokens_trims_to_ranked_prefix(db: Database) -> Non
 
 
 # ---------------------------------------------------------------------------
-# fetch_detail — detail MCP tool backend
+# fetch_docs — detail MCP tool backend
 # ---------------------------------------------------------------------------
 
 
-def test_fetch_detail_returns_full_content(db: Database) -> None:
+def test_fetch_docs_returns_full_content(db: Database) -> None:
     _seed_approved_pack(db)
 
-    result: dict[str, Any] = fetch_detail(db, chunk_ids=[1, 2])
+    result: dict[str, Any] = fetch_docs(db, chunk_ids=[1, 2])
     assert "results" in result
     assert len(result["results"]) == 2
 
@@ -431,14 +431,14 @@ def test_fetch_detail_returns_full_content(db: Database) -> None:
         assert len(r["content"]) > 0
 
 
-def test_fetch_detail_empty_chunk_ids(db: Database) -> None:
+def test_fetch_docs_empty_chunk_ids(db: Database) -> None:
     _seed_approved_pack(db)
 
-    result: dict[str, Any] = fetch_detail(db, chunk_ids=[])
+    result: dict[str, Any] = fetch_docs(db, chunk_ids=[])
     assert result == {"results": []}
 
 
-def test_fetch_detail_does_not_return_revoked(db: Database) -> None:
+def test_fetch_docs_does_not_return_revoked(db: Database) -> None:
     """Revoked chunk IDs must be silently excluded from detail output.
 
     NEG: Any result with lifecycle_state='revoked' in detail output.
@@ -447,7 +447,7 @@ def test_fetch_detail_does_not_return_revoked(db: Database) -> None:
     _seed_revoked_pack(db)
 
     # chunk ID 20 belongs to the revoked pack; chunk ID 1 to the approved pack.
-    result: dict[str, Any] = fetch_detail(db, chunk_ids=[1, 20])
+    result: dict[str, Any] = fetch_docs(db, chunk_ids=[1, 20])
     assert "results" in result
 
     returned_ids = {r["chunk_id"] for r in result["results"]}
@@ -455,7 +455,7 @@ def test_fetch_detail_does_not_return_revoked(db: Database) -> None:
     assert 1 in returned_ids
 
 
-def test_fetch_detail_max_tokens(db: Database) -> None:
+def test_fetch_docs_max_tokens(db: Database) -> None:
     _seed_approved_pack(db)
 
     # chunk_ids fetches full content; budget is applied against content length.
@@ -464,23 +464,23 @@ def test_fetch_detail_max_tokens(db: Database) -> None:
     # Combined cost: 17 tokens.
 
     # Budget 17 fits both chunks.
-    both = fetch_detail(db, chunk_ids=[1, 2], max_tokens=17)
+    both = fetch_docs(db, chunk_ids=[1, 2], max_tokens=17)
     assert {r["chunk_id"] for r in both["results"]} == {1, 2}
 
     # Budget 11 fits chunk 1 (cost 11) but stops before chunk 2 (11+6=17 > 11).
-    one = fetch_detail(db, chunk_ids=[1, 2], max_tokens=11)
+    one = fetch_docs(db, chunk_ids=[1, 2], max_tokens=11)
     assert [r["chunk_id"] for r in one["results"]] == [1]
 
     # Budget 10 cannot fit chunk 1 (cost 11 > 10).
-    none = fetch_detail(db, chunk_ids=[1, 2], max_tokens=10)
+    none = fetch_docs(db, chunk_ids=[1, 2], max_tokens=10)
     assert none["results"] == []
 
 
-def test_fetch_detail_max_tokens_large_budget(db: Database) -> None:
+def test_fetch_docs_max_tokens_large_budget(db: Database) -> None:
     _seed_approved_pack(db)
 
-    unbounded = fetch_detail(db, chunk_ids=[1, 2, 3])
-    budgeted = fetch_detail(db, chunk_ids=[1, 2, 3], max_tokens=10_000)
+    unbounded = fetch_docs(db, chunk_ids=[1, 2, 3])
+    budgeted = fetch_docs(db, chunk_ids=[1, 2, 3], max_tokens=10_000)
 
     assert budgeted["results"] == unbounded["results"]
 

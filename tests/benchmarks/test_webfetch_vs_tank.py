@@ -54,8 +54,8 @@ import tank
 from tank.builder.build import build_pack
 from tank.storage.db import Database
 from tank.storage.models import Pack
-from tank.server import fetch_detail as _fetch_detail
-from tank.server import search_summaries as _search_summaries
+from tank.server import fetch_docs as _fetch_docs
+from tank.server import search_docs as _search_docs
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -190,7 +190,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     #    it at all. A 0-result NL query is a real limitation and must be
     #    surfaced in the results JSON, not buried in a comment.
     # ------------------------------------------------------------------
-    nl_result = _search_summaries(
+    nl_result = _search_docs(
         bench_db,
         query=NATURAL_LANGUAGE_QUERY,
         packages=["fastmcp"],
@@ -214,7 +214,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     #    Represents the cost if an agent fetches every matched chunk without
     #    reading summaries to narrow down the selection first.
     # ------------------------------------------------------------------
-    single_step_summary = _search_summaries(
+    single_step_summary = _search_docs(
         bench_db,
         query=FTS5_QUERY,
         packages=["fastmcp"],
@@ -226,7 +226,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
         "Update FTS5_QUERY to a term that exists in the fixture document."
     )
     single_step_ids = [r["chunk_id"] for r in single_step_hits]
-    full_result = _fetch_detail(bench_db, single_step_ids)
+    full_result = _fetch_docs(bench_db, single_step_ids)
     full_hits = full_result.get("results", [])
     full_tokens = sum(_count_tokens(r.get("content") or "") for r in full_hits)
     full_chunks_returned = len(full_hits)
@@ -235,7 +235,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     # 3. Tank two-step (agentless — ALL matched chunks fetched, no agent
     #    selection after reading summaries)
     # ------------------------------------------------------------------
-    summary_result = _search_summaries(
+    summary_result = _search_docs(
         bench_db,
         query=FTS5_QUERY,
         packages=["fastmcp"],
@@ -248,7 +248,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     summary_tokens = sum(_count_tokens(r.get("summary") or "") for r in summary_hits)
 
     matched_ids = [r["chunk_id"] for r in summary_hits]
-    fetch_result = _fetch_detail(bench_db, matched_ids)
+    fetch_result = _fetch_docs(bench_db, matched_ids)
     fetch_hits = fetch_result.get("results", [])
     fetch_tokens = sum(_count_tokens(r.get("content") or "") for r in fetch_hits)
 

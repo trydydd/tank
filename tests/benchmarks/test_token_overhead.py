@@ -30,8 +30,8 @@ import pytest
 
 import tank
 from tank.server import create_server
-from tank.server import fetch_detail as _fetch_detail
-from tank.server import search_summaries as _search_summaries
+from tank.server import fetch_docs as _fetch_docs
+from tank.server import search_docs as _search_docs
 from tank.storage.db import Database
 from tank.storage.models import Chunk, Pack, Page
 
@@ -700,11 +700,11 @@ def test_token_overhead(bench_db: Database) -> None:
     )
 
     # Responses at different result counts via the public API.
-    # summary_nN: cost of search_summaries at limit=N.
-    # full_nN: cost of fetch_detail for the top N chunk IDs (two-step, agentless).
+    # summary_nN: cost of search_docs at limit=N.
+    # full_nN: cost of fetch_docs for the top N chunk IDs (two-step, agentless).
     response_data: dict[str, dict[str, Any]] = {}
     for n in (5, 10, 20):
-        s_result = _search_summaries(bench_db, broad_query, limit=n)
+        s_result = _search_docs(bench_db, broad_query, limit=n)
         s_results = s_result.get("results", [])
         s_tokens = _response_tokens(s_result)
         response_data[f"summary_n{n}"] = {
@@ -714,7 +714,7 @@ def test_token_overhead(bench_db: Database) -> None:
         }
 
         top_ids_n = [r["chunk_id"] for r in s_results]
-        f_result = _fetch_detail(bench_db, top_ids_n)
+        f_result = _fetch_docs(bench_db, top_ids_n)
         f_results = f_result.get("results", [])
         f_tokens = _response_tokens(f_result)
         response_data[f"full_n{n}"] = {
@@ -725,12 +725,12 @@ def test_token_overhead(bench_db: Database) -> None:
 
     # Two-step progressive disclosure session via the public API.
     # Step 1 — broad summary scan
-    step1 = _search_summaries(bench_db, broad_query, limit=20)
+    step1 = _search_docs(bench_db, broad_query, limit=20)
     step1_tokens = _response_tokens(step1)
     top_ids = [r["chunk_id"] for r in step1.get("results", [])[:3]]
 
     # Step 2 — targeted full fetch of top 3 chunks
-    step2 = _fetch_detail(bench_db, top_ids)
+    step2 = _fetch_docs(bench_db, top_ids)
     step2_tokens = _response_tokens(step2)
 
     two_step_total = step1_tokens + step2_tokens

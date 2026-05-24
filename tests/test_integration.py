@@ -354,16 +354,16 @@ def test_query_progressive_disclosure(
     db = Database(tmp_path / ".tank" / "index.db")
     try:
         db.create_schema()
-        from tank.server import fetch_detail, search_summaries
+        from tank.server import fetch_docs, search_docs
 
-        summary_resp = search_summaries(db, "oauth")
+        summary_resp = search_docs(db, "oauth")
         assert "results" in summary_resp
         for r in summary_resp["results"]:
             assert r["content"] is None, f"summary should not include content: {r}"
 
         if summary_resp["results"]:
             chunk_ids = [r["chunk_id"] for r in summary_resp["results"]]
-            full_resp = fetch_detail(db, chunk_ids)
+            full_resp = fetch_docs(db, chunk_ids)
             assert "results" in full_resp
             for r in full_resp["results"]:
                 assert r["content"] is not None and len(r["content"]) > 0, (
