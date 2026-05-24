@@ -69,6 +69,9 @@
 
 **Theme**: Multi-user, multi-project, CI-integrated. Start looking like infrastructure.
 
+- [ ] **`tank build --source <url>`** — general web crawler: follow links from a docs site root, fetch and chunk all reachable pages. For sites without `llms.txt` or `llms-full.txt`. Rate limiting, `robots.txt` compliance, configurable `User-Agent`. No embeddings or JS rendering — static HTML only.
+  - New module: `src/tank/builder/crawler.py`
+  - Extend `src/tank/builder/fetch.py` with link extraction and crawl frontier logic
 - [ ] **Pack registry (static hosting)** — `tank pull fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
   - New module: `src/tank/registry/` (client only; server is a static file host)
   - `tank pull` accepts `package@version` in addition to file paths
