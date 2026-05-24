@@ -1,67 +1,67 @@
 {
-  "timestamp": "2026-05-24T00:00:00.000000+00:00",
-  "git_commit": "pending",
-  "tank_version": "0.1.1",
-  "token_counter": "len_div_4",
-  "corpus": {
-    "chunks": 20,
-    "avg_summary_chars": 73,
-    "avg_content_chars": 939
-  },
-  "schema": {
-    "total_tokens": 260,
-    "tools": [
-      {
-        "name": "search",
-        "tokens": 185,
-        "chars": 743
-      },
-      {
-        "name": "fetch",
-        "tokens": 75,
-        "chars": 301
-      }
-    ],
-    "pct_of_200k_context": 0.13,
-    "pct_of_128k_context": 0.203
-  },
-  "responses": {
-    "summary_n5": {
-      "tokens": 563,
-      "actual_results": 5,
-      "tokens_per_result": 113
+    "timestamp": "2026-05-24T23:22:45.197190+00:00",
+    "git_commit": "feature/mcp",
+    "tank_version": "0.2.0-dev",
+    "token_counter": "len_div_4",
+    "corpus": {
+        "chunks": 20,
+        "avg_summary_chars": 73,
+        "avg_content_chars": 939
     },
-    "summary_n10": {
-      "tokens": 1122,
-      "actual_results": 10,
-      "tokens_per_result": 112
+    "schema": {
+        "total_tokens": 357,
+        "tools": [
+            {
+                "name": "search",
+                "tokens": 221,
+                "chars": 887
+            },
+            {
+                "name": "fetch",
+                "tokens": 136,
+                "chars": 544
+            }
+        ],
+        "pct_of_200k_context": 0.178,
+        "pct_of_128k_context": 0.279
     },
-    "summary_n20": {
-      "tokens": 2012,
-      "actual_results": 18,
-      "tokens_per_result": 112
+    "responses": {
+        "summary_n5": {
+            "tokens": 559,
+            "actual_results": 5,
+            "tokens_per_result": 112
+        },
+        "full_n5": {
+            "tokens": 1714,
+            "actual_results": 5,
+            "tokens_per_result": 343
+        },
+        "summary_n10": {
+            "tokens": 1115,
+            "actual_results": 10,
+            "tokens_per_result": 112
+        },
+        "full_n10": {
+            "tokens": 3465,
+            "actual_results": 10,
+            "tokens_per_result": 346
+        },
+        "summary_n20": {
+            "tokens": 2010,
+            "actual_results": 18,
+            "tokens_per_result": 112
+        },
+        "full_n20": {
+            "tokens": 6341,
+            "actual_results": 18,
+            "tokens_per_result": 352
+        }
     },
-    "full_n5": {
-      "tokens": 1810,
-      "actual_results": 5,
-      "tokens_per_result": 362
-    },
-    "full_n10": {
-      "tokens": 3542,
-      "actual_results": 10,
-      "tokens_per_result": 354
-    },
-    "full_n20": {
-      "tokens": 6405,
-      "actual_results": 18,
-      "tokens_per_result": 356
+    "progressive_disclosure": {
+        "step1_summary_all_tokens": 2010,
+        "step2_full_top3_tokens": 1033,
+        "total_tokens": 3043,
+        "vs_naive_full_n20_tokens": 6341,
+        "saving_pct": 52.0
     }
-  },
-  "progressive_disclosure": {
-    "step1_summary_all_tokens": 2012,
-    "step2_full_top3_tokens": 1047,
-    "total_tokens": 3059,
-    "vs_naive_full_n20_tokens": 6405,
-    "saving_pct": 52.2
-  }
 }

@@ -73,8 +73,11 @@ jobs:
         id: compare
         run: |
           if [ -f /tmp/main.json ]; then
+            # compare.py exits 1 when thresholds are exceeded — treat this as a
+            # warning, not a fatal step failure. The markdown comment captures the
+            # ⚠️ WARN banner; downstream steps must still run to post it.
             python3 pr/tests/benchmarks/compare.py \
-              /tmp/main.json /tmp/pr.json --markdown > /tmp/comment.md
+              /tmp/main.json /tmp/pr.json --markdown > /tmp/comment.md || true
             echo "has_baseline=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_baseline=false" >> "$GITHUB_OUTPUT"
