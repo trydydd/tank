@@ -54,19 +54,32 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 **Theme**: Make it effortless to start. Polish the rough edges that stop adoption.
 
-- [x] **MCP two-tool refactor** — replace `query-docs` (single tool with `detail` parameter) with separate `search` (summaries + chunk IDs) and `fetch` (full content by ID) tools. Enforces the two-step agent pattern structurally. `resolve-deps` retained as internal helper.
+### Completed
+
+- [x] **MCP two-tool refactor** — replace `query-docs` (single tool with `detail` parameter) with separate `search` (summaries + chunk IDs) and `fetch` (full content by ID) tools. Enforces the two-step agent pattern structurally.
 - [x] **`tank serve` CLI command** — `tank serve` launches the MCP stdio server, discoverable from `tank --help`. Replaces the undiscoverable `python -m tank.server` invocation.
 - [x] **MCP documentation refresh** — `docs/MCP.md` rewritten with accurate `search`/`fetch` API; all config examples updated to `tank serve`; `README.md` MCP snippet updated with `cwd`.
 - [x] **FTS5 heading_path + BM25 weight tuning** — `heading_path` added as first column in `chunks_fts` with 2.5× weight; BM25 tuned to heading 2.5× > summary 1.5× > content 1.0×.
-- [ ] **PyPI release** (`pip install tank`, `pip install tank[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
-  - *Requires [S5](docs/spikes.yaml) (PyPI packaging diagnosis) to be completed before work can begin.*
-- [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it
 
-- [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
-  - New module: `src/tank/cli/init.py`
-  - Parse `requirements.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`
-  - Map package names to `.ctx` pack URLs (static JSON registry on GitHub)
-  - Generate MCP config (`.cursor/mcp.json` or Claude Code equivalent)
+### Foundation — no blockers, start now
+
+- [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it. Establishes a stable schema contract before PyPI release.
+- [ ] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
+- [ ] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
+- [ ] **Lockfile in git** — document committing `.tank/index.lock` for reproducible team setups
+
+### Chunker quality stream — S7 → chunker → S2 → summary
+
+- [ ] **Custom markdown chunker** — replace chunkana with a `markdown-it-py`-backed chunker that splits at all heading levels (`#` through `######`), keeps code fences atomic, and builds `heading_path` accurately by construction. Removes the `##`-only limitation that produces 900-token multi-section chunks. See `decisions.md` D14.
+  - *Requires [S7](docs/spikes.yaml) (custom chunker implementation plan) to be completed before work can begin.*
+  - Replace `src/tank/builder/chunking.py`; remove chunkana from dependencies; add `markdown-it-py>=3.0`
+- [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` in `tank build`. Modify `src/tank/builder/chunking.py`
+- [ ] **Heading-aware summary heuristic** — prefix chunk summaries with the leaf heading node (`"STDIO Transport: STDIO is the default transport..."` instead of `"You can now run this server..."`). Eliminates false-positive summaries for chunks that open with transitional sentences or code. See `decisions.md` D13.
+  - *Requires [S2](docs/spikes.yaml) (heading-aware summary implementation) to be completed before work can begin. Benefits from the custom chunker landing first — accurate `heading_path` at all levels makes the prefix reliable.*
+  - Modify `generate_summary()` in `src/tank/builder/chunking.py`; no schema changes
+
+### URL fetch stream — S6 → llms-full.txt → (S8 in parallel) → llms.txt → packs
+
 - [ ] **`tank build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
   - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) to be completed before work can begin.*
   - Modify `src/tank/builder/build.py` to accept URL sources
@@ -83,23 +96,27 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
   - Strip inline MDX/JSX callout tags (`<Tip>`, `<Note>`, `<Warning>`, `<Info>`, etc.) — keep inner text
   - Use the page URL as `source_url`; derive title from first `#` heading
 - [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
-- [ ] **Custom markdown chunker** — replace chunkana with a `markdown-it-py`-backed chunker that splits at all heading levels (`#` through `######`), keeps code fences atomic, and builds `heading_path` accurately by construction. Removes the `##`-only limitation that produces 900-token multi-section chunks. See `decisions.md` D14.
-  - *Requires [S7](docs/spikes.yaml) (custom chunker implementation plan) to be completed before work can begin.*
-  - Replace `src/tank/builder/chunking.py`; remove chunkana from dependencies; add `markdown-it-py>=3.0`
-- [ ] **Heading-aware summary heuristic** — prefix chunk summaries with the leaf heading node (`"STDIO Transport: STDIO is the default transport..."` instead of `"You can now run this server..."`). Eliminates false-positive summaries for chunks that open with transitional sentences or code. See `decisions.md` D13.
-  - *Requires [S2](docs/spikes.yaml) (heading-aware summary implementation) to be completed before work can begin.*
-  - Modify `generate_summary()` in `src/tank/builder/chunking.py`; no schema changes
-- [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` in `tank build`. Modify `src/tank/builder/chunking.py`
-- [ ] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
-- [ ] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
-- [ ] **Lockfile in git** — document committing `.tank/index.lock` for reproducible team setups
-- [ ] **FTS5 search quality** — four targeted improvements:
-  - [x] Add `heading_path` column to `chunks_fts` with 2.5× weight (`db.py:48`, `fts.py:62`)
-  - [x] Tune BM25 weights: heading 2.5× > summary 1.5× > content 1.0×
+
+### FTS5 tuning — parallel, no blockers
+
+- [ ] **FTS5 search quality** — two remaining improvements:
   - [ ] Query preprocessing: stopword filtering, term normalization
   - [ ] Synonym expansion: `auth` → `authentication`, `JWT` → `JSON Web Token`, etc.
-- [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. The current implementation reads the entire ZIP into memory, then reconstructs a second in-memory ZIP — decompressing and re-compressing every file — solely to zero out `pack_digest` and hash the result. Near the 500MB archive limit this allocates 500MB+, decompresses everything, and holds it all in memory simultaneously. Fix: hash individual entries in a defined order instead of reconstructing the archive.
 - [ ] **Query latency benchmark** — measure actual FTS5 query time against a representative index (target: 100K chunks); replace the unbenchmarked sub-10ms claim in `architecture.md` with a measured number. Add to `tests/benchmarks/` alongside the existing token overhead and WebFetch benchmarks.
+
+### Release — after foundation + S5
+
+- [ ] **PyPI release** (`pip install tank`, `pip install tank[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
+  - *Requires [S5](docs/spikes.yaml) (PyPI packaging diagnosis) to be completed before work can begin.*
+- [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. The current implementation reads the entire ZIP into memory, then reconstructs a second in-memory ZIP — decompressing and re-compressing every file — solely to zero out `pack_digest` and hash the result. Near the 500MB archive limit this allocates 500MB+, decompresses everything, and holds it all in memory simultaneously. Fix: hash individual entries in a defined order instead of reconstructing the archive.
+
+### Discovery — after PyPI release + pre-built packs
+
+- [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
+  - New module: `src/tank/cli/init.py`
+  - Parse `requirements.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`
+  - Map package names to `.ctx` pack URLs (static JSON registry on GitHub)
+  - Generate MCP config (`.cursor/mcp.json` or Claude Code equivalent)
 
 ---
 
