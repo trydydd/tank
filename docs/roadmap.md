@@ -47,10 +47,10 @@
 - [ ] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
 - [ ] **Lockfile in git** — document committing `.tank/index.lock` for reproducible team setups
 - [ ] **FTS5 search quality** — four targeted improvements:
-  - Add `heading_path` column to `chunks_fts` with 2.5× weight (`db.py:48`, `fts.py:62`)
-  - Tune BM25 weights: heading 2.5× > summary 1.5× > content 1.0×
-  - Query preprocessing: stopword filtering, term normalization
-  - Synonym expansion: `auth` → `authentication`, `JWT` → `JSON Web Token`, etc.
+  - [x] Add `heading_path` column to `chunks_fts` with 2.5× weight (`db.py:48`, `fts.py:62`)
+  - [x] Tune BM25 weights: heading 2.5× > summary 1.5× > content 1.0×
+  - [ ] Query preprocessing: stopword filtering, term normalization
+  - [ ] Synonym expansion: `auth` → `authentication`, `JWT` → `JSON Web Token`, etc.
 - [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. Hash entries in a defined order instead.
 
 ---
