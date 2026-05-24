@@ -204,25 +204,33 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 
 ---
 
-## D14: Chunker — chunkana Limitations and Replacement Strategy
+## D14: Chunker — chunkana Replacement: Custom Chunker on markdown-it-py
 
-**Decision**: use chunkana for MVP structural chunking, accepting its limitations.
+**MVP decision**: use chunkana for MVP structural chunking, accepting its limitations.
 
 **chunkana verdict**: does not support heading-based splitting at arbitrary depth. The `structural` strategy splits only at `##` level, keeping all `###` subsections together. `header_path` is always `[]`; Tank works around this by reading `section_tags[0]`, but this is the ceiling of what chunkana can provide. Observed impact: in the fastmcp benchmark, chunk 5 spans six `###` sections (932 tokens) and is matched by FTS5 on incidental keyword overlap rather than relevance.
 
-**semchunk evaluated and ruled out**: general-purpose recursive delimiter splitter with no markdown heading awareness — a `###` boundary is not a privileged split point. Token-counter-driven rather than structure-driven; would reproduce the multi-section chunk problem. Requires a tokenizer dependency at build time.
+**Library survey (S1 — done)**: four production-stable (≥1.0.0) candidates evaluated:
 
-**What a replacement needs**:
-- Split at heading boundaries at all levels (`##`, `###`, and deeper) as the primary split point
+- **chunknorris 1.2.2** — meets all requirements (all heading levels, heading_path as ordered list by construction, code fences atomic, paragraph overflow splitting) but ships parsers for PDF, Word, Excel, and Jupyter Notebooks Tank will never use. PyMuPDF, pandas, matplotlib in the dependency tree. ~30MB install footprint for a markdown chunker.
+- **langchain-text-splitters 1.1.2 `MarkdownHeaderTextSplitter`** — code fences atomic, all heading levels configurable, but heading_path returns as a flat dict (requires reconstruction glue) and no paragraph overflow splitting. Requires `langchain-core`.
+- **semantic-text-splitter 0.30.1** — pre-1.0, no heading hierarchy output. Eliminated.
+- **chonkie 1.6.7** — delimiter-based, no structural heading tracking. Eliminated.
+
+**Decision**: build a custom chunker using `markdown-it-py` 3.0.0+ as the parsing backend.
+
+**Rationale**: neither off-the-shelf library is a clean drop-in. `markdown-it-py` is MIT-licensed, zero additional dependencies, actively maintained, and is already a widely-used CommonMark parser. The chunknorris markdown chunker is ~250 lines of reference implementation; Tank's equivalent with `markdown-it-py` tokens gives full control over heading_path construction, code-fence atomicity, and paragraph overflow with no dependency weight penalty. This aligns with Tank's local-first, minimal-dependency philosophy.
+
+**What the custom chunker must do**:
+- Split at heading boundaries at all levels (`#`, `##`, `###`, `####`, and deeper) as the primary split point
 - Treat fenced code blocks as atomic — never split mid-fence
-- Split oversized sections at paragraph boundaries
-- Build `heading_path` accurately by construction, not inferred from metadata
+- Split oversized sections at paragraph boundaries when a section exceeds `max_chunk_tokens`
+- Build `heading_path` accurately by construction as a `/`-joined string of ancestor heading texts
+- Replace `src/tank/builder/chunking.py` — the `process_file()` function and `generate_summary()` call site
 
-**Custom chunker option**: the core logic is ~150 lines — parse line by line tracking heading level and fence state, emit a chunk on each heading boundary outside a fence, split oversized chunks at paragraph boundaries. Edge cases are well-defined and the payoff is one-chunk-per-section with correct `heading_path`, which makes D13's heading-prefix summary reliable.
+**`semchunk` ruled out earlier**: general-purpose recursive delimiter splitter with no markdown heading awareness. Token-counter-driven rather than structure-driven.
 
-**Before building**: survey available libraries for a production-ready markdown-structure-aware chunker meeting the above criteria. No candidates have been evaluated beyond chunkana and semchunk. Any replacement must be benchmarked against the fastmcp fixture to confirm it resolves the multi-section chunk problem.
-
-**Revisit when**: after D12 (tool split) lands. The chunker affects build quality; the tool surface change affects agent behaviour and is the higher-priority breaking change.
+**See spike S7** for implementation scope and test approach.
 
 ---
 

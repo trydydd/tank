@@ -6,8 +6,16 @@
 spikes:
 
   - id: S1
-    title: Markdown chunker replacement
-    status: open
+    title: Markdown chunker replacement — library survey
+    status: done
+    outcome: |
+      No off-the-shelf library is a clean drop-in. chunknorris 1.2.2 meets all
+      requirements but carries PyMuPDF, pandas, and matplotlib for parsers Tank
+      will never use (~30MB). langchain-text-splitters 1.1.2 is lighter but heading_path
+      returns as a flat dict and has no paragraph overflow splitting. Decision (D14):
+      build a custom chunker using markdown-it-py 3.0.0+ as the parsing backend.
+      MIT-licensed, zero extra dependencies, ~250 lines reference implementation in
+      chunknorris. See S7 for implementation work.
     context: |
       chunkana splits only at ## level; all ### subsections stay together, producing
       coarse multi-section chunks. The section_tags workaround is the ceiling of what
@@ -60,8 +68,13 @@ spikes:
     blocked_by: []
 
   - id: S3
-    title: "query-docs tool split: search-docs / fetch-docs"
-    status: open
+    title: "query-docs tool split: search / fetch"
+    status: done
+    outcome: |
+      Implemented in v0.2.0 (feature/mcp branch). query-docs replaced with two tools:
+      search (summaries + chunk_ids, never full content) and fetch (full content by
+      chunk_ids, no query). tank serve CLI command added. See decisions.md D12 and
+      docs/MCP.md for full documentation.
     context: |
       detail="full" on query-docs nudges agents toward expensive single-step queries
       without a prior relevance pass. The architectural fix is two tools: search-docs
@@ -165,3 +178,96 @@ spikes:
       - src/tank/builder/build.py
       - docs/decisions.md
     blocked_by: []
+
+  - id: S7
+    title: Custom markdown chunker implementation (markdown-it-py)
+    status: open
+    context: |
+      chunkana splits only at ## level; all ### subsections stay together. Library
+      survey (S1) found no off-the-shelf replacement without heavy dependencies.
+      Decision (D14): build a custom chunker using markdown-it-py 3.0.0+ as the
+      parsing backend. markdown-it-py tokenises a CommonMark document into a flat
+      token stream where heading tokens carry their level (1-6) and fence tokens
+      mark code block open/close boundaries. This makes correct heading_path
+      construction and code-fence atomicity straightforward.
+    task: |
+      Implement src/tank/builder/chunking.py replacing the chunkana-based
+      process_file() with a markdown-it-py-backed implementation:
+      - Parse the file with markdown_it.MarkdownIt().parse(text)
+      - Walk the token stream: on each heading_open token, emit the current
+        accumulated chunk (if any), push heading text onto the ancestor stack,
+        trim the stack to the current heading level
+      - heading_path = " / ".join(ancestor_stack) — built by construction
+      - Treat fence_open..fence_close spans as atomic: never start a new chunk
+        inside a code fence
+      - When accumulated content exceeds max_chunk_tokens (default 500), split
+        at the next blank-line boundary (paragraph split), not mid-paragraph
+      - Preamble content before the first heading becomes a chunk with
+        heading_path = source filename prefix (current behaviour preserved)
+      - generate_summary() call site in build.py: pass heading_path through
+        (required for D13 once S2 is implemented; wire the parameter now even
+        if D13 is not implemented yet)
+      Remove chunkana from pyproject.toml dependencies once replaced.
+      Add markdown-it-py>=3.0 to core dependencies (not build extra — chunking
+      is required for tank build which is already in the build extra, but
+      markdown-it-py is pure Python and lightweight enough for the base install).
+    success: |
+      All existing tests pass. The fastmcp benchmark chunk 5 (currently 932 tokens,
+      six ### sections) is split into per-section chunks. heading_path for a ###
+      section correctly includes the ## and # ancestor headings. Code fence content
+      is never split across chunks. chunkana removed from dependencies.
+    files:
+      - src/tank/builder/chunking.py
+      - src/tank/builder/build.py
+      - pyproject.toml
+      - tests/test_builder/
+      - tests/benchmarks/test_webfetch_vs_tank.py
+      - docs/decisions.md
+    blocked_by: []
+
+  - id: S8
+    title: Web page to markdown conversion — library and pipeline research
+    status: open
+    context: |
+      tank build --source <url>/llms.txt (v0.2.0 roadmap) fetches individual doc
+      pages and must convert them to clean markdown for the chunker. S6 covers
+      HTML-to-markdown library selection for the raw conversion step, but the
+      full pipeline involves more: HTTP fetch with rate limiting and User-Agent,
+      content extraction (stripping nav/sidebar/footer boilerplate), HTML-to-markdown
+      conversion, and MDX/JSX callout tag handling (Mintlify sites use <Tip>,
+      <Note>, <Warning> etc. that must be unwrapped to their inner text).
+      The quality of this pipeline directly determines heading_path accuracy and
+      summary quality in the resulting pack — garbage in, garbage chunks out.
+      The fastmcp and MCP packs built from llms-full.txt demonstrate the problem:
+      JSX components in headings produce heading_path values like
+      'ClassName <sup><a href="..."><Icon /></a></sup>'.
+    task: |
+      Research and recommend a complete fetch-and-convert pipeline for
+      tank build --source <url>/llms.txt:
+      1. HTTP fetch: evaluate httpx vs requests for async/sync tradeoffs; confirm
+         rate limiting approach (token bucket or simple sleep); User-Agent policy.
+      2. Content extraction: evaluate trafilatura vs readability-lxml vs
+         BeautifulSoup manual extraction for stripping nav/sidebar/footer.
+         Test against: fastmcp docs (gofastmcp.com), MCP spec (modelcontextprotocol.io),
+         a ReadTheDocs site (requests.readthedocs.io), a Docusaurus site.
+      3. HTML-to-markdown: build on S6 outcome if resolved; otherwise evaluate
+         markdownify vs html2text vs trafilatura's built-in markdown output.
+      4. MDX/JSX tag handling: what regex or parser approach cleanly strips
+         <Tip>, <Note>, <Warning>, <FeatureBadge />, <Icon />, inline
+         <sup><a href="...">...</a></sup> — keeping inner text, discarding
+         component wrappers. Test against modelcontextprotocol.io/llms-full.txt.
+      Produce a recommended pipeline with the specific library versions, a
+      code sketch of the fetch-and-convert function, and sample output from
+      each of the four test sites.
+    success: |
+      A recommended pipeline with library choices justified against the test sites.
+      A code sketch of fetch_page(url: str) -> str (returns clean markdown).
+      MDX/JSX stripping approach confirmed to handle the fastmcp heading pollution
+      case. Enough detail to implement src/tank/builder/fetch.py without further
+      research.
+    files:
+      - src/tank/builder/fetch.py
+      - src/tank/builder/llms_full.py
+      - src/tank/builder/build.py
+      - docs/decisions.md
+    blocked_by: [S6]
