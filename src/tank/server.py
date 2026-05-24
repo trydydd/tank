@@ -26,29 +26,6 @@ def _db_path(project_path: str | None = None) -> Path:
     return _DEFAULT_DB_PATH
 
 
-def resolve_deps(db: Database) -> dict[str, Any]:
-    """Read-only health check — list of imported packs with their state."""
-    packages = db.get_packages()
-    packs = []
-    for p in packages:
-        row = db.conn.execute(
-            "SELECT COUNT(*) AS cnt FROM chunks WHERE package = ? AND version = ?",
-            (p.name, p.version),
-        ).fetchone()
-        chunks = row["cnt"]
-        packs.append(
-            {
-                "package": p.name,
-                "version": p.version,
-                "lifecycle_state": p.lifecycle_state,
-                "doc_version_status": p.doc_version_status,
-                "chunks": chunks,
-                "indexed_at": p.indexed_at,
-            }
-        )
-    return {"status": "ok", "packs": packs}
-
-
 def search_docs(
     db: Database,
     query: str,

@@ -3,8 +3,8 @@
 Simulates two documentation retrieval strategies for the same query:
 
   1. WebFetch   — the full source page lands in context as-is
-  2. Tank full  — query-docs with detail='full', no prior summary step (agentless)
-  3. Tank 2-step — summary scan first, then full content for ALL matched chunks
+  2. Tank full  — fetch all matched chunks without a prior summary step (agentless)
+  3. Tank 2-step — search (summaries) first, then fetch for ALL matched chunks
 
 ⚠️  The two-step approach here is AGENTLESS: all matched chunk IDs are
     fetched unconditionally after the summary scan. A real agent would read

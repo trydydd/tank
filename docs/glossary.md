@@ -8,7 +8,7 @@ Definitions of Tank-specific terminology. Sorted alphabetically.
 
 **`.tank/` directory** — per-project directory storing Tank's local state: `index.db` (the SQLite database), `index.lock` (the lockfile), and optionally `policy.toml`.
 
-**BM25** — the ranking algorithm used by SQLite FTS5 for full-text search. Produces a relevance score based on term frequency and inverse document frequency. Used by `tank query` and `query-docs`.
+**BM25** — the ranking algorithm used by SQLite FTS5 for full-text search. Produces a relevance score based on term frequency and inverse document frequency. Used by `tank query` and the `search` MCP tool.
 
 **chunk** — a unit of documentation content produced by structural chunking. Each chunk has an ID, belongs to a page, carries a `heading_path`, `summary`, `content`, `token_count`, `source_url`, and `content_hash`. Stored as one line in `chunks.jsonl` and one row in the `chunks` SQLite table.
 

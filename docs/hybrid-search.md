@@ -7,7 +7,7 @@ indexed document or return nothing. The natural language query
 `"how do I configure a stdio implementation in fastmcp"` returns 0 results from FTS5
 because "configure" and "implementation" do not appear in the source document. An LLM
 agent bridges this gap by translating the NL query into FTS5 terms before calling
-`query-docs` — but that translation step can fail, and when it does the agent falls back
+`search` — but that translation step can fail, and when it does the agent falls back
 to WebFetch at full page cost.
 
 Hybrid search (BM25 + vector similarity) eliminates the vocabulary mismatch problem.
@@ -40,7 +40,7 @@ This is achieved by moving all model-related work to build time:
    a `sqlite-vec` virtual table in `index.db`, alongside the existing FTS5 index.
    No model, no generation.
 
-4. **Query time** — `query-docs` runs both FTS5 and a vector ANN search, combines
+4. **Query time** — `search` runs both FTS5 and a vector ANN search, combines
    scores via Reciprocal Rank Fusion (RRF), and returns the merged ranked list.
    The only runtime dependency is the `sqlite-vec` SQLite extension.
 

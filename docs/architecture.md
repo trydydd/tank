@@ -399,7 +399,7 @@ The normalization function used at `tank build` time and `tank verify` time must
 
 ### Pack-level lockfile (.tank/index.lock)
 
-A TOML record of imported packs, written by `tank pull` and readable by `resolve-deps`:
+A TOML record of imported packs, written by `tank pull`:
 
 ```toml
 [meta]
@@ -663,8 +663,9 @@ Standard MCP transport over stdin/stdout. Works with all MCP clients (Claude Des
 {
   "mcpServers": {
     "tank": {
-      "command": "python",
-      "args": ["-m", "tank.server"]
+      "command": "tank",
+      "args": ["serve"],
+      "cwd": "${workspaceFolder}"
     }
   }
 }
@@ -672,24 +673,9 @@ Standard MCP transport over stdin/stdout. Works with all MCP clients (Claude Des
 
 ### HTTP (local network)
 
-Streamable HTTP transport bound to localhost only. Useful for editors that prefer HTTP-based MCP, for running as a persistent background daemon, or for development and debugging.
+Streamable HTTP transport bound to localhost only. The implementation exists (`run_http()` in `src/tank/server.py`) but is not yet wired to a CLI flag — stdio is the only transport available from the command line.
 
-```bash
-python -m tank.server --http --port 8000 --path /mcp
-# Listens on 127.0.0.1:8000/mcp only
-```
-
-```json
-{
-  "mcpServers": {
-    "tank": {
-      "url": "http://127.0.0.1:8000/mcp"
-    }
-  }
-}
-```
-
-**Security**: the HTTP transport binds exclusively to `127.0.0.1`. It does not and will not bind to `0.0.0.0` or any external interface. This is a hard constraint, not a configuration option. For remote access (e.g. a team server), front it with a reverse proxy that handles authentication and TLS.
+**Security constraint** (when implemented): the HTTP transport will bind exclusively to `127.0.0.1`. It will not bind to `0.0.0.0` or any external interface. This is a hard constraint, not a configuration option. For remote access (e.g. a team server), front it with a reverse proxy that handles authentication and TLS.
 
 ## Technology Choices
 

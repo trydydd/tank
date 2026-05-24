@@ -28,7 +28,7 @@ There is no documented strategy for backing up or recovering `index.db`. A corru
 
 ### 5. Observability and Error Reporting
 
-No logging, metrics, or structured error reporting strategy is defined. When `tank query` returns poor results or `tank pull` fails in CI, there is no audit trail beyond exit codes. The MCP server is a long-running process with no health endpoint beyond `resolve-deps`.
+No logging, metrics, or structured error reporting strategy is defined. When `tank query` returns poor results or `tank pull` fails in CI, there is no audit trail beyond exit codes. The MCP server is a long-running process with no health endpoint.
 
 **Recommendation**: Add structured logging (Python `logging` module with JSON formatter option) at key checkpoints: verify step results, import timing, query latency, FTS5 match counts. For the HTTP transport, add a `/health` endpoint returning server uptime, database size, and pack count.
 
@@ -46,9 +46,9 @@ The architecture relies on `chunkana` for structural chunking but provides no gu
 
 ### 8. Query Result Caching
 
-Every `query-docs` call executes a fresh FTS5 query against SQLite. For MCP server sessions where the agent makes repeated similar queries (e.g. refining search terms), there is no caching layer. While individual queries are fast (<10ms), the cumulative overhead adds up in long sessions.
+Every `search` call executes a fresh FTS5 query against SQLite. For MCP server sessions where the agent makes repeated similar queries (e.g. refining search terms), there is no caching layer. While individual queries are fast (<10ms), the cumulative overhead adds up in long sessions.
 
-**Recommendation**: Add an optional LRU cache keyed on `(query, packages, detail, lifecycle_filter)` with a short TTL (e.g. 60 seconds) or invalidation on `tank pull`. This is low-priority given the sub-10ms target but becomes relevant at scale.
+**Recommendation**: Add an optional LRU cache keyed on `(query, packages, limit)` with a short TTL (e.g. 60 seconds) or invalidation on `tank pull`. This is low-priority given the sub-10ms target but becomes relevant at scale.
 
 ### 9. CI/CD Integration Guidance
 
@@ -110,7 +110,7 @@ Split the system: write the MCP server in TypeScript (using the official TypeScr
 - **MCP ecosystem alignment**: the MCP specification and reference implementations are TypeScript-first. The TypeScript SDK receives features and fixes before the Python SDK. Writing the server in TypeScript means fewer compatibility surprises and faster adoption of new MCP protocol features.
 - **Deployment matches the consumer**: MCP clients (Claude Code, VS Code extensions, Cursor) are Electron/Node.js applications. A TypeScript MCP server can be distributed as an npm package and invoked via `npx`, which is already in every developer's PATH. No Python environment required on the client machine.
 - **`better-sqlite3` performance**: the `better-sqlite3` Node.js binding is a synchronous, native SQLite wrapper that benchmarks comparably to `rusqlite`. FTS5 query performance will meet the sub-10ms target.
-- **Async I/O model**: Node.js's event loop naturally handles the MCP server's concurrent read workload (multiple `query-docs` calls from an agent session) without threading complexity.
+- **Async I/O model**: Node.js's event loop naturally handles the MCP server's concurrent read workload (multiple `search`/`fetch` calls from an agent session) without threading complexity.
 - **Keeps Python for build**: the build pipeline (`chunkana`, `hashlib`, `zipfile`) stays in Python where the dependencies exist and the code is already designed. No rewrite needed for the offline toolchain.
 
 **Cons**:
@@ -159,7 +159,7 @@ Keep the entire stack in Python as designed. Address the gaps above within the P
 - **Runtime dependency**: users must have Python 3.11+ installed. In enterprise environments with locked-down system images, getting the right Python version can be a blocker. Virtual environments add friction compared to a single binary.
 - **Startup latency**: Python's import time means the MCP server takes 200-500ms to cold-start. For stdio transport (spawned per session), this is noticeable. For HTTP transport (persistent daemon), it's a one-time cost.
 - **Archive validator in Python**: the security-critical archive validation path runs in an interpreted language. While Python's `zipfile` module delegates to C for decompression, the path traversal checks, hash computation, and size enforcement are pure Python. A maliciously crafted archive could exploit Python-level slowness for denial-of-service during `tank verify`.
-- **GIL limitations**: the HTTP transport serving concurrent `query-docs` requests is constrained by Python's GIL. While SQLite FTS5 queries release the GIL during C-level execution, the Python-level result serialization and attribution JOIN processing do not. Under high concurrency (unlikely for local-first, but possible in team-server scenarios), this becomes a bottleneck.
+- **GIL limitations**: the HTTP transport serving concurrent `search`/`fetch` requests is constrained by Python's GIL. While SQLite FTS5 queries release the GIL during C-level execution, the Python-level result serialization and attribution JOIN processing do not. Under high concurrency (unlikely for local-first, but possible in team-server scenarios), this becomes a bottleneck.
 - **No compile-time safety net**: manifest schema changes, policy engine logic errors, and lifecycle state machine bugs are caught at test time rather than compile time. The architecture acknowledges this implicitly by requiring "the test suite covers archive safety, manifest validation, import, and query attribution."
 
 ---

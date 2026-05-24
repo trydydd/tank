@@ -2,7 +2,7 @@
 
 Measures the token cost of:
   1. Tool schema injection — what every MCP session pays upfront
-  2. query-docs responses at detail='summary' and detail='full'
+  2. search responses (summaries only) and fetch responses (full content)
   3. The two-step progressive disclosure pattern vs. naive full fetch
 
 Token counting uses len(str) // 4 throughout, consistent with the project

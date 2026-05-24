@@ -9,7 +9,6 @@ from tank.storage.db import Database
 from tank.storage.models import Chunk, Pack, Page
 from tank.server import (
     fetch_docs,
-    resolve_deps,
     search_docs,
 )
 
@@ -199,90 +198,6 @@ def _seed_revoked_pack(db: Database) -> Pack:
     ]
     db.import_pack(pack, pages, chunks)
     return pack
-
-
-# ---------------------------------------------------------------------------
-# resolve_deps — internal health-check function
-# ---------------------------------------------------------------------------
-
-
-def test_resolve_deps_returns_packs(db: Database) -> None:
-    _seed_approved_pack(db)
-
-    # Import a second pack to verify multi-pack behavior
-    pack2 = Pack(
-        name="other-lib",
-        version="2.1.0",
-        lifecycle_state="approved",
-        doc_version_status="stable",
-        indexed_at="2026-05-15T12:00:00Z",
-        policy_profile="internal-strict",
-        pack_digest="sha256:ee1",
-        normalized_content_hash="sha256:ee2",
-        source_url="https://other-lib.example.com/docs",
-        source_commit="def456",
-        owner="backend-team",
-    )
-    pages2 = [
-        Page(id=1, package="other-lib", version="2.1.0", url="docs/api.md", title="API")
-    ]
-    chunks2 = [
-        Chunk(
-            id=1,
-            package="other-lib",
-            version="2.1.0",
-            content="The API accepts JSON payloads.",
-            page_id=1,
-            heading_path="docs / API",
-            summary="API accepts JSON",
-            token_count=50,
-            source_url="docs/api.md",
-            source_commit="def456",
-            content_hash="sha256:ff1",
-        ),
-    ]
-    db.import_pack(pack2, pages2, chunks2)
-
-    result: dict[str, Any] = resolve_deps(db)
-    assert result["status"] == "ok"
-    assert len(result["packs"]) == 2
-
-    packages_seen = {p["package"] for p in result["packs"]}
-    assert packages_seen == {"my-lib", "other-lib"}
-
-    my_lib = next(p for p in result["packs"] if p["package"] == "my-lib")
-    assert my_lib["version"] == "1.0.0"
-    assert my_lib["lifecycle_state"] == "approved"
-    assert my_lib["chunks"] == 5
-
-    other_lib = next(p for p in result["packs"] if p["package"] == "other-lib")
-    assert other_lib["version"] == "2.1.0"
-    assert other_lib["lifecycle_state"] == "approved"
-    assert other_lib["chunks"] == 1
-
-
-def test_resolve_deps_empty_index(db: Database) -> None:
-    result: dict[str, Any] = resolve_deps(db)
-    assert result["status"] == "ok"
-    assert result["packs"] == []
-
-
-def test_resolve_deps_does_not_omit_deprecated(db: Database) -> None:
-    """Deprecated packs must appear in resolve_deps output.
-
-    NEG: A deprecated pack missing from resolve_deps output.
-    """
-    _seed_approved_pack(db)
-    _seed_deprecated_pack(db)
-
-    result: dict[str, Any] = resolve_deps(db)
-    assert result["status"] == "ok"
-    assert len(result["packs"]) == 2
-
-    packages_seen = {p["package"] for p in result["packs"]}
-    assert "old-lib" in packages_seen, (
-        "resolve_deps must include deprecated packs in its output"
-    )
 
 
 # ---------------------------------------------------------------------------
