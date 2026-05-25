@@ -252,3 +252,46 @@ tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
 ```
 
 **Revisit when**: never — this is a release artifact decision. Future packs follow the same evaluation process.
+
+---
+
+## D16: Lockfile location — `tank.lock` at project root
+
+**Decision**: The lockfile lives at `tank.lock` in the project root, not `.tank/index.lock`.
+
+**Rationale**: All established package managers (`Cargo.lock`, `package-lock.json`, `poetry.lock`, `Pipfile.lock`) place the lockfile at the project root. A root-level file is immediately visible, committed without gitignore exceptions, and signals its purpose to any developer who opens the repo. `.tank/index.lock` required a `!.tank/index.lock` gitignore negation which silently fails if the parent directory rule uses `/` rather than `/*` — a correctness hazard that tripped us in practice (B1 in the code review).
+
+**Alternatives considered**:
+- **`.tank/index.lock`**: Keeps all Tank state under one directory but requires gitignore gymnastics and is invisible at the root level. Rejected.
+
+**Revisit when**: Never — this is a UX convention decision. The location is now baked into `pull.py`, docs, and `tank.lock` itself.
+
+---
+
+## D17: `pack_source` vs `source_url` — two distinct URL fields
+
+**Decision**: The `packages` table carries two separate URL fields: `source_url` (from the manifest — where the documentation was authored) and `pack_source` (set at import time — where the `.ctx` file was fetched from). The lockfile's `source_url` field is populated from `pack_source`.
+
+**Rationale**: These are fundamentally different things. `source_url` in the manifest is provenance metadata about the documentation content (e.g., `docs/api`). `pack_source` is the distribution address of the pack artifact (e.g., a GitHub Release URL). Conflating them caused the lockfile to show the build-time docs directory as the fetch location, making `tank sync` impossible to implement correctly.
+
+**Alternatives considered**:
+- **Overwrite `source_url` with the pull path**: Destroys provenance metadata. Rejected.
+- **Store pull path only in the lockfile, not the DB**: Loses the data if the lockfile is regenerated. Rejected.
+
+**Revisit when**: Phase 2 registry design — `pack_source` may evolve to carry a structured registry reference rather than a raw URL.
+
+---
+
+## D18: Manifest validation — JSON Schema (jsonschema library, draft/2020-12)
+
+**Decision**: `manifest.json` validation in the verifier (step 2) uses a machine-readable JSON Schema file at `src/tank/schemas/manifest.v2.schema.json`, validated via the `jsonschema` Python library. Schema uses draft/2020-12.
+
+**Rationale**: The previous manual field-presence check (`_REQUIRED_MANIFEST_FIELDS` loop) only caught missing keys — it passed manifests with `chunks: "bad"` or `lifecycle_state: "active"`. JSON Schema validates types, enums, patterns, and numeric constraints in one declaration that is also human-readable and tooling-compatible. The schema file becomes the single source of truth for the manifest contract, referenced in docs and validated in CI.
+
+**`additionalProperties` is not set to `false`**: forward-compatible with Phase 2/3 field additions (`embedding_model`, etc.) without a schema version bump.
+
+**Alternatives considered**:
+- **Pydantic model**: heavier dependency, more code, harder to publish as a standalone schema artefact. Rejected for MVP.
+- **Manual field-by-field checks**: already in place, insufficient. Replaced.
+
+**Revisit when**: schema version 3 (Phase 2 crawl fields) or Phase 3 (embedding fields) — add new optional properties to the schema, keep `additionalProperties` open.
