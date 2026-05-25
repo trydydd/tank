@@ -46,7 +46,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - [x] Benchmark output cleanup — PR comment redesigned with plain-English headline table and collapsed detail; raw JSON dump replaced with formatted standalone output. Console output unchanged (runs under `-s`, not in reviewers' way).
 - [x] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
 - [x] Docs cleanup — consolidate `.work/` artifacts, merge `todo.md` into `roadmap.md`, migrate gotchas to `CLAUDE.md`, absorb `ultraplan` findings into canonical docs
-- [ ] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
+- [x] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
 
 ---
 
