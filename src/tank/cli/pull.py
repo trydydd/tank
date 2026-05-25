@@ -100,7 +100,7 @@ def _write_lockfile(db: Database) -> None:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [
         "[meta]",
-        "schema_version = 1",
+        "schema_version = 2",
         f'generated_at = "{now}"',
         "",
     ]
@@ -109,6 +109,8 @@ def _write_lockfile(db: Database) -> None:
         lines.append(f'pack_digest = "{p.pack_digest or ""}"')
         lines.append(f'lifecycle_state = "{p.lifecycle_state}"')
         lines.append(f'indexed_at = "{p.indexed_at}"')
+        if p.source_url:
+            lines.append(f'source_url = "{p.source_url}"')
         lines.append("")
     LOCK_FILE.write_text("\n".join(lines), encoding="utf-8")
 

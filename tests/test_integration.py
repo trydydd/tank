@@ -409,6 +409,8 @@ def test_pull_writes_lockfile(
     assert "lock-test" in content, "lockfile should contain pack name"
     assert "2.0.0" in content, "lockfile should contain pack version"
     assert "pack_digest" in content, "lockfile should contain pack_digest"
+    assert "source_url" in content, "lockfile should contain source_url"
+    assert "schema_version = 2" in content, "lockfile should be schema version 2"
 
 
 # ===========================================================================
