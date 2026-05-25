@@ -18,6 +18,7 @@ dependencies = [
 dev = [
     "pytest",
     "mypy",
+    "types-jsonschema",
     "ruff==0.15.8",
     "bump-my-version",
 ]
