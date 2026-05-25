@@ -202,8 +202,8 @@ def _make_manifest(**overrides: object) -> dict:
         "pack_format": "tank-text-v1",
         "package": "test-lib",
         "version": "1.0.0",
-        "pack_digest": "sha256:abc",
-        "normalized_content_hash": "sha256:def",
+        "pack_digest": "sha256:" + "a" * 64,
+        "normalized_content_hash": "sha256:" + "b" * 64,
         "chunks": 1,
         "pages": 1,
         "lifecycle_state": "approved",
@@ -493,7 +493,7 @@ def test_step6_pack_digest_mismatch(tmp_path: Path) -> None:
     """Archive with tampered pack_digest fails at step 6."""
     ctx = tmp_path / "bad.ctx"
     manifest = _make_manifest()
-    manifest["pack_digest"] = "sha256:wrong"
+    manifest["pack_digest"] = "sha256:" + "0" * 64
     _create_zip_with_entries(
         ctx,
         {
@@ -687,3 +687,41 @@ def test_verify_returns_verify_result_not_raises(tmp_path: Path) -> None:
     result = verify(ctx, policy)
     assert isinstance(result, VerifyResult)
     assert result.passed is False
+
+
+def test_step2_rejects_wrong_type(tmp_path: Path) -> None:
+    """Manifest with chunks as a string is rejected at step 2."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest(chunks="bad")
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "chunks.jsonl": b'{"id":1,"content":"hello"}\n',
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    policy = Policy.default()
+    result = verify(ctx, policy)
+    assert result.passed is False
+    assert result.step == 2
+
+
+def test_step2_rejects_bad_lifecycle_enum(tmp_path: Path) -> None:
+    """Manifest with lifecycle_state 'active' (not in enum) is rejected at step 2."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest(lifecycle_state="active")
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "chunks.jsonl": b'{"id":1,"content":"hello"}\n',
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    policy = Policy.default()
+    result = verify(ctx, policy)
+    assert result.passed is False
+    assert result.step == 2

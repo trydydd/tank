@@ -6,6 +6,10 @@ class ManifestError(TankError):
     """Invalid or missing manifest fields."""
 
 
+class SchemaValidationError(ManifestError):
+    """Manifest fields fail JSON Schema validation."""
+
+
 class PolicyError(TankError):
     """Pack rejected by policy."""
 

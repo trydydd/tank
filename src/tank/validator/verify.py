@@ -26,21 +26,6 @@ class VerifyResult:
     )  # parsed manifest on success, None on failure before step 2
 
 
-_REQUIRED_MANIFEST_FIELDS: list[str] = [
-    "schema_version",
-    "pack_format",
-    "package",
-    "version",
-    "pack_digest",
-    "normalized_content_hash",
-    "chunks",
-    "pages",
-    "lifecycle_state",
-    "doc_version_status",
-    "created_at",
-    "created_by",
-]
-
 _MAX_ENTRIES = 10_000
 _MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 _MAX_TOTAL_SIZE = 500 * 1024 * 1024  # 500 MB
@@ -91,16 +76,16 @@ def verify(
             )
 
         # --- Step 2: Validate manifest JSON schema ---
-        missing: list[str] = []
-        for field in _REQUIRED_MANIFEST_FIELDS:
-            if field not in manifest:
-                missing.append(field)
+        from tank.schemas import validate_manifest
+        from tank.errors import SchemaValidationError
 
-        if missing:
+        try:
+            validate_manifest(manifest)
+        except SchemaValidationError as exc:
             return VerifyResult(
                 passed=False,
                 step=2,
-                reason=f"Invalid manifest: missing required fields: {', '.join(missing)}",
+                reason=f"Invalid manifest: {exc}",
                 manifest=None,
             )
 
