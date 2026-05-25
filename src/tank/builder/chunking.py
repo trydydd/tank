@@ -35,11 +35,8 @@ def discover_files(source: Path) -> list[Path]:
             ext = os.path.splitext(fname)[1].lower()
             if ext in _WHITELISTED:
                 result.append(Path(root) / fname)
-    # Sort by the full relative path from source parent for determinism
-    source_parent = source.parent if str(source).startswith("./") else source
-    result = sorted(
-        result, key=lambda p: Path(os.path.relpath(p, source_parent)).as_posix()
-    )
+    # Sort by the full relative path from source for determinism
+    result = sorted(result, key=lambda p: Path(os.path.relpath(p, source)).as_posix())
     return result
 
 

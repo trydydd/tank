@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from tank.builder.normalizer import normalize
+from tank.errors import SchemaValidationError
 from tank.policy.engine import Policy, PolicyResult
+from tank.schemas import validate_manifest
 
 
 @dataclass
@@ -77,9 +79,6 @@ def verify(
             )
 
         # --- Step 2: Validate manifest JSON schema ---
-        from tank.schemas import validate_manifest
-        from tank.errors import SchemaValidationError
-
         try:
             validate_manifest(manifest)
         except SchemaValidationError as exc:

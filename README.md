@@ -34,7 +34,7 @@ tank query "How do I configure auth?" --package my-lib
 
 That's it. Four commands: build, verify, pull, query.
 
-> **Team setup** — Commit `.tank/index.lock` to version-control which packs are imported. Every team member and CI job running `tank pull <pack.ctx>` will reproduce the same index, and `git diff` on the lockfile surfaces documentation version bumps alongside code changes.
+> **Team setup** — Commit `.tank/index.lock` to version-control which packs are imported. With the lockfile tracked, `git diff` surfaces documentation version bumps alongside code changes. To reproduce the index on a fresh clone, keep the `.ctx` files accessible (e.g., in a `packs/` directory in the repo or a shared artefact store) and re-run `tank pull` for each entry in the lockfile.
 
 ## What Your Agent Sees
 

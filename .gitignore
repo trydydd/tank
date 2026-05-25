@@ -28,7 +28,7 @@ htmlcov/
 .ruff_cache/
 
 # Tank runtime artifacts
-.tank/
+.tank/*
 !.tank/index.lock
 
 # Built packs (release artifacts, not stored in repo)

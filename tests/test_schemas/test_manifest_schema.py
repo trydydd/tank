@@ -134,3 +134,27 @@ def test_extra_fields_allowed() -> None:
     manifest = _valid_manifest()
     manifest["future_field"] = "value"
     validate_manifest(manifest)
+
+
+def test_pack_digest_empty_string_raises() -> None:
+    """Empty string (the zeroed-during-computation value) must fail schema validation."""
+    m = _valid_manifest()
+    m["pack_digest"] = ""
+    with pytest.raises(SchemaValidationError):
+        validate_manifest(m)
+
+
+def test_pack_digest_invalid_hex_char_raises() -> None:
+    """Digest with non-lowercase-hex character (e.g. 'g') must fail."""
+    m = _valid_manifest()
+    m["pack_digest"] = "sha256:" + "g" * 64
+    with pytest.raises(SchemaValidationError):
+        validate_manifest(m)
+
+
+def test_pack_digest_uppercase_hex_raises() -> None:
+    """Digest with uppercase hex must fail (pattern requires [a-f0-9])."""
+    m = _valid_manifest()
+    m["pack_digest"] = "sha256:" + "A" * 64
+    with pytest.raises(SchemaValidationError):
+        validate_manifest(m)

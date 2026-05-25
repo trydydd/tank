@@ -3,24 +3,19 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from importlib.resources import files
-from typing import Any
+from typing import Any, cast
 
 import jsonschema
 
 from tank.errors import SchemaValidationError
 
-_MANIFEST_V2: dict[str, Any] | None = None
 
-
+@lru_cache(maxsize=None)
 def _schema() -> dict[str, Any]:
-    global _MANIFEST_V2
-    if _MANIFEST_V2 is None:
-        text = (
-            files("tank.schemas").joinpath("manifest.v2.schema.json").read_text("utf-8")
-        )
-        _MANIFEST_V2 = json.loads(text)
-    return _MANIFEST_V2
+    text = files("tank.schemas").joinpath("manifest.v2.schema.json").read_text("utf-8")
+    return cast(dict[str, Any], json.loads(text))
 
 
 def validate_manifest(data: dict[str, Any]) -> None:

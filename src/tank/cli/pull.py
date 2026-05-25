@@ -164,6 +164,6 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
         console.print(
             f"[green]Successfully imported {pack_name}@{pack_version}[/green]"
         )
-    except TankError as exc:
+    except (TankError, zipfile.BadZipFile, json.JSONDecodeError, OSError) as exc:
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(1)

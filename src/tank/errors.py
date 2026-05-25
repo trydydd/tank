@@ -15,7 +15,12 @@ class PolicyError(TankError):
 
 
 class VerificationError(TankError):
-    """Hash mismatch or archive safety failure."""
+    """Reserved for future use: hash mismatch or archive safety failure raised as an exception.
+
+    The current verifier returns VerifyResult dataclass objects rather than raising.
+    This class is part of the public error hierarchy for callers who may wrap verify()
+    in exception-based control flow in a future release.
+    """
 
 
 class ImportError_(TankError):

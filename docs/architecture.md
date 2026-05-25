@@ -419,7 +419,7 @@ indexed_at = "2026-03-01T08:00:00Z"
 
 The database (`index.db`) is the source of truth. The lockfile is a human-readable snapshot useful for git diffs, audits, and offline inspection.
 
-**Team setup**: Commit `.tank/index.lock` to give every team member a reproducible index state. With the lockfile tracked, `git diff` shows exactly which packs changed between branches, code reviews surface documentation version bumps alongside code changes, and `tank pull` on a fresh clone re-creates an identical index. The `.gitignore` ships with `!.tank/index.lock` to allow this opt-in.
+**Team setup**: Commit `.tank/index.lock` to give every team member a reproducible index state. With the lockfile tracked, `git diff` shows exactly which packs changed between branches and code reviews surface documentation version bumps alongside code changes. To reproduce an index on a fresh clone, keep the `.ctx` files accessible (e.g., in a `packs/` directory in the repo or a shared artefact store) and re-run `tank pull` for each entry in the lockfile. The `.gitignore` ships with `!.tank/index.lock` to allow this opt-in.
 
 ## Storage: SQLite Schema
 
