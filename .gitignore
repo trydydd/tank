@@ -29,6 +29,7 @@ htmlcov/
 
 # Tank runtime artifacts
 .tank/
+!.tank/index.lock
 
 # Built packs (release artifacts, not stored in repo)
 packs/

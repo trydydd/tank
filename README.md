@@ -34,6 +34,8 @@ tank query "How do I configure auth?" --package my-lib
 
 That's it. Four commands: build, verify, pull, query.
 
+> **Team setup** — Commit `.tank/index.lock` to version-control which packs are imported. Every team member and CI job running `tank pull <pack.ctx>` will reproduce the same index, and `git diff` on the lockfile surfaces documentation version bumps alongside code changes.
+
 ## What Your Agent Sees
 
 Tank connects to your AI agent as an MCP server. When the agent needs documentation, it searches your local index and gets back results like this:
