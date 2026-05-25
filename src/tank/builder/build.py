@@ -41,7 +41,7 @@ def build_pack(
         raise BuildError(f"No documentation files found in {source}")
 
     # Determine source_url: normalize the source path, strip leading "./"
-    source_url = os.path.normpath(source)
+    source_url = Path(source).as_posix()
     if source_url.startswith("./"):
         source_url = source_url[2:]
 
@@ -50,8 +50,7 @@ def build_pack(
     pages: list[Page] = []
 
     for page_id, file_path in enumerate(files, start=1):
-        relative = os.path.relpath(file_path, source.parent)
-        file_source_url = relative
+        file_source_url = Path(os.path.relpath(file_path, source.parent)).as_posix()
         if file_source_url.startswith("./"):
             file_source_url = file_source_url[2:]
 

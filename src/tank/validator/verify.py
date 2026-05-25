@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,8 +107,11 @@ def verify(
         for info in infos:
             name = info.filename
 
-            # Absolute path check
-            if name.startswith("/"):
+            # Absolute path check — covers Unix (/), UNC (//server), and Windows drive letters (C:/)
+            normalized_name = name.replace("\\", "/")
+            if normalized_name.startswith("/") or re.match(
+                r"^[A-Za-z]:/", normalized_name
+            ):
                 return VerifyResult(
                     passed=False,
                     step=4,

@@ -37,7 +37,9 @@ def discover_files(source: Path) -> list[Path]:
                 result.append(Path(root) / fname)
     # Sort by the full relative path from source parent for determinism
     source_parent = source.parent if str(source).startswith("./") else source
-    result = sorted(result, key=lambda p: os.path.relpath(p, source_parent))
+    result = sorted(
+        result, key=lambda p: Path(os.path.relpath(p, source_parent)).as_posix()
+    )
     return result
 
 
@@ -49,7 +51,7 @@ def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
     section_tags is the chunkana metadata field that holds headers present in
     the chunk; header_path is always empty and not used.
     """
-    relative = os.path.relpath(file_path, source)
+    relative = Path(os.path.relpath(file_path, source)).as_posix()
     prefix = Path(relative).with_suffix("")  # e.g. "auth/oauth"
 
     raw_content = file_path.read_text(encoding="utf-8")

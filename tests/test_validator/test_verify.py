@@ -725,3 +725,43 @@ def test_step2_rejects_bad_lifecycle_enum(tmp_path: Path) -> None:
     result = verify(ctx, policy)
     assert result.passed is False
     assert result.step == 2
+
+
+def test_step4_windows_drive_letter_rejected(tmp_path: Path) -> None:
+    """Archive entry with Windows drive letter fails at step 4."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest()
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "C:/etc/passwd": b"win drive",
+            "chunks.jsonl": b"",
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    result = verify(ctx, Policy.load())
+    assert result.passed is False
+    assert result.step == 4
+    assert "absolute" in result.reason.lower()
+
+
+def test_step4_unc_path_rejected(tmp_path: Path) -> None:
+    """Archive entry with UNC path fails at step 4."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest()
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "//server/share/file.txt": b"unc path",
+            "chunks.jsonl": b"",
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    result = verify(ctx, Policy.load())
+    assert result.passed is False
+    assert result.step == 4
+    assert "absolute" in result.reason.lower()

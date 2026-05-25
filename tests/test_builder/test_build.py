@@ -201,3 +201,49 @@ def test_build_doc_version_status_defaults_to_stable(tmp_path: Path) -> None:
     with zipfile.ZipFile(ctx_path, "r") as zf:
         manifest = json.loads(zf.read("manifest.json"))
     assert manifest["doc_version_status"] == "stable"
+
+
+def test_source_urls_use_forward_slashes(tmp_path: Path) -> None:
+    """All source_url values in a built pack must use forward slashes only."""
+    ctx_path = _build(tmp_path)
+    with zipfile.ZipFile(ctx_path) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        chunks_lines = zf.read("chunks.jsonl").decode()
+        pages = json.loads(zf.read("pages.json"))
+
+    # manifest source_url
+    assert "\\" not in (manifest.get("source_url") or ""), (
+        f"manifest source_url contains backslash: {manifest.get('source_url')}"
+    )
+
+    # chunk source_urls
+    for line in chunks_lines.strip().split("\n"):
+        if not line:
+            continue
+        chunk = json.loads(line)
+        assert "\\" not in (chunk.get("source_url") or ""), (
+            f"chunk source_url contains backslash: {chunk.get('source_url')}"
+        )
+
+    # page urls
+    for page in pages:
+        assert "\\" not in (page.get("url") or ""), (
+            f"page url contains backslash: {page.get('url')}"
+        )
+
+
+def test_discover_files_sorted_by_forward_slash_path(tmp_path: Path) -> None:
+    """discover_files returns files sorted by their forward-slash relative path."""
+    from tank.builder.chunking import discover_files
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "z_file.md").write_text("# Z\n")
+    sub = docs / "a_sub"
+    sub.mkdir()
+    (sub / "first.md").write_text("# First\n")
+    result = discover_files(docs)
+    # "a_sub/first.md" sorts before "z_file.md" in forward-slash lexicographic order
+    assert len(result) == 2
+    rel_paths = [p.relative_to(docs).as_posix() for p in result]
+    assert rel_paths == sorted(rel_paths), f"Not sorted: {rel_paths}"
