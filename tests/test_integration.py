@@ -381,11 +381,11 @@ def test_query_progressive_disclosure(
 def test_pull_writes_lockfile(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
-    """.tank/index.lock exists after pull, contains the pack's name, version,
+    """tank.lock exists at project root after pull, contains pack name, version,
     and pack_digest."""
     output_dir = tmp_path / "output"
     ctx_path = output_dir / "lock-test@2.0.0.ctx"
-    lock_file = tmp_path / ".tank" / "index.lock"
+    lock_file = tmp_path / "tank.lock"
 
     result = runner.invoke(
         cli,
@@ -403,7 +403,7 @@ def test_pull_writes_lockfile(
     result = _cli_in_cwd(runner, ["pull", str(ctx_path)], tmp_path)
     assert result.exit_code == 0, result.output
 
-    assert lock_file.exists(), "index.lock should exist after pull"
+    assert lock_file.exists(), "tank.lock should exist at project root after pull"
 
     content = lock_file.read_text()
     assert "lock-test" in content, "lockfile should contain pack name"

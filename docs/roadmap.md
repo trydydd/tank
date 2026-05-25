@@ -66,8 +66,8 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - [x] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it. Establishes a stable schema contract before PyPI release.
 - [x] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
 - [x] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
-- [x] **Lockfile in git** — document committing `.tank/index.lock` for reproducible team setups
-- [ ] **`tank sync`** — read `.tank/index.lock` and pull all listed packs automatically, enabling `git clone && tank sync` to reproduce the index on a fresh checkout. Requires `source_url` recorded per pack in the lockfile (added in schema v2). Analogous to `cargo build` reading `Cargo.lock`: the lockfile is the declaration, `tank sync` is the executor.
+- [x] **Lockfile in git** — `tank.lock` at project root, written by `tank pull`; commit to version-control documentation dependencies analogous to `Cargo.lock`
+- [ ] **`tank sync`** — read `tank.lock` and pull all listed packs automatically, enabling `git clone && tank sync` to reproduce the index on a fresh checkout. Requires `source_url` recorded per pack in the lockfile (added in schema v2). Analogous to `cargo build` reading `Cargo.lock`: the lockfile is the declaration, `tank sync` is the executor.
   - New command: `src/tank/cli/sync.py`
   - For each `[packs.*]` entry in the lockfile: skip if already imported at that digest; fetch from `source_url` (local path or `https://`); verify pack_digest matches lockfile before importing
   - Blocked on pre-built packs having stable `source_url` values (GitHub Releases or equivalent)

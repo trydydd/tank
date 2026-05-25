@@ -397,29 +397,31 @@ The system maintains a hash chain: **pack archive → manifest hashes → chunk 
 
 The normalization function used at `tank build` time and `tank verify` time must be the same code path (`tank.builder.normalizer`). This is the hash stability guarantee.
 
-### Pack-level lockfile (.tank/index.lock)
+### Pack-level lockfile (tank.lock)
 
-A TOML record of imported packs, written by `tank pull`:
+A TOML file at the project root, written by `tank pull` on every import:
 
 ```toml
 [meta]
-schema_version = 1
+schema_version = 2
 generated_at = "2026-05-14T10:30:00Z"
 
 [packs."my-lib@1.0.0"]
 pack_digest = "sha256:a1b2c3..."
 lifecycle_state = "approved"
 indexed_at = "2026-05-14T10:30:00Z"
+source_url = "https://github.com/acme/releases/download/v1.0.0/my-lib@1.0.0.ctx"
 
 [packs."other-lib@2.3.0"]
 pack_digest = "sha256:d4e5f6..."
 lifecycle_state = "deprecated"
 indexed_at = "2026-03-01T08:00:00Z"
+source_url = "packs/other-lib@2.3.0.ctx"
 ```
 
-The database (`index.db`) is the source of truth. The lockfile is a human-readable snapshot useful for git diffs, audits, and offline inspection.
+The database (`.tank/index.db`) is the source of truth. The lockfile is a human-readable snapshot useful for git diffs, audits, and reproducible team setups. `source_url` records where each pack was fetched from, enabling a future `tank sync` command to re-pull all listed packs automatically.
 
-**Team setup**: Commit `.tank/index.lock` to give every team member a reproducible index state. With the lockfile tracked, `git diff` shows exactly which packs changed between branches and code reviews surface documentation version bumps alongside code changes. To reproduce an index on a fresh clone, keep the `.ctx` files accessible (e.g., in a `packs/` directory in the repo or a shared artefact store) and re-run `tank pull` for each entry in the lockfile. The `.gitignore` ships with `!.tank/index.lock` to allow this opt-in.
+**Team setup**: Commit `tank.lock` to version-control which packs are imported. With the lockfile tracked, `git diff` shows exactly which packs changed between branches and code reviews surface documentation version bumps alongside code changes. To reproduce an index on a fresh clone, keep the `.ctx` files accessible (e.g., in a `packs/` directory in the repo or a shared artefact store) and re-run `tank pull` for each entry in the lockfile.
 
 ## Storage: SQLite Schema
 

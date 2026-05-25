@@ -21,7 +21,7 @@ console = Console()
 
 TANK_DIR = Path(".tank")
 INDEX_DB = TANK_DIR / "index.db"
-LOCK_FILE = TANK_DIR / "index.lock"
+LOCK_FILE = Path("tank.lock")
 
 
 def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
@@ -94,8 +94,7 @@ def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
 
 
 def _write_lockfile(db: Database) -> None:
-    """Write/update .tank/index.lock with current index state."""
-    TANK_DIR.mkdir(parents=True, exist_ok=True)
+    """Write/update tank.lock with current index state."""
     packs = db.get_packages()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [

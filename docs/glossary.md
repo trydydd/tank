@@ -6,7 +6,7 @@ Definitions of Tank-specific terminology. Sorted alphabetically.
 
 **`.ctx` pack** — a zip-format archive containing documentation in structured, hash-verifiable form. Contains `manifest.json`, `chunks.jsonl`, `pages.json`, and optionally `signatures/manifest.sig`. The file extension is `.ctx`. Named as `<package>@<version>.ctx`.
 
-**`.tank/` directory** — per-project directory storing Tank's local state: `index.db` (the SQLite database), `index.lock` (the lockfile), and optionally `policy.toml`.
+**`.tank/` directory** — per-project directory storing Tank's local runtime state: `index.db` (the SQLite database) and optionally `policy.toml`. Not committed to version control.
 
 **BM25** — the ranking algorithm used by SQLite FTS5 for full-text search. Produces a relevance score based on term frequency and inverse document frequency. Used by `tank query` and the `search` MCP tool. Column weights: `heading_path` 2.5×, `summary` 1.5×, `content` 1.0×.
 
@@ -30,7 +30,7 @@ Definitions of Tank-specific terminology. Sorted alphabetically.
 
 **index.db** — the SQLite database at `.tank/index.db`. Contains `packages`, `pages`, `chunks`, and `chunks_fts` tables. Source of truth for all imported documentation. One database per project.
 
-**index.lock** — TOML file at `.tank/index.lock`. Human-readable snapshot of imported packs (package, version, `pack_digest`, `lifecycle_state`, `indexed_at`). Useful for git diffs and audits. The database is the source of truth; the lockfile is informational.
+**tank.lock** — TOML file at the project root, written by `tank pull` on every import. Records each imported pack's name, version, `pack_digest`, `lifecycle_state`, `indexed_at`, and `source_url`. Commit this file to version-control your documentation dependencies — analogous to `Cargo.lock` or `package-lock.json`. The database (`.tank/index.db`) is the source of truth; `tank.lock` is the human-readable, committable declaration.
 
 **lifecycle_state** — governance field tracking a pack's approval status. Values: `draft` (built, not reviewed), `approved` (reviewed and cleared), `deprecated` (valid but superseded), `revoked` (known-bad, excluded from all queries). Stored in `manifest.json` and the `packages` table. Enforced by policy at both import and query time.
 
