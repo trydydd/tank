@@ -9,9 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `auto-release.yml` — triggers on push to `main` when `pyproject.toml` changes; compares the version against the previous commit and, if it bumped, runs the full check+build pipeline and creates the GitHub release via the API (no PAT or branch-protection bypass needed)
+- `tank sync` — reads `tank.lock`, skips already-imported packs (idempotent), runs a digest pre-check against the lockfile before the 8-step verifier (supply-chain guard), imports any missing packs. Enables `git clone && tank sync` to reproduce the local index on a fresh checkout. HTTPS `source_url` fetch prints an actionable error until the URL fetcher module lands. `--frozen` flag blocks any pack that would require network access.
+- `tank remove <pkg@ver>` — removes a pack from `index.db` and rewrites `tank.lock`. Completes the verb set; previously required hand-editing the lockfile.
+- `LockfileError`, `FetchError`, `PackNotFoundError` exception classes in `tank.errors`.
+- `src/tank/cli/_lockfile.py` — shared `read_lockfile()` / `write_lockfile()` module; single source of truth for lockfile I/O used by `add`, `sync`, and `remove`. Lockfile `source_url` now prefers the manifest's canonical HTTPS URL over the local import path, so `tank sync` can resolve official packs correctly.
+- Decision log entry D19: `add`/`sync`/`remove` command set rationale, deferred `tank.toml`, `add` vs `sync` kept separate.
 
 ### Changed
 - `cut-release.yml` — repurposed: now pushes a `release/vX.Y.Z` branch and opens a PR instead of pushing directly to `main`; fixes a latent bug where `GITHUB_TOKEN`-authenticated tag pushes silently failed to trigger `release.yml` due to GitHub's loop-prevention policy
+- `tank pull` renamed to `tank add` — "pull" implied a remote fetch (`git pull`, `docker pull`) but the command only imported local files. `tank add` is consistent with `cargo add`, `uv add`, `npm install <pkg>` and will extend naturally to HTTPS URLs and registry specs. `tank pull` is retained as a hidden deprecated alias (prints a deprecation warning, delegates to `tank add`).
 
 ## [0.1.1] - 2026-05-23
 
