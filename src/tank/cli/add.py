@@ -1,4 +1,4 @@
-"""tank pull command."""
+"""tank add command — verify and import a .ctx documentation pack."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from tank.cli._lockfile import LOCK_FILE, write_lockfile
 from tank.errors import TankError
 from tank.policy.engine import Policy
 from tank.storage.db import Database
@@ -21,7 +22,6 @@ console = Console()
 
 TANK_DIR = Path(".tank")
 INDEX_DB = TANK_DIR / "index.db"
-LOCK_FILE = Path("tank.lock")
 
 
 def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
@@ -94,27 +94,6 @@ def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
     return ctx_path
 
 
-def _write_lockfile(db: Database) -> None:
-    """Write/update tank.lock with current index state."""
-    packs = db.get_packages()
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    lines = [
-        "[meta]",
-        "schema_version = 2",
-        f'generated_at = "{now}"',
-        "",
-    ]
-    for p in packs:
-        lines.append(f'[packs."{p.name}@{p.version}"]')
-        lines.append(f'pack_digest = "{p.pack_digest or ""}"')
-        lines.append(f'lifecycle_state = "{p.lifecycle_state}"')
-        lines.append(f'indexed_at = "{p.indexed_at}"')
-        if p.pack_source:
-            lines.append(f'source_url = "{p.pack_source}"')
-        lines.append("")
-    LOCK_FILE.write_text("\n".join(lines), encoding="utf-8")
-
-
 @click.command()
 @click.argument("ctx_path", type=click.Path(exists=True, path_type=Path))
 @click.option(
@@ -123,7 +102,7 @@ def _write_lockfile(db: Database) -> None:
 @click.option(
     "--force", is_flag=True, default=False, help="Force reimport of existing pack"
 )
-def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
+def add(ctx_path: Path, policy: Path | None, force: bool) -> None:
     """Verify and import a .ctx documentation pack into the local index."""
     policy_obj = Policy.load(policy_path=policy)
 
@@ -160,7 +139,7 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
             db.delete_pack(pack_name, pack_version)
 
         _import_pack(ctx_path, policy_obj, db)
-        _write_lockfile(db)
+        write_lockfile(db, LOCK_FILE)
         db.close()
 
         console.print(
@@ -169,3 +148,16 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
     except (TankError, zipfile.BadZipFile, json.JSONDecodeError, OSError) as exc:
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(1)
+
+
+@click.command(hidden=True)
+@click.argument("ctx_path", type=click.Path(exists=True, path_type=Path))
+@click.option("--policy", type=click.Path(path_type=Path), default=None)
+@click.option("--force", is_flag=True, default=False)
+@click.pass_context
+def pull(ctx: click.Context, ctx_path: Path, policy: Path | None, force: bool) -> None:
+    """(Deprecated) Use 'tank add' instead."""
+    console.print(
+        "[yellow]warning: 'tank pull' is deprecated — use 'tank add' instead[/yellow]"
+    )
+    ctx.invoke(add, ctx_path=ctx_path, policy=policy, force=force)

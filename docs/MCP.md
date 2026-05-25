@@ -17,12 +17,16 @@ The MCP server is functional via stdio transport with two tools: `search` and `f
    pip install tank        # once on PyPI; until then: pip install -e .
    ```
 
-2. At least one pack built and pulled into the local index:
+2. At least one pack imported into the local index:
    ```bash
    tank build my-lib@1.0.0 --source ./docs --output ./packs
-   tank pull ./packs/my-lib@1.0.0.ctx
+   tank add ./packs/my-lib@1.0.0.ctx
    ```
-   This creates `.tank/index.db` in the project root.
+   Or, to reproduce an existing index from a committed `tank.lock`:
+   ```bash
+   tank sync
+   ```
+   Both create `.tank/index.db` in the project root.
 
 ## Working directory requirement
 
@@ -117,11 +121,18 @@ FTS5 full-text search across indexed documentation. Returns chunk summaries and 
 | field | description |
 |---|---|
 | `chunk_id` | ID to pass to `fetch` |
+| `package` | Pack name (e.g. `"my-lib"`) |
+| `version` | Pack version (e.g. `"1.0.0"`) |
+| `lifecycle_state` | `draft` / `approved` / `deprecated` / `revoked` |
+| `doc_version_status` | `stable` / `outdated` / etc. |
 | `heading_path` | Section hierarchy (e.g. `"Configuration / Auth / OAuth2"`) |
 | `summary` | One-line description of the chunk's content |
 | `source_url` | Where this content came from |
+| `source_commit` | Git commit recorded at build time (if present) |
+| `content_hash` | SHA-256 of the chunk's normalised content |
+| `indexed_at` | When this pack was imported |
 | `score` | BM25 relevance score (higher = better match) |
-| `lifecycle_warning` | Non-null if the pack is deprecated |
+| `lifecycle_warning` | Non-null if the pack is deprecated (omitted otherwise) |
 
 **Note on queries:** FTS5 matches on keywords, not meaning. Translate natural-language questions to key terms before calling (`"OAuth2 client credentials"` rather than `"how do I authenticate"`).
 
@@ -143,12 +154,19 @@ Retrieve full chunk content by ID. Always call `search` first to get `chunk_id` 
 | field | description |
 |---|---|
 | `chunk_id` | ID of the chunk |
+| `package` | Pack name |
+| `version` | Pack version |
+| `lifecycle_state` | `draft` / `approved` / `deprecated` / `revoked` |
+| `doc_version_status` | `stable` / `outdated` / etc. |
 | `heading_path` | Section hierarchy |
 | `summary` | One-line description |
 | `content` | Full chunk content |
 | `source_url` | Where this content came from |
+| `source_commit` | Git commit recorded at build time (if present) |
 | `content_hash` | SHA-256 of the content for integrity checking |
 | `indexed_at` | When this pack was imported |
+| `score` | BM25 relevance score |
+| `lifecycle_warning` | Non-null if the pack is deprecated (omitted otherwise) |
 
 Chunks from `revoked` packs are silently excluded from results.
 

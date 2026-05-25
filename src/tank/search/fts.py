@@ -79,7 +79,7 @@ LIMIT ?"""
 
         rows = conn.execute(sql, params).fetchall()
     except sqlite3.Error as exc:
-        raise SearchError(str(exc)) from exc
+        raise SearchError(f"Full-text search failed: {exc}") from exc
 
     # SELECT columns: 0=id, 1=package, 2=version, 3=heading_path, 4=summary,
     # 5=content (NULL in summary mode), 6=source_url, 7=source_commit, 8=content_hash,

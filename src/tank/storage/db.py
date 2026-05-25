@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS packages (
     source_commit           TEXT,
     owner                   TEXT,
     indexed_at              TEXT NOT NULL,
+    pack_source             TEXT,
     PRIMARY KEY (name, version)
 );
 
@@ -78,7 +79,12 @@ class Database:
 
     def create_schema(self) -> None:
         self._conn.executescript(_CREATE_SCHEMA)
-        self._conn.commit()
+        # Soft migration: add pack_source if upgrading an older database.
+        try:
+            self._conn.execute("ALTER TABLE packages ADD COLUMN pack_source TEXT")
+            self._conn.commit()
+        except Exception:
+            pass  # Column already exists
 
     def import_pack(
         self,
@@ -101,8 +107,8 @@ class Database:
             cursor.execute(
                 "INSERT INTO packages (name, version, lifecycle_state, doc_version_status, "
                 "indexed_at, policy_profile, pack_digest, normalized_content_hash, "
-                "source_url, source_commit, owner) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "source_url, source_commit, owner, pack_source) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     pack.name,
                     pack.version,
@@ -115,6 +121,7 @@ class Database:
                     pack.source_url,
                     pack.source_commit,
                     pack.owner,
+                    pack.pack_source,
                 ),
             )
 
@@ -127,7 +134,7 @@ class Database:
                 )
                 db_id = cursor.lastrowid
                 if db_id is None:
-                    raise RuntimeError("INSERT into pages did not return a row ID")
+                    raise ImportError_("INSERT into pages did not return a row ID")
                 page_id_map[page.id] = db_id
 
             for chunk in chunks:
@@ -163,7 +170,7 @@ class Database:
         rows = self._conn.execute(
             "SELECT name, version, lifecycle_state, doc_version_status, "
             "indexed_at, policy_profile, pack_digest, normalized_content_hash, "
-            "source_url, source_commit, owner FROM packages ORDER BY name, version"
+            "source_url, source_commit, owner, pack_source FROM packages ORDER BY name, version"
         ).fetchall()
         return [
             Pack(
@@ -178,6 +185,7 @@ class Database:
                 source_url=r["source_url"],
                 source_commit=r["source_commit"],
                 owner=r["owner"],
+                pack_source=r["pack_source"],
             )
             for r in rows
         ]
@@ -186,7 +194,7 @@ class Database:
         row = self._conn.execute(
             "SELECT name, version, lifecycle_state, doc_version_status, "
             "indexed_at, policy_profile, pack_digest, normalized_content_hash, "
-            "source_url, source_commit, owner FROM packages "
+            "source_url, source_commit, owner, pack_source FROM packages "
             "WHERE name = ? AND version = ?",
             (name, version),
         ).fetchone()
@@ -204,6 +212,7 @@ class Database:
             source_url=row["source_url"],
             source_commit=row["source_commit"],
             owner=row["owner"],
+            pack_source=row["pack_source"],
         )
 
     def pack_exists(self, name: str, version: str) -> bool:

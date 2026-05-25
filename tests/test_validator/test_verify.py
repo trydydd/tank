@@ -8,6 +8,7 @@ import time
 import zipfile
 from pathlib import Path
 
+import pytest
 
 from tank.builder.build import build_pack
 from tank.policy.engine import Policy
@@ -130,6 +131,9 @@ def _rewrite_archive_keep_digest(
     return result
 
 
+_ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
+
+
 def _rewrite_archive_with_modified_chunks(
     src: Path,
     content_replacements: dict[int, str],
@@ -157,33 +161,43 @@ def _rewrite_archive_with_modified_chunks(
         else:
             new_chunks += "\n"
 
-    # Compute correct pack_digest
+    # Compute correct pack_digest — pin all ZipInfo timestamps to _ZIP_EPOCH
     buf = _io.BytesIO()
     with zipfile.ZipFile(src, "r") as zf:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
             zeroed = dict(manifest)
             zeroed["pack_digest"] = ""
+            manifest_info = zipfile.ZipInfo("manifest.json", date_time=_ZIP_EPOCH)
+            manifest_info.compress_type = zipfile.ZIP_DEFLATED
             out.writestr(
-                "manifest.json", json.dumps(zeroed, indent=2, sort_keys=True).encode()
+                manifest_info,
+                json.dumps(zeroed, indent=2, sort_keys=True).encode(),
             )
-            out.writestr("chunks.jsonl", new_chunks.encode())
-            for name in zf.namelist():
-                if name in ("manifest.json", "chunks.jsonl"):
+            chunks_info = zipfile.ZipInfo("chunks.jsonl", date_time=_ZIP_EPOCH)
+            chunks_info.compress_type = zipfile.ZIP_DEFLATED
+            out.writestr(chunks_info, new_chunks.encode())
+            for orig_item in zf.infolist():
+                if orig_item.filename in ("manifest.json", "chunks.jsonl"):
                     continue
-                out.writestr(name, zf.read(name))
+                out.writestr(orig_item, zf.read(orig_item.filename))
     digest = "sha256:" + _hashlib.sha256(buf.getvalue()).hexdigest()
     manifest["pack_digest"] = digest
 
     with zipfile.ZipFile(result, "w", zipfile.ZIP_DEFLATED) as zf:
+        manifest_info = zipfile.ZipInfo("manifest.json", date_time=_ZIP_EPOCH)
+        manifest_info.compress_type = zipfile.ZIP_DEFLATED
         zf.writestr(
-            "manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode()
+            manifest_info,
+            json.dumps(manifest, indent=2, sort_keys=True).encode(),
         )
-        zf.writestr("chunks.jsonl", new_chunks.encode())
+        chunks_info = zipfile.ZipInfo("chunks.jsonl", date_time=_ZIP_EPOCH)
+        chunks_info.compress_type = zipfile.ZIP_DEFLATED
+        zf.writestr(chunks_info, new_chunks.encode())
         with zipfile.ZipFile(src, "r") as orig:
-            for name in orig.namelist():
-                if name in ("manifest.json", "chunks.jsonl"):
+            for orig_item in orig.infolist():
+                if orig_item.filename in ("manifest.json", "chunks.jsonl"):
                     continue
-                zf.writestr(name, orig.read(name))
+                zf.writestr(orig_item, orig.read(orig_item.filename))
 
     return result
 
@@ -202,8 +216,8 @@ def _make_manifest(**overrides: object) -> dict:
         "pack_format": "tank-text-v1",
         "package": "test-lib",
         "version": "1.0.0",
-        "pack_digest": "sha256:abc",
-        "normalized_content_hash": "sha256:def",
+        "pack_digest": "sha256:" + "a" * 64,
+        "normalized_content_hash": "sha256:" + "b" * 64,
         "chunks": 1,
         "pages": 1,
         "lifecycle_state": "approved",
@@ -493,7 +507,7 @@ def test_step6_pack_digest_mismatch(tmp_path: Path) -> None:
     """Archive with tampered pack_digest fails at step 6."""
     ctx = tmp_path / "bad.ctx"
     manifest = _make_manifest()
-    manifest["pack_digest"] = "sha256:wrong"
+    manifest["pack_digest"] = "sha256:" + "0" * 64
     _create_zip_with_entries(
         ctx,
         {
@@ -687,3 +701,125 @@ def test_verify_returns_verify_result_not_raises(tmp_path: Path) -> None:
     result = verify(ctx, policy)
     assert isinstance(result, VerifyResult)
     assert result.passed is False
+
+
+def test_step2_rejects_wrong_type(tmp_path: Path) -> None:
+    """Manifest with chunks as a string is rejected at step 2."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest(chunks="bad")
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "chunks.jsonl": b'{"id":1,"content":"hello"}\n',
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    policy = Policy.default()
+    result = verify(ctx, policy)
+    assert result.passed is False
+    assert result.step == 2
+
+
+def test_step2_rejects_bad_lifecycle_enum(tmp_path: Path) -> None:
+    """Manifest with lifecycle_state 'active' (not in enum) is rejected at step 2."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest(lifecycle_state="active")
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "chunks.jsonl": b'{"id":1,"content":"hello"}\n',
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    policy = Policy.default()
+    result = verify(ctx, policy)
+    assert result.passed is False
+    assert result.step == 2
+
+
+def test_step4_windows_drive_letter_rejected(tmp_path: Path) -> None:
+    """Archive entry with Windows drive letter fails at step 4."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest()
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "C:/etc/passwd": b"win drive",
+            "chunks.jsonl": b"",
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    result = verify(ctx, Policy.load())
+    assert result.passed is False
+    assert result.step == 4
+    assert "absolute" in result.reason.lower()
+
+
+def test_step4_unc_path_rejected(tmp_path: Path) -> None:
+    """Archive entry with UNC path fails at step 4."""
+    ctx = tmp_path / "bad.ctx"
+    manifest = _make_manifest()
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest, sort_keys=True).encode(),
+            "//server/share/file.txt": b"unc path",
+            "chunks.jsonl": b"",
+            "pages.json": b"[]",
+            "signatures/": b"",
+        },
+    )
+    result = verify(ctx, Policy.load())
+    assert result.passed is False
+    assert result.step == 4
+    assert "absolute" in result.reason.lower()
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "schema_version",
+        "pack_format",
+        "package",
+        "version",
+        "pack_digest",
+        "normalized_content_hash",
+        "chunks",
+        "pages",
+        "lifecycle_state",
+        "doc_version_status",
+        "created_at",
+        "created_by",
+    ],
+)
+def test_step2_missing_any_required_field(tmp_path: Path, field: str) -> None:
+    """Missing any required manifest field fails at step 2."""
+    manifest = _make_manifest()
+    del manifest[field]
+    ctx = tmp_path / "bad.ctx"
+    _create_zip_with_entries(
+        ctx,
+        {
+            "manifest.json": json.dumps(manifest).encode(),
+            "chunks.jsonl": b'{"id":1,"content":"x","page_id":1,"heading_path":"h","summary":"s","token_count":1,"source_url":"a.md"}\n',
+            "pages.json": b'[{"id":1,"package":"p","version":"1.0","url":"a.md","title":"T","content_hash":"sha256:'
+            + b"a" * 64
+            + b'"}]',
+            "signatures/": b"",
+        },
+    )
+    policy = Policy(
+        require_signatures=False,
+        require_attribution=False,
+        allowed_lifecycle_states=["draft", "approved", "deprecated", "revoked"],
+        rejected_doc_version_statuses=[],
+    )
+    result = verify(ctx, policy)
+    assert result.passed is False
+    assert result.step == 2

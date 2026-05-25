@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from tank.builder.normalizer import normalize
+from tank.errors import SchemaValidationError
 from tank.policy.engine import Policy, PolicyResult
+from tank.schemas import validate_manifest
 
 
 @dataclass
@@ -25,21 +28,6 @@ class VerifyResult:
         dict[str, Any] | None
     )  # parsed manifest on success, None on failure before step 2
 
-
-_REQUIRED_MANIFEST_FIELDS: list[str] = [
-    "schema_version",
-    "pack_format",
-    "package",
-    "version",
-    "pack_digest",
-    "normalized_content_hash",
-    "chunks",
-    "pages",
-    "lifecycle_state",
-    "doc_version_status",
-    "created_at",
-    "created_by",
-]
 
 _MAX_ENTRIES = 10_000
 _MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
@@ -62,7 +50,7 @@ def verify(
         return VerifyResult(
             passed=False,
             step=1,
-            reason="Cannot open archive",
+            reason=f"Cannot open archive — not a valid ZIP file: {ctx_path.name}",
             manifest=None,
         )
 
@@ -76,31 +64,28 @@ def verify(
             return VerifyResult(
                 passed=False,
                 step=1,
-                reason="Cannot read manifest.json from archive",
+                reason="manifest.json not found in archive",
                 manifest=None,
             )
 
         try:
             manifest = json.loads(manifest_raw)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
             return VerifyResult(
                 passed=False,
                 step=1,
-                reason="manifest.json is not valid JSON",
+                reason=f"manifest.json contains invalid JSON: {exc}",
                 manifest=None,
             )
 
         # --- Step 2: Validate manifest JSON schema ---
-        missing: list[str] = []
-        for field in _REQUIRED_MANIFEST_FIELDS:
-            if field not in manifest:
-                missing.append(field)
-
-        if missing:
+        try:
+            validate_manifest(manifest)
+        except SchemaValidationError as exc:
             return VerifyResult(
                 passed=False,
                 step=2,
-                reason=f"Invalid manifest: missing required fields: {', '.join(missing)}",
+                reason=f"Invalid manifest: {exc}",
                 manifest=None,
             )
 
@@ -121,8 +106,11 @@ def verify(
         for info in infos:
             name = info.filename
 
-            # Absolute path check
-            if name.startswith("/"):
+            # Absolute path check — covers Unix (/), UNC (//server), and Windows drive letters (C:/)
+            normalized_name = name.replace("\\", "/")
+            if normalized_name.startswith("/") or re.match(
+                r"^[A-Za-z]:/", normalized_name
+            ):
                 return VerifyResult(
                     passed=False,
                     step=4,

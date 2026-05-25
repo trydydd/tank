@@ -3,6 +3,7 @@ from tank.errors import (
     ImportError_,
     ManifestError,
     PolicyError,
+    SearchError,
     TankError,
     VerificationError,
 )
@@ -19,6 +20,7 @@ def test_subclasses_inherit_tank_error() -> None:
         VerificationError,
         ImportError_,
         BuildError,
+        SearchError,
     ):
         assert issubclass(cls, TankError)
 

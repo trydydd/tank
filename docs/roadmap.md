@@ -46,7 +46,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - [x] Benchmark output cleanup — PR comment redesigned with plain-English headline table and collapsed detail; raw JSON dump replaced with formatted standalone output. Console output unchanged (runs under `-s`, not in reviewers' way).
 - [x] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
 - [x] Docs cleanup — consolidate `.work/` artifacts, merge `todo.md` into `roadmap.md`, migrate gotchas to `CLAUDE.md`, absorb `ultraplan` findings into canonical docs
-- [ ] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
+- [x] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
 
 ---
 
@@ -63,10 +63,13 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 ### Foundation — no blockers, start now
 
-- [ ] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it. Establishes a stable schema contract before PyPI release.
-- [ ] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
-- [ ] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
-- [ ] **Lockfile in git** — document committing `.tank/index.lock` for reproducible team setups
+- [x] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it. Establishes a stable schema contract before PyPI release.
+- [x] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
+- [x] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
+- [x] **Lockfile in git** — `tank.lock` at project root, written by `tank add`; commit to version-control documentation dependencies analogous to `Cargo.lock`
+- [x] **`tank add` (renamed from `tank pull`)** — `tank pull` was misleading (implies remote fetch; only imports local files). Renamed to `tank add`, consistent with `cargo add`, `uv add`, `npm install <pkg>`. `tank pull` kept as a hidden deprecated alias. See `decisions.md` D19.
+- [x] **`tank sync`** — reads `tank.lock`, skips already-imported packs (idempotent), verifies digest against lockfile before importing (supply-chain check), imports any missing packs. Enables `git clone && tank sync` workflow. HTTPS `source_url` fetch deferred until URL fetcher module lands (exits with actionable `FetchError`). See `src/tank/cli/sync.py`.
+- [x] **`tank remove`** — removes a pack from `index.db` and rewrites `tank.lock`. Completes the verb set: without it, removing a pack requires hand-editing the lockfile. See `src/tank/cli/remove.py`.
 
 ### Chunker quality stream — S7 → chunker → S2 → summary
 
@@ -128,9 +131,9 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - [ ] **`tank build --source <url>`** — general web crawler: follow links from a docs site root, fetch and chunk all reachable pages. For sites without `llms.txt` or `llms-full.txt`. Rate limiting, `robots.txt` compliance, configurable `User-Agent`. No embeddings or JS rendering — static HTML only.
   - New module: `src/tank/builder/crawler.py`
   - Extend `src/tank/builder/fetch.py` with link extraction and crawl frontier logic
-- [ ] **Pack registry (static hosting)** — `tank pull fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
+- [ ] **Pack registry (static hosting)** — `tank add fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
   - New module: `src/tank/registry/` (client only; server is a static file host)
-  - `tank pull` accepts `package@version` in addition to file paths
+  - `tank add` accepts `package@version` in addition to file paths
 - [ ] **CI/CD templates** — GitHub Actions, GitLab CI, CircleCI: build packs on release, verify in PRs, publish to static registry
 - [ ] **Pre-built packs for top 100 libraries** — scale up pack-building CI pipeline
 - [ ] **Token budget intelligence** — `max_tokens` on `search`/`fetch` controls response size, balancing breadth vs. depth within the budget
@@ -161,7 +164,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 **Trigger**: Real user feedback shows vocabulary-mismatch failures on semantic queries that tuned FTS5 cannot address.
 
-- [ ] **Import-side embeddings** — BGE-M3 dense + sparse vectors computed at `tank pull` time, stored in `index.db`. Pack format unchanged — no embedding vectors in `.ctx` files.
+- [ ] **Import-side embeddings** — BGE-M3 dense + sparse vectors computed at `tank add` time, stored in `index.db`. Pack format unchanged — no embedding vectors in `.ctx` files.
 - [ ] Hybrid search: dense cosine + BGE-M3 sparse + FTS5, fused with Reciprocal Rank Fusion (RRF)
 - [ ] `tank[embeddings]` optional dependency group (`pip install tank[embeddings]`)
 - [ ] Re-embedding on model change (stored chunk text → new vectors, no re-pull required)

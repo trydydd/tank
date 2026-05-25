@@ -36,7 +36,7 @@ This is achieved by moving all model-related work to build time:
 2. **Pack** (`.ctx`) — the archive bundles pre-computed vectors. No model is required
    to consume the pack. File size increases proportionally to corpus size (see below).
 
-3. **Pull time** (`tank pull`) — vectors are extracted from the `.ctx` and loaded into
+3. **Add time** (`tank add`) — vectors are extracted from the `.ctx` and loaded into
    a `sqlite-vec` virtual table in `index.db`, alongside the existing FTS5 index.
    No model, no generation.
 

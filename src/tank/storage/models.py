@@ -14,6 +14,7 @@ class Pack:
     source_url: str | None = None
     source_commit: str | None = None
     owner: str | None = None
+    pack_source: str | None = None  # path or URL the .ctx file was pulled from
 
 
 @dataclass

@@ -27,13 +27,19 @@ Tank's differentiated position is the set of requirements that cloud-first tools
 
 ## MVP Definition
 
-The MVP loop is four commands:
+The authoring loop (pack maintainer):
 
 ```bash
 tank build my-lib@1.0.0 --source ./docs --output ./packs
 tank verify ./packs/my-lib@1.0.0.ctx --policy ./policy.toml
-tank pull ./packs/my-lib@1.0.0.ctx
-tank query "How do I configure auth?" --package my-lib
+tank add ./packs/my-lib@1.0.0.ctx
+```
+
+The consumer loop (most users — reproduce index from lockfile, then serve):
+
+```bash
+tank sync        # reads tank.lock, imports any missing packs
+tank serve       # start the MCP server for your agent
 ```
 
 Everything in this document that is not required to make this loop work is deferred. See [What Is Deferred](#what-is-deferred) for the explicit list.
@@ -41,8 +47,8 @@ Everything in this document that is not required to make this loop work is defer
 ### MVP success criteria
 
 1. `tank build` produces a valid text-only `.ctx` archive from a local directory of Markdown or HTML files.
-2. `tank verify` rejects packs whose `lifecycle_state` is not in the policy's `allowed_lifecycle_states`, and rejects archives containing path traversal, absolute paths, symlinks, device files, or hash mismatches.
-3. `tank pull` only completes after all verify checks pass; it imports chunks into `.tank/index.db` in a single atomic transaction.
+2. `tank verify` rejects packs whose `lifecycle_state` is not in the policy's `allowed_lifecycle_states`, and rejects archives containing path traversal, absolute paths, symbolic links, or hash mismatches.
+3. `tank add` only completes after all verify checks pass; it imports chunks into `.tank/index.db` in a single atomic transaction. `tank sync` reads `tank.lock` and applies the same verify-before-import sequence for each listed pack.
 4. `tank query` returns BM25-ranked FTS5 results with full source attribution in under 10ms for an index of up to 100,000 chunks.
 5. The MCP server exposes `search` (returns summaries and chunk IDs) and `fetch` (returns full content by chunk ID) over stdio, with attribution fields on every result.
 6. No outbound network is required.
@@ -183,7 +189,7 @@ my-lib@1.0.0.ctx
   "source_commit": "abc123def456",
   "source_tag": "v1.0.0",
 
-  "created_at": "2026-05-14T10:30:00Z",
+  "created_at": 1747216200.0,
   "created_by": "tank/0.1.0"
 }
 ```
@@ -234,6 +240,8 @@ The `source_url` field is always populated. For local builds, it is the relative
 [
   {
     "id": 7,
+    "package": "my-lib",
+    "version": "1.0.0",
     "url": "docs/auth/oauth.md",
     "title": "Authentication",
     "content_hash": "sha256:<hash-of-page-content>"
@@ -245,7 +253,7 @@ For local builds, `url` is the relative path from the `--source` root. Each file
 
 ## Archive Safety Validator
 
-Before any extraction, `tank verify` (and `tank pull`'s implicit verify step) runs a manifest-first validation sequence. This sequence is unconditional — it cannot be skipped via a flag.
+Before any extraction, `tank verify` (and `tank add`/`tank sync`'s implicit verify step) runs a manifest-first validation sequence. This sequence is unconditional — it cannot be skipped via a flag.
 
 ### Validation sequence
 
@@ -273,9 +281,7 @@ tank verify <file.ctx>
   │       Reject immediately if any entry:
   │         - starts with /  (absolute path)
   │         - contains ../  (path traversal)
-  │         - is a device file, FIFO, or socket
-  │         - is a hard link
-  │         - is a symbolic link
+  │         - is a symbolic link (detected via external_attr file-type bits)
   │       ├─ UNSAFE → reject: "Unsafe archive entry: <entry>"
   │       └─ CLEAN →
   │
@@ -304,10 +310,10 @@ tank verify <file.ctx>
   │       └─ VALID →
   │
   └─ 9. PASS — all checks succeeded
-         (tank pull proceeds to import; tank verify exits 0)
+         (tank add/sync proceed to import; tank verify exits 0)
 ```
 
-Steps 1–8 are entirely read-only. Step 9 in `tank pull` opens the DB. The import is wrapped in a single transaction, so a failure during import leaves the database unchanged.
+Steps 1–8 are entirely read-only. Step 9 in `tank add`/`tank sync` opens the DB. The import is wrapped in a single transaction, so a failure during import leaves the database unchanged.
 
 Documentation text in chunks is treated as untrusted source content. It is stored verbatim and served verbatim; it is never executed or evaluated.
 
@@ -350,17 +356,17 @@ rejected_doc_version_statuses = ["archived"]
 ```
 
 **Policy file lookup order** (first file found wins):
-1. `--policy <path>` flag passed to `tank verify` or `tank pull`
+1. `--policy <path>` flag passed to `tank verify`, `tank add`, or `tank sync`
 2. `.tank/policy.toml` in the current project directory
 3. `~/.tank/policy.toml` as user-level default
 4. Permissive built-in defaults: all `lifecycle_state` values except `revoked` are allowed; `require_signatures = false`
 
 ## Verify-Before-Import Sequence
 
-`tank pull` is shorthand for: verify fully, then import. Nothing is written to the database until all verify steps pass.
+`tank add` is shorthand for: verify fully, then import. Nothing is written to the database until all verify steps pass.
 
 ```
-tank pull <file.ctx> [--policy ./policy.toml]
+tank add <file.ctx> [--policy ./policy.toml]
   │
   ├─ Verify phase (read-only, no DB writes)
   │    Steps 1–8 from Archive Safety Validator above
@@ -371,7 +377,7 @@ tank pull <file.ctx> [--policy ./policy.toml]
        BEGIN TRANSACTION;
          INSERT INTO packages (name, version, lifecycle_state, policy_profile,
            pack_digest, normalized_content_hash, doc_version_status,
-           source_url, source_commit, owner, indexed_at)
+           source_url, source_commit, owner, indexed_at, pack_source)
          VALUES (...);
          INSERT INTO pages (package, version, url, content_hash)
          VALUES (...) × N;
@@ -380,10 +386,12 @@ tank pull <file.ctx> [--policy ./policy.toml]
          VALUES (...) × M;
          -- FTS triggers fire automatically, populating chunks_fts
        COMMIT;
-       → Print: "Imported my-lib@1.0.0: 412 chunks, 28 pages"
+       → Print: "Successfully imported my-lib@1.0.0"
 ```
 
-If the pack has already been imported at the same version, `tank pull` rejects with `"Pack my-lib@1.0.0 is already imported. Use --force to re-import."` This prevents accidental overwrites.
+If the pack has already been imported at the same version, `tank add` rejects with `"Pack my-lib@1.0.0 is already imported. Use --force to reimport."` This prevents accidental overwrites.
+
+`tank sync` applies the same sequence to each entry in `tank.lock`, skipping packs already present in the index and running a digest pre-check against the lockfile before the 8-step verifier.
 
 ## Hash Chain and Content Integrity
 
@@ -397,27 +405,31 @@ The system maintains a hash chain: **pack archive → manifest hashes → chunk 
 
 The normalization function used at `tank build` time and `tank verify` time must be the same code path (`tank.builder.normalizer`). This is the hash stability guarantee.
 
-### Pack-level lockfile (.tank/index.lock)
+### Pack-level lockfile (tank.lock)
 
-A TOML record of imported packs, written by `tank pull`:
+A TOML file at the project root, written by `tank add` and `tank sync` on every import or removal:
 
 ```toml
 [meta]
-schema_version = 1
+schema_version = 2
 generated_at = "2026-05-14T10:30:00Z"
 
 [packs."my-lib@1.0.0"]
 pack_digest = "sha256:a1b2c3..."
 lifecycle_state = "approved"
 indexed_at = "2026-05-14T10:30:00Z"
+source_url = "https://github.com/acme/releases/download/v1.0.0/my-lib@1.0.0.ctx"
 
 [packs."other-lib@2.3.0"]
 pack_digest = "sha256:d4e5f6..."
 lifecycle_state = "deprecated"
 indexed_at = "2026-03-01T08:00:00Z"
+source_url = "packs/other-lib@2.3.0.ctx"
 ```
 
-The database (`index.db`) is the source of truth. The lockfile is a human-readable snapshot useful for git diffs, audits, and offline inspection.
+The database (`.tank/index.db`) is the source of truth. The lockfile is a human-readable snapshot useful for git diffs, audits, and reproducible team setups. `source_url` records where each pack was fetched from; `tank sync` reads the lockfile and imports any missing packs automatically.
+
+**Team setup**: Commit `tank.lock` to version control — analogous to `Cargo.lock` or `package-lock.json`. With the lockfile tracked, `git diff` shows exactly which packs changed between branches and code reviews surface documentation version bumps alongside code changes. On a fresh clone, run `tank sync` to reproduce the full index automatically.
 
 ## Storage: SQLite Schema
 
@@ -436,6 +448,7 @@ CREATE TABLE packages (
     source_commit           TEXT,
     owner                   TEXT,
     indexed_at              TEXT NOT NULL,
+    pack_source             TEXT,   -- local path the .ctx was imported from
     PRIMARY KEY (name, version)
 );
 
@@ -569,7 +582,7 @@ The `tank` CLI covers everything an AI agent should not be doing. The CLI and MC
 # MCP server + query functionality only (minimal install)
 pip install tank
 
-# Full toolchain: adds tank build and tank pull
+# Full toolchain: adds tank build (requires chunkana)
 pip install tank[build]
 
 # Everything including optional embedding support (Phase 3)
@@ -608,25 +621,34 @@ tank verify <file.ctx> [--policy ./policy.toml]
     Exits 0 on pass, non-zero on any failure.
     Does NOT write to the database.
 
-tank pull <file.ctx> [--policy ./policy.toml] [--force]
+tank add <file.ctx> [--policy ./policy.toml] [--force]
     Verify (full 8-step sequence) then import into .tank/index.db.
     Equivalent to: tank verify <file> && tank import <file>
     Will not import if any verify check fails.
     --force           Re-import even if this package@version is already present
+    Updates tank.lock after successful import.
 
-tank query <query> [--package pkg[@version]] [--detail summary|full]
-           [--limit N] [--lifecycle approved,deprecated]
+tank sync [--policy ./policy.toml] [--frozen]
+    Read tank.lock and import any packs not already in .tank/index.db.
+    Idempotent: skips packs that are already imported.
+    --frozen          Fail immediately if any source_url is an HTTPS URL (no network access)
+    Enables `git clone && tank sync` to reproduce the local index on a fresh checkout.
+
+tank remove <package@version>
+    Remove a pack from .tank/index.db and rewrite tank.lock.
+    Exits non-zero if the pack is not in the index.
+
+tank query <query> [--package pkg[@version]] [--detail summary|full] [--limit N]
     BM25 full-text search against imported packs.
     Returns attribution fields on every result.
     --detail summary  heading_path + summary + score (default)
     --detail full     also includes content
-    --lifecycle       filter by lifecycle_state (default: all except revoked)
 
 tank inspect <file.ctx | .tank/index.db>
     Print manifest fields, chunk count, token distribution, page list.
     For index.db: list all imported packs with lifecycle_state, pack_digest,
     indexed_at, and chunk count.
-    Useful for debugging pack contents without pulling them into the index.
+    Useful for debugging pack contents without adding them to the index.
 ```
 
 Phase 2 will add `tank publish`, `tank registry`, and `tank promote`. Phase 3 will add `tank index-url` for URL crawling.
@@ -741,7 +763,10 @@ tank/
 │   │   ├── main.py             # tank root command (click group)
 │   │   ├── build.py            # tank build
 │   │   ├── verify.py           # tank verify
-│   │   ├── pull.py             # tank pull
+│   │   ├── add.py              # tank add (+ deprecated pull alias)
+│   │   ├── sync.py             # tank sync
+│   │   ├── remove.py           # tank remove
+│   │   ├── _lockfile.py        # shared read_lockfile() / write_lockfile()
 │   │   ├── query.py            # tank query
 │   │   └── inspect.py          # tank inspect
 │   │
@@ -788,13 +813,15 @@ all = ["tank[build]", "tank[embeddings]", "pytest", "pytest-asyncio"]
 - `tank build` from local source directories (Markdown / HTML)
 - Archive safety validator (unconditional, 8-step sequence)
 - `tank verify` with `policy.toml` enforcement
-- `tank pull` (verify-then-import, atomic transaction)
+- `tank add` (verify-then-import, atomic transaction; deprecated `tank pull` alias retained)
+- `tank sync` (lockfile-driven idempotent import; enables `git clone && tank sync`)
+- `tank remove` (delete from index and rewrite lockfile)
 - `tank query` with FTS5/BM25 and full source attribution
 - `tank inspect` for debugging pack contents and the local index
 - MCP server: `search` (summaries + chunk IDs) and `fetch` (full content by ID)
 - SQLite schema with governance and attribution columns
 - Policy file (`policy.toml`) with lifecycle state and signature enforcement
-- `.tank/index.lock` as a human-readable record of imported packs
+- `tank.lock` as a human-readable record of imported packs (schema v2 TOML)
 
 ### Phase 2 — Crawling and Registry
 
@@ -808,7 +835,7 @@ all = ["tank[build]", "tank[embeddings]", "pytest", "pytest-asyncio"]
 - deps.dev integration for doc URL resolution (`HOMEPAGE` → `SOURCE_REPO` → well-known patterns → manual overrides)
 - `tank build --source <URL>` (URL crawling path, in addition to existing local path)
 - Incremental re-crawl using HTTP ETags (`If-None-Match` / `If-Modified-Since`)
-- Remote registry: `tank publish`, `tank pull <package@version>` from registry URL
+- Remote registry: `tank publish`, `tank add <package@version>` from registry URL
 - Lifecycle promotion workflow: `tank promote`, `tank revoke`
 - Staleness detection against project lockfiles (`index-deps` MCP tool scans `requirements.txt`, `package.json`, `Cargo.toml`, etc.)
 - Auto-discovery of dependency files in the project directory
@@ -835,7 +862,7 @@ The following are explicitly out of scope for Tank v1. No MVP schema or format d
 - deps.dev integration for doc URL resolution
 - ReadTheDocs and GitHub version resolution
 - Incremental re-crawl with HTTP ETags
-- Remote registry: `tank publish`, `tank pull <pkg@version>` from a registry URL
+- Remote registry: `tank publish`, `tank add <pkg@version>` from a registry URL
 - Community or public registry hosting
 - Lifecycle promotion workflows (`tank promote`, `tank revoke`)
 - Staleness detection against project lockfiles

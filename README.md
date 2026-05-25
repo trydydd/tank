@@ -18,21 +18,38 @@ Your agent queries Tank's local index instead of guessing from training data. Re
 
 ## The Workflow
 
+Tank has two audiences with distinct command sets.
+
+**Pack consumers** (most users — import and query pre-built packs):
+
 ```bash
-# Package your docs
+# First time, or after git clone:
+tank sync                               # import every pack listed in tank.lock
+
+# Start the MCP server for your agent:
+tank serve
+
+# Search directly from the terminal (optional):
+tank query "How do I configure auth?"
+```
+
+**Pack authors** (documentation maintainers — build and publish packs):
+
+```bash
+# Package your docs into a .ctx pack
 tank build my-lib@1.0.0 --source ./docs --output ./packs
 
 # Verify the pack is safe and policy-compliant
-tank verify ./packs/my-lib@1.0.0.ctx --policy ./policy.toml
+tank verify ./packs/my-lib@1.0.0.ctx
 
 # Import into your local index
-tank pull ./packs/my-lib@1.0.0.ctx
+tank add ./packs/my-lib@1.0.0.ctx
 
-# Your agent searches the index
-tank query "How do I configure auth?" --package my-lib
+# Remove a pack from the index
+tank remove my-lib@1.0.0
 ```
 
-That's it. Four commands: build, verify, pull, query.
+> **Team setup** — Commit `tank.lock` to version control — analogous to `Cargo.lock` or `package-lock.json`. The lockfile records each imported pack's digest and source URL. On a fresh clone, `tank sync` reads the lockfile and reproduces the full index automatically.
 
 ## What Your Agent Sees
 
@@ -102,7 +119,7 @@ Works with Claude Code, Claude Desktop, Cursor, VS Code, and any MCP-compatible 
 
 ## Status
 
-Tank v0.1.1 is code-complete with a full test suite (205/206 passing). Active development is on v0.2.0. See [roadmap.md](docs/roadmap.md) for current focus.
+Tank v0.1.1 is code-complete. Active development is on v0.2.0 (235 tests passing). See [roadmap.md](docs/roadmap.md) for current focus.
 
 ## License
 

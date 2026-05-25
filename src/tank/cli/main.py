@@ -7,11 +7,13 @@ import sys
 import click
 from rich.console import Console
 
+from tank.cli.add import add, pull
 from tank.cli.build import build
 from tank.cli.inspect import inspect_cmd
-from tank.cli.pull import pull
 from tank.cli.query import query
+from tank.cli.remove import remove
 from tank.cli.serve import serve
+from tank.cli.sync import sync
 from tank.cli.verify import verify_cmd
 
 console = Console()
@@ -44,7 +46,10 @@ def _handle_errors(
 
 cli.add_command(build)
 cli.add_command(verify_cmd)
-cli.add_command(pull)
+cli.add_command(add)
+cli.add_command(sync)
+cli.add_command(remove)
 cli.add_command(query)
 cli.add_command(inspect_cmd)
 cli.add_command(serve)
+cli.add_command(pull)  # deprecated alias, hidden=True set in add.py

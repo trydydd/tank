@@ -11,12 +11,14 @@ dependencies = [
     "rich",
     "mcp",
     "chunkana>=0.1",
+    "jsonschema>=4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "mypy",
+    "types-jsonschema",
     "ruff==0.15.8",
     "bump-my-version",
 ]
@@ -50,6 +52,9 @@ tag = true
 tag_name = "v{new_version}"
 commit_args = "--no-verify"
 message = "chore: bump version {current_version} → {new_version}"
+
+[tool.setuptools.package-data]
+"tank.schemas" = ["*.json"]
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"

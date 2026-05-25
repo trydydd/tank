@@ -4,9 +4,9 @@
 
 ### 1. Concurrency and Multi-Agent Access
 
-The architecture assumes a single writer at a time but does not specify behavior when multiple MCP server instances, CLI invocations, or AI agents access `index.db` concurrently. SQLite supports concurrent reads but serializes writes; without explicit WAL mode enablement and busy-timeout configuration, concurrent `tank pull` invocations will fail with `SQLITE_BUSY` errors. The HTTP transport compounds this — a persistent daemon could receive overlapping requests.
+The architecture assumes a single writer at a time but does not specify behavior when multiple MCP server instances, CLI invocations, or AI agents access `index.db` concurrently. SQLite supports concurrent reads but serializes writes; without explicit WAL mode enablement and busy-timeout configuration, concurrent `tank add` invocations will fail with `SQLITE_BUSY` errors. The HTTP transport compounds this — a persistent daemon could receive overlapping requests.
 
-**Recommendation**: Enable WAL mode on database creation, set a busy timeout (e.g. 5000ms), and document that `tank pull` acquires an exclusive lock for the duration of its transaction. Consider advisory file locking on `index.lock` writes.
+**Recommendation**: Enable WAL mode on database creation, set a busy timeout (e.g. 5000ms), and document that `tank add` acquires an exclusive lock for the duration of its transaction. Consider advisory file locking on `index.lock` writes.
 
 ### 2. SQLite Schema Migration Strategy
 
@@ -28,7 +28,7 @@ There is no documented strategy for backing up or recovering `index.db`. A corru
 
 ### 5. Observability and Error Reporting
 
-No logging, metrics, or structured error reporting strategy is defined. When `tank query` returns poor results or `tank pull` fails in CI, there is no audit trail beyond exit codes. The MCP server is a long-running process with no health endpoint.
+No logging, metrics, or structured error reporting strategy is defined. When `tank query` returns poor results or `tank add` fails in CI, there is no audit trail beyond exit codes. The MCP server is a long-running process with no health endpoint.
 
 **Recommendation**: Add structured logging (Python `logging` module with JSON formatter option) at key checkpoints: verify step results, import timing, query latency, FTS5 match counts. For the HTTP transport, add a `/health` endpoint returning server uptime, database size, and pack count.
 
@@ -48,7 +48,7 @@ The architecture relies on `chunkana` for structural chunking but provides no gu
 
 Every `search` call executes a fresh FTS5 query against SQLite. For MCP server sessions where the agent makes repeated similar queries (e.g. refining search terms), there is no caching layer. While individual queries are fast (<10ms), the cumulative overhead adds up in long sessions.
 
-**Recommendation**: Add an optional LRU cache keyed on `(query, packages, limit)` with a short TTL (e.g. 60 seconds) or invalidation on `tank pull`. This is low-priority given the sub-10ms target but becomes relevant at scale.
+**Recommendation**: Add an optional LRU cache keyed on `(query, packages, limit)` with a short TTL (e.g. 60 seconds) or invalidation on `tank add`. This is low-priority given the sub-10ms target but becomes relevant at scale.
 
 ### 9. CI/CD Integration Guidance
 
@@ -104,7 +104,7 @@ Rewrite the core in Rust, exposing both a native CLI and the MCP server as a sin
 
 ### Option 2: TypeScript (MCP server) + Python (CLI and build tooling)
 
-Split the system: write the MCP server in TypeScript (using the official TypeScript MCP SDK) and keep the CLI (`tank build`, `tank verify`, `tank pull`) in Python.
+Split the system: write the MCP server in TypeScript (using the official TypeScript MCP SDK) and keep the CLI (`tank build`, `tank verify`, `tank add`) in Python.
 
 **Pros**:
 - **MCP ecosystem alignment**: the MCP specification and reference implementations are TypeScript-first. The TypeScript SDK receives features and fixes before the Python SDK. Writing the server in TypeScript means fewer compatibility surprises and faster adoption of new MCP protocol features.
@@ -128,7 +128,7 @@ Write both the CLI and MCP server in Go. Use `modernc.org/sqlite` (pure-Go SQLit
 
 **Pros**:
 - **Single static binary**: like Rust, Go produces a self-contained binary with no runtime dependencies. `go build` produces cross-platform executables trivially. Distribution is a single file download or `go install`.
-- **Concurrency model**: Go's goroutines and channels are a natural fit for the HTTP MCP transport's concurrent request handling. The `tank pull` pipeline (verify steps running in sequence, with parallel chunk insertion) maps cleanly to goroutine orchestration.
+- **Concurrency model**: Go's goroutines and channels are a natural fit for the HTTP MCP transport's concurrent request handling. The `tank add` pipeline (verify steps running in sequence, with parallel chunk insertion) maps cleanly to goroutine orchestration.
 - **Fast compilation**: Go compiles in seconds, not minutes. This keeps the development feedback loop tight during Phase 1's iterative design period.
 - **Mature SQLite bindings**: `mattn/go-sqlite3` is battle-tested in production systems handling millions of queries. WAL mode, busy timeouts, and concurrent read/write patterns are well-documented.
 - **Enterprise adoption**: Go is the dominant language for infrastructure tooling in enterprise environments (Kubernetes, Terraform, Docker). Teams already running Tank in enterprise contexts are likely to have Go expertise and CI pipelines configured for Go builds.

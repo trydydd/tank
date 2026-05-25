@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tank.dev/schemas/manifest.v2.schema.json",
+  "title": "Tank manifest.json (schema version 2)",
+  "description": "Governance and integrity manifest embedded in a .ctx documentation pack.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "pack_format",
+    "package",
+    "version",
+    "pack_digest",
+    "normalized_content_hash",
+    "chunks",
+    "pages",
+    "lifecycle_state",
+    "doc_version_status",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 2,
+      "description": "Schema version; always 2 for this format."
+    },
+    "pack_format": {
+      "type": "string",
+      "const": "tank-text-v1",
+      "description": "Pack format identifier."
+    },
+    "package": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Package name."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Package version."
+    },
+    "pack_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "SHA-256 of the archive with pack_digest zeroed during computation."
+    },
+    "normalized_content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "SHA-256 of all normalized chunk content concatenated in id order."
+    },
+    "chunks": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of chunks in the pack."
+    },
+    "pages": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of source pages in the pack."
+    },
+    "lifecycle_state": {
+      "type": "string",
+      "enum": ["draft", "approved", "deprecated", "revoked"],
+      "description": "Governance lifecycle state."
+    },
+    "doc_version_status": {
+      "type": "string",
+      "enum": ["stable", "prerelease", "archived", "unknown"],
+      "description": "Documentation version maturity."
+    },
+    "created_at": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Unix epoch timestamp when the pack was built."
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Tool and version that built the pack (e.g. tank/0.1.1)."
+    },
+    "owner": {
+      "type": "string",
+      "description": "Team or person responsible for this pack."
+    },
+    "policy_profile": {
+      "type": "string",
+      "description": "Named policy profile to associate with this pack."
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Path or URL of the documentation source."
+    },
+    "source_commit": {
+      "type": "string",
+      "description": "Git commit hash at build time."
+    },
+    "reviewers": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "List of approvers (deferred feature)."
+    },
+    "approval_ref": {
+      "type": "string",
+      "description": "External ticket or PR reference (deferred feature)."
+    },
+    "source_tag": {
+      "type": "string",
+      "description": "Git tag at build time (deferred feature)."
+    }
+  }
+}
