@@ -127,7 +127,7 @@ class Database:
                 )
                 db_id = cursor.lastrowid
                 if db_id is None:
-                    raise RuntimeError("INSERT into pages did not return a row ID")
+                    raise ImportError_("INSERT into pages did not return a row ID")
                 page_id_map[page.id] = db_id
 
             for chunk in chunks:

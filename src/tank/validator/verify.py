@@ -62,7 +62,7 @@ def verify(
         return VerifyResult(
             passed=False,
             step=1,
-            reason="Cannot open archive",
+            reason=f"Cannot open archive — not a valid ZIP file: {ctx_path.name}",
             manifest=None,
         )
 
@@ -76,17 +76,17 @@ def verify(
             return VerifyResult(
                 passed=False,
                 step=1,
-                reason="Cannot read manifest.json from archive",
+                reason="manifest.json not found in archive",
                 manifest=None,
             )
 
         try:
             manifest = json.loads(manifest_raw)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
             return VerifyResult(
                 passed=False,
                 step=1,
-                reason="manifest.json is not valid JSON",
+                reason=f"manifest.json contains invalid JSON: {exc}",
                 manifest=None,
             )
 

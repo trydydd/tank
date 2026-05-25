@@ -140,22 +140,12 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
         db = Database(INDEX_DB)
         db.create_schema()
 
-        pack_name = None
-        pack_version = None
-        try:
-            with zipfile.ZipFile(ctx_path, "r") as zf:
-                manifest = json.loads(zf.read("manifest.json"))
-                pack_name = manifest["package"]
-                pack_version = manifest["version"]
-        except Exception:
-            pass
+        with zipfile.ZipFile(ctx_path, "r") as zf:
+            manifest = json.loads(zf.read("manifest.json"))
+        pack_name = manifest["package"]
+        pack_version = manifest["version"]
 
-        if (
-            not force
-            and pack_name
-            and pack_version
-            and db.pack_exists(pack_name, pack_version)
-        ):
+        if not force and db.pack_exists(pack_name, pack_version):
             console.print(
                 f"[red]error: pack {pack_name}@{pack_version} is already imported. "
                 "Use --force to reimport.[/red]"
@@ -164,24 +154,16 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
             sys.exit(1)
 
         # When --force, delete the existing pack so import_pack succeeds
-        if (
-            force
-            and pack_name
-            and pack_version
-            and db.pack_exists(pack_name, pack_version)
-        ):
+        if force and db.pack_exists(pack_name, pack_version):
             db.delete_pack(pack_name, pack_version)
 
         _import_pack(ctx_path, policy_obj, db)
         _write_lockfile(db)
         db.close()
 
-        if pack_name:
-            console.print(
-                f"[green]Successfully imported {pack_name}@{pack_version}[/green]"
-            )
-        else:
-            console.print("[green]Successfully imported pack[/green]")
+        console.print(
+            f"[green]Successfully imported {pack_name}@{pack_version}[/green]"
+        )
     except TankError as exc:
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(1)

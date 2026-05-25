@@ -9,7 +9,7 @@ import click
 from rich.console import Console
 
 from tank.builder.build import build_pack
-from tank.errors import TankError
+from tank.errors import BuildError, TankError
 
 console = Console()
 
@@ -18,22 +18,22 @@ def _parse_package_spec(spec: str) -> tuple[str, str]:
     """Parse 'package@version' string.
 
     Returns (package, version).
-    Raises ValueError on invalid format.
+    Raises BuildError on invalid format.
     """
     if "@" not in spec:
-        raise ValueError(
+        raise BuildError(
             f"Missing '@' in package spec '{spec}'. "
             "Expected format: package@version (e.g. my-lib@1.0.0)"
         )
     parts = spec.split("@")
     if len(parts) != 2:
-        raise ValueError(
+        raise BuildError(
             f"Invalid package spec '{spec}'. "
             "Multiple '@' signs detected. Expected format: package@version"
         )
     pkg, ver = parts[0], parts[1]
     if not pkg or not ver:
-        raise ValueError(
+        raise BuildError(
             f"Invalid package spec '{spec}'. "
             "Package name and version must be non-empty."
         )
@@ -69,7 +69,7 @@ def build(
     """
     try:
         pkg, ver = _parse_package_spec(package_spec)
-    except ValueError as exc:
+    except TankError as exc:
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(1)
 

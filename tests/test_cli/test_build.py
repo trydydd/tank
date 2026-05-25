@@ -18,6 +18,34 @@ def _fixture_path(name: str = "sample_docs") -> Path:
     return Path(__file__).parent.parent / "fixtures" / name
 
 
+class TestParsePackageSpec:
+    """Unit tests for _parse_package_spec."""
+
+    def test_missing_at_raises_build_error(self) -> None:
+        """A spec without '@' raises BuildError, not ValueError."""
+        with pytest.raises(BuildError, match="Missing '@'"):
+            _parse_package_spec("bad-spec")
+
+    def test_multiple_at_raises_build_error(self) -> None:
+        """A spec with multiple '@' signs raises BuildError."""
+        with pytest.raises(BuildError, match="Multiple '@'"):
+            _parse_package_spec("my@lib@1.0.0")
+
+    def test_empty_package_raises_build_error(self) -> None:
+        """A spec with empty package name raises BuildError."""
+        with pytest.raises(BuildError, match="non-empty"):
+            _parse_package_spec("@1.0.0")
+
+    def test_empty_version_raises_build_error(self) -> None:
+        """A spec with empty version raises BuildError."""
+        with pytest.raises(BuildError, match="non-empty"):
+            _parse_package_spec("my-lib@")
+
+    def test_valid_spec_returns_tuple(self) -> None:
+        """A valid spec returns (package, version)."""
+        assert _parse_package_spec("my-lib@1.0.0") == ("my-lib", "1.0.0")
+
+
 class TestBuildCommand:
     """Tests for 'tank build' subcommand."""
 
