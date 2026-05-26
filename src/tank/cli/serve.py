@@ -23,7 +23,7 @@ def serve() -> None:
     except ImportError:
         console.print(
             "[red]error:[/red] The MCP server requires the serve extra.\n"
-            "Install with:  pip install 'tank[serve]'"
+            "Install with:  pip install 'synthesist[serve]'"
         )
         sys.exit(1)
     create_server().run()
