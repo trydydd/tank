@@ -3,13 +3,12 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tank"
+name = "synthesist"
 version = "0.1.1"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "click",
     "rich",
-    "mcp",
     "chunkana>=0.1",
     "jsonschema>=4.0",
 ]
@@ -22,12 +21,15 @@ dev = [
     "ruff==0.15.8",
     "bump-my-version",
 ]
+serve = [
+    "mcp",
+]
 all = [
-    "tank[dev]",
+    "synthesist[dev,serve]",
 ]
 
 [project.scripts]
-tank = "tank.cli.main:cli"
+synthesist = "tank.cli.main:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -43,7 +45,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 
 [tool.bumpversion]
 current_version = "0.1.1"

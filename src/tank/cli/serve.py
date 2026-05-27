@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import sys
+
 import click
+from rich.console import Console
+
+console = Console()
 
 
 @click.command()
@@ -13,6 +18,12 @@ def serve() -> None:
     directory. Run from your project root, or set cwd in your MCP
     client config.
     """
-    from tank.server import create_server
-
+    try:
+        from tank.server import create_server
+    except ImportError:
+        console.print(
+            "[red]error:[/red] The MCP server requires the serve extra.\n"
+            "Install with:  pip install 'synthesist[serve]'"
+        )
+        sys.exit(1)
     create_server().run()

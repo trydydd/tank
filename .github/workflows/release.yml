@@ -36,11 +36,17 @@ jobs:
       - name: Build wheel and sdist
         run: python -m build
 
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
       - name: Build packs
         run: |
           mkdir -p source packs
           curl -sf --max-time 120 -o source/llms-full.md https://gofastmcp.com/llms-full.txt
-          tank build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
+          synthesist build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
 
       - name: Extract changelog notes
         id: changelog
@@ -60,3 +66,19 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
             packs/*.ctx
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write        # Required for OIDC trusted publisher
+    environment:
+      name: pypi
+      url: https://pypi.org/p/synthesist
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
