@@ -104,11 +104,16 @@ def strip_mdx(text: str) -> str:
     return cleaned
 
 
+def _clean_fence_info(fence: str) -> str:
+    """Strip MDX attributes from a code fence info string, keeping only the language token."""
+    return re.sub(r"^(```[a-z]*)[ \t].*", r"\1", fence, flags=re.MULTILINE, count=1)
+
+
 def _extract_code_fences(text: str) -> tuple[str, list[str]]:
     fences: list[str] = []
 
     def _repl(match: re.Match[str]) -> str:
-        fences.append(match.group(0))
+        fences.append(_clean_fence_info(match.group(0)))
         return f"@@CODE_FENCE_{len(fences) - 1}@@"
 
     masked = re.sub(r"```[\s\S]*?```", _repl, text)
