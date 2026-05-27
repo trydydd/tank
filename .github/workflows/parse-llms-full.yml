@@ -1,0 +1,62 @@
+name: Parse llms-full
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: URL to llms-full.txt
+        required: true
+        type: string
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Derive output filename
+        id: output
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from urllib.parse import urlparse
+
+          source_url = os.environ["SOURCE_URL"].strip()
+          normalized_url = source_url if "://" in source_url else f"https://{source_url}"
+          parsed = urlparse(normalized_url)
+
+          hostname = parsed.hostname or ""
+          hostname = re.sub(r"^www\.", "", hostname, flags=re.IGNORECASE)
+          labels = [label for label in hostname.split(".") if label]
+          if not labels:
+              raise SystemExit("Unable to derive domain from source URL")
+
+          domain = labels[0]
+          output_file = f"{domain}.md"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"domain={domain}\n")
+              fh.write(f"normalized_url={normalized_url}\n")
+              fh.write(f"output_file={output_file}\n")
+          PY
+
+      - name: Convert llms-full to markdown
+        run: |
+          python scripts/llms_full_to_markdown.py \
+            "${{ steps.output.outputs.normalized_url }}" \
+            --output "${{ steps.output.outputs.output_file }}"
+
+      - name: Upload markdown artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.output.outputs.domain }}
+          path: ${{ steps.output.outputs.output_file }}
+          if-no-files-found: error
