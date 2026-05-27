@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p source packs
           curl -sf --max-time 120 -o source/llms-full.md https://gofastmcp.com/llms-full.txt
-          synthesist build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
+          synd build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
 
       - name: Extract changelog notes
         id: changelog
@@ -74,7 +74,7 @@ jobs:
       id-token: write        # Required for OIDC trusted publisher
     environment:
       name: pypi
-      url: https://pypi.org/p/synthesist
+      url: https://pypi.org/p/synaptic-drift
     steps:
       - uses: actions/download-artifact@v4
         with:

@@ -1,4 +1,4 @@
-# Tank — Architecture
+# Synaptic Drift — Architecture
 
 A local, enterprise-governed documentation pack system: build versioned `.ctx` packs from documentation sources, verify them against your policy, pull them into a local SQLite index, and serve them to AI coding agents via MCP.
 
@@ -14,42 +14,42 @@ A local, enterprise-governed documentation pack system: build versioned `.ctx` p
 
 ## Design Context
 
-Tank is not the only tool that gives AI coding agents access to documentation. The competitive landscape explains why the design makes the trade-offs it does.
+Synaptic Drift is not the only tool that gives AI coding agents access to documentation. The competitive landscape explains why the design makes the trade-offs it does.
 
-| Tool | Approach | Why Tank differs |
+| Tool | Approach | Why Synaptic Drift differs |
 |---|---|---|
-| **Context7** (Upstash, ~55k GitHub stars) | Cloud-hosted MCP server; indexes thousands of public libraries; zero config | Tank is local-first — no cloud dependency, works offline, supports private/internal docs |
-| **Grounded Docs MCP / DevDocs MCP** | Open-source local doc crawlers, Docker-based | Tank adds cryptographic pack integrity, governance lifecycle states, and a portable verifiable format |
-| **Cursor / Copilot / JetBrains AI** | Editor-native context from open files, import graphs, project structure | Tank provides *external* library documentation — what the library you depend on actually says, not just what is in your project files |
-| **llms.txt** | Web convention exposing AI-readable doc summaries | Tank turns `llms.txt` into versioned, searchable, verifiable local packs |
+| **Context7** (Upstash, ~55k GitHub stars) | Cloud-hosted MCP server; indexes thousands of public libraries; zero config | Synaptic Drift is local-first — no cloud dependency, works offline, supports private/internal docs |
+| **Grounded Docs MCP / DevDocs MCP** | Open-source local doc crawlers, Docker-based | Synaptic Drift adds cryptographic pack integrity, governance lifecycle states, and a portable verifiable format |
+| **Cursor / Copilot / JetBrains AI** | Editor-native context from open files, import graphs, project structure | Synaptic Drift provides *external* library documentation — what the library you depend on actually says, not just what is in your project files |
+| **llms.txt** | Web convention exposing AI-readable doc summaries | Synaptic Drift turns `llms.txt` into versioned, searchable, verifiable local packs |
 
-Tank's differentiated position is the set of requirements that cloud-first tools cannot meet: private and internal documentation that cannot leave the organisation; cryptographic proof that pack content has not been tampered with; enterprise policy governance over what documentation enters agent context; offline and air-gapped operation. These are enterprise requirements. Tank does not compete with Context7 for the individual developer market; the design optimises for teams and enterprises that need trust guarantees on the documentation their agents consume.
+Synaptic Drift's differentiated position is the set of requirements that cloud-first tools cannot meet: private and internal documentation that cannot leave the organisation; cryptographic proof that pack content has not been tampered with; enterprise policy governance over what documentation enters agent context; offline and air-gapped operation. These are enterprise requirements. Synaptic Drift does not compete with Context7 for the individual developer market; the design optimises for teams and enterprises that need trust guarantees on the documentation their agents consume.
 
 ## MVP Definition
 
 The authoring loop (pack maintainer):
 
 ```bash
-tank build my-lib@1.0.0 --source ./docs --output ./packs
-tank verify ./packs/my-lib@1.0.0.ctx --policy ./policy.toml
-tank add ./packs/my-lib@1.0.0.ctx
+synd build my-lib@1.0.0 --source ./docs --output ./packs
+synd verify ./packs/my-lib@1.0.0.ctx --policy ./policy.toml
+synd add ./packs/my-lib@1.0.0.ctx
 ```
 
 The consumer loop (most users — reproduce index from lockfile, then serve):
 
 ```bash
-tank sync        # reads tank.lock, imports any missing packs
-tank serve       # start the MCP server for your agent
+synd sync        # reads synd.lock, imports any missing packs
+synd serve       # start the MCP server for your agent
 ```
 
 Everything in this document that is not required to make this loop work is deferred. See [What Is Deferred](#what-is-deferred) for the explicit list.
 
 ### MVP success criteria
 
-1. `tank build` produces a valid text-only `.ctx` archive from a local directory of Markdown or HTML files.
-2. `tank verify` rejects packs whose `lifecycle_state` is not in the policy's `allowed_lifecycle_states`, and rejects archives containing path traversal, absolute paths, symbolic links, or hash mismatches.
-3. `tank add` only completes after all verify checks pass; it imports chunks into `.tank/index.db` in a single atomic transaction. `tank sync` reads `tank.lock` and applies the same verify-before-import sequence for each listed pack.
-4. `tank query` returns BM25-ranked FTS5 results with full source attribution in under 10ms for an index of up to 100,000 chunks.
+1. `synd build` produces a valid text-only `.ctx` archive from a local directory of Markdown or HTML files.
+2. `synd verify` rejects packs whose `lifecycle_state` is not in the policy's `allowed_lifecycle_states`, and rejects archives containing path traversal, absolute paths, symbolic links, or hash mismatches.
+3. `synd add` only completes after all verify checks pass; it imports chunks into `.synd/index.db` in a single atomic transaction. `synd sync` reads `synd.lock` and applies the same verify-before-import sequence for each listed pack.
+4. `synd query` returns BM25-ranked FTS5 results with full source attribution in under 10ms for an index of up to 100,000 chunks.
 5. The MCP server exposes `search` (returns summaries and chunk IDs) and `fetch` (returns full content by chunk ID) over stdio, with attribution fields on every result.
 6. No outbound network is required.
 7. No embedding model is required.
@@ -57,7 +57,7 @@ Everything in this document that is not required to make this loop work is defer
 
 ## MCP Tool Surface
 
-The server exposes two tools to the AI agent. (`index-deps` is deferred to Phase 2.) Launch the server with `tank serve` (stdio transport).
+The server exposes two tools to the AI agent. (`index-deps` is deferred to Phase 2.) Launch the server with `synd serve` (stdio transport).
 
 ### `search`
 
@@ -168,7 +168,7 @@ my-lib@1.0.0.ctx
 ```json
 {
   "schema_version": 2,
-  "pack_format": "tank-text-v1",
+  "pack_format": "synd-text-v1",
 
   "package": "my-lib",
   "version": "1.0.0",
@@ -253,12 +253,12 @@ For local builds, `url` is the relative path from the `--source` root. Each file
 
 ## Archive Safety Validator
 
-Before any extraction, `tank verify` (and `tank add`/`tank sync`'s implicit verify step) runs a manifest-first validation sequence. This sequence is unconditional — it cannot be skipped via a flag.
+Before any extraction, `synd verify` (and `synd add`/`synd sync`'s implicit verify step) runs a manifest-first validation sequence. This sequence is unconditional — it cannot be skipped via a flag.
 
 ### Validation sequence
 
 ```
-tank verify <file.ctx>
+synd verify <file.ctx>
   │
   ├─ 1. Open archive, read only manifest.json (no other extraction)
   │       ├─ FAIL → reject: "Cannot read manifest.json"
@@ -272,7 +272,7 @@ tank verify <file.ctx>
   │       └─ PASS →
   │
   ├─ 3. Check lifecycle_state against policy
-  │       (uses --policy flag, .tank/policy.toml, ~/.tank/policy.toml, or defaults)
+  │       (uses --policy flag, .synd/policy.toml, ~/.synd/policy.toml, or defaults)
   │       ├─ state not in allowed_lifecycle_states → reject: "lifecycle_state
   │       │   'draft' is not allowed by policy"
   │       └─ ALLOWED →
@@ -310,10 +310,10 @@ tank verify <file.ctx>
   │       └─ VALID →
   │
   └─ 9. PASS — all checks succeeded
-         (tank add/sync proceed to import; tank verify exits 0)
+         (synd add/sync proceed to import; synd verify exits 0)
 ```
 
-Steps 1–8 are entirely read-only. Step 9 in `tank add`/`tank sync` opens the DB. The import is wrapped in a single transaction, so a failure during import leaves the database unchanged.
+Steps 1–8 are entirely read-only. Step 9 in `synd add`/`synd sync` opens the DB. The import is wrapped in a single transaction, so a failure during import leaves the database unchanged.
 
 Documentation text in chunks is treated as untrusted source content. It is stored verbatim and served verbatim; it is never executed or evaluated.
 
@@ -340,7 +340,7 @@ Documentation text in chunks is treated as untrusted source content. It is store
 ### Policy file (policy.toml)
 
 ```toml
-# .tank/policy.toml
+# .synd/policy.toml
 
 [policy]
 require_signatures = false          # true = reject unsigned packs at verify time
@@ -356,17 +356,17 @@ rejected_doc_version_statuses = ["archived"]
 ```
 
 **Policy file lookup order** (first file found wins):
-1. `--policy <path>` flag passed to `tank verify`, `tank add`, or `tank sync`
-2. `.tank/policy.toml` in the current project directory
-3. `~/.tank/policy.toml` as user-level default
+1. `--policy <path>` flag passed to `synd verify`, `synd add`, or `synd sync`
+2. `.synd/policy.toml` in the current project directory
+3. `~/.synd/policy.toml` as user-level default
 4. Permissive built-in defaults: all `lifecycle_state` values except `revoked` are allowed; `require_signatures = false`
 
 ## Verify-Before-Import Sequence
 
-`tank add` is shorthand for: verify fully, then import. Nothing is written to the database until all verify steps pass.
+`synd add` is shorthand for: verify fully, then import. Nothing is written to the database until all verify steps pass.
 
 ```
-tank add <file.ctx> [--policy ./policy.toml]
+synd add <file.ctx> [--policy ./policy.toml]
   │
   ├─ Verify phase (read-only, no DB writes)
   │    Steps 1–8 from Archive Safety Validator above
@@ -389,9 +389,9 @@ tank add <file.ctx> [--policy ./policy.toml]
        → Print: "Successfully imported my-lib@1.0.0"
 ```
 
-If the pack has already been imported at the same version, `tank add` rejects with `"Pack my-lib@1.0.0 is already imported. Use --force to reimport."` This prevents accidental overwrites.
+If the pack has already been imported at the same version, `synd add` rejects with `"Pack my-lib@1.0.0 is already imported. Use --force to reimport."` This prevents accidental overwrites.
 
-`tank sync` applies the same sequence to each entry in `tank.lock`, skipping packs already present in the index and running a digest pre-check against the lockfile before the 8-step verifier.
+`synd sync` applies the same sequence to each entry in `synd.lock`, skipping packs already present in the index and running a digest pre-check against the lockfile before the 8-step verifier.
 
 ## Hash Chain and Content Integrity
 
@@ -403,11 +403,11 @@ The system maintains a hash chain: **pack archive → manifest hashes → chunk 
 - **`normalized_content_hash`**: SHA-256 of all chunk `content` strings, each normalized (whitespace-normalized, Unicode-normalized to NFC), then concatenated in ascending `id` order with a `\n` separator. This hash is independent of metadata changes (heading paths, summaries, page IDs) and only changes when text content changes.
 - **Per-chunk `content_hash`**: SHA-256 of that chunk's normalized content alone. Useful for detecting which specific chunks changed between pack versions.
 
-The normalization function used at `tank build` time and `tank verify` time must be the same code path (`tank.builder.normalizer`). This is the hash stability guarantee.
+The normalization function used at `synd build` time and `synd verify` time must be the same code path (`tank.builder.normalizer`). This is the hash stability guarantee.
 
-### Pack-level lockfile (tank.lock)
+### Pack-level lockfile (synd.lock)
 
-A TOML file at the project root, written by `tank add` and `tank sync` on every import or removal:
+A TOML file at the project root, written by `synd add` and `synd sync` on every import or removal:
 
 ```toml
 [meta]
@@ -427,13 +427,13 @@ indexed_at = "2026-03-01T08:00:00Z"
 source_url = "packs/other-lib@2.3.0.ctx"
 ```
 
-The database (`.tank/index.db`) is the source of truth. The lockfile is a human-readable snapshot useful for git diffs, audits, and reproducible team setups. `source_url` records where each pack was fetched from; `tank sync` reads the lockfile and imports any missing packs automatically.
+The database (`.synd/index.db`) is the source of truth. The lockfile is a human-readable snapshot useful for git diffs, audits, and reproducible team setups. `source_url` records where each pack was fetched from; `synd sync` reads the lockfile and imports any missing packs automatically.
 
-**Team setup**: Commit `tank.lock` to version control — analogous to `Cargo.lock` or `package-lock.json`. With the lockfile tracked, `git diff` shows exactly which packs changed between branches and code reviews surface documentation version bumps alongside code changes. On a fresh clone, run `tank sync` to reproduce the full index automatically.
+**Team setup**: Commit `synd.lock` to version control — analogous to `Cargo.lock` or `package-lock.json`. With the lockfile tracked, `git diff` shows exactly which packs changed between branches and code reviews surface documentation version bumps alongside code changes. On a fresh clone, run `synd sync` to reproduce the full index automatically.
 
 ## Storage: SQLite Schema
 
-One database per project at `.tank/index.db`.
+One database per project at `.synd/index.db`.
 
 ```sql
 CREATE TABLE packages (
@@ -574,27 +574,27 @@ The same normalization is applied at verify time (to recompute `normalized_conte
 
 ## CLI Tooling
 
-The `tank` CLI covers everything an AI agent should not be doing. The CLI and MCP server share the same core libraries (`storage`, `search`, `policy`) but can be installed separately.
+The `synd` CLI covers everything an AI agent should not be doing. The CLI and MCP server share the same core libraries (`storage`, `search`, `policy`) but can be installed separately.
 
 ### Install paths
 
 ```bash
 # MCP server + query functionality only (minimal install)
-pip install tank
+pip install synaptic-drift
 
-# Full toolchain: adds tank build (requires chunkana)
-pip install tank[build]
+# Full toolchain: adds synd build (requires chunkana)
+pip install synaptic-drift[build]
 
 # Everything including optional embedding support (Phase 3)
-pip install tank[all]
+pip install synaptic-drift[all]
 ```
 
-`tank[build]` adds `chunkana` for structural Markdown chunking. It does not add crawler, embeddings, or network-access dependencies — building from a local directory has no network requirements.
+`synaptic-drift[build]` adds `chunkana` for structural Markdown chunking. It does not add crawler, embeddings, or network-access dependencies — building from a local directory has no network requirements.
 
 ### Command surface
 
 ```
-tank build <package@version> --source <path> [--output ./] [--lifecycle draft]
+synd build <package@version> --source <path> [--output ./] [--lifecycle draft]
               [--owner <name>] [--policy-profile <name>]
     Build a .ctx pack from a local directory of Markdown or HTML files.
     --source          Local directory path (required; URL crawling is Phase 2)
@@ -615,36 +615,36 @@ tank build <package@version> --source <path> [--output ./] [--lifecycle draft]
 
     See document-processing.md for the full pipeline description.
 
-tank verify <file.ctx> [--policy ./policy.toml]
+synd verify <file.ctx> [--policy ./policy.toml]
     Run the full 8-step archive safety validation sequence.
     Prints a pass/fail summary with the specific check that failed.
     Exits 0 on pass, non-zero on any failure.
     Does NOT write to the database.
 
-tank add <file.ctx> [--policy ./policy.toml] [--force]
-    Verify (full 8-step sequence) then import into .tank/index.db.
-    Equivalent to: tank verify <file> && tank import <file>
+synd add <file.ctx> [--policy ./policy.toml] [--force]
+    Verify (full 8-step sequence) then import into .synd/index.db.
+    Equivalent to: synd verify <file> && tank import <file>
     Will not import if any verify check fails.
     --force           Re-import even if this package@version is already present
-    Updates tank.lock after successful import.
+    Updates synd.lock after successful import.
 
-tank sync [--policy ./policy.toml] [--frozen]
-    Read tank.lock and import any packs not already in .tank/index.db.
+synd sync [--policy ./policy.toml] [--frozen]
+    Read synd.lock and import any packs not already in .synd/index.db.
     Idempotent: skips packs that are already imported.
     --frozen          Fail immediately if any source_url is an HTTPS URL (no network access)
-    Enables `git clone && tank sync` to reproduce the local index on a fresh checkout.
+    Enables `git clone && synd sync` to reproduce the local index on a fresh checkout.
 
-tank remove <package@version>
-    Remove a pack from .tank/index.db and rewrite tank.lock.
+synd remove <package@version>
+    Remove a pack from .synd/index.db and rewrite synd.lock.
     Exits non-zero if the pack is not in the index.
 
-tank query <query> [--package pkg[@version]] [--detail summary|full] [--limit N]
+synd query <query> [--package pkg[@version]] [--detail summary|full] [--limit N]
     BM25 full-text search against imported packs.
     Returns attribution fields on every result.
     --detail summary  heading_path + summary + score (default)
     --detail full     also includes content
 
-tank inspect <file.ctx | .tank/index.db>
+synd inspect <file.ctx | .synd/index.db>
     Print manifest fields, chunk count, token distribution, page list.
     For index.db: list all imported packs with lifecycle_state, pack_digest,
     indexed_at, and chunk count.
@@ -662,10 +662,10 @@ tank (base):
   tomllib           # stdlib (Python 3.11+)
   click, rich       # CLI framework and terminal output
 
-tank[build] adds:
+synaptic-drift[build] adds:
   chunkana          # structural Markdown chunking, MIT license
 
-tank[embeddings] adds (Phase 3):
+synaptic-drift[embeddings] adds (Phase 3):
   FlagEmbedding     # BGE-M3 dense + sparse + ColBERT
 
 # Phase 2 additions (deferred):
@@ -713,7 +713,7 @@ Streamable HTTP transport bound to localhost only. The implementation exists (`r
 | Pack format | `.ctx` (zip archive) | Self-contained, hashable, portable, inspectable with standard tools |
 | Lockfile format | TOML | Human-readable, git-friendly |
 | MCP SDK | `mcp` (Python) | Official Anthropic MCP SDK for Python |
-| Packaging | single PyPI package with extras | `tank` base + `[build]` extra keeps the MCP server lean |
+| Packaging | single PyPI package with extras | `synd` base + `[build]` extra keeps the MCP server lean |
 
 The project writes custom code only where no good solution exists (archive safety validator, policy engine, SQLite storage layer, FTS5 attribution query). Everything else delegates to well-maintained libraries.
 
@@ -728,9 +728,9 @@ tank/
 ├── src/tank/
 │   ├── __init__.py
 │   │
-│   │── # ── BASE PACKAGE (pip install tank) ─────────────────────
+│   │── # ── BASE PACKAGE (pip install synaptic-drift) ─────────────────────
 │   │
-│   ├── server.py               # MCP server (search, fetch tools; tank serve)
+│   ├── server.py               # MCP server (search, fetch tools; synd serve)
 │   │
 │   ├── search/
 │   │   ├── __init__.py
@@ -745,7 +745,7 @@ tank/
 │   │   ├── __init__.py
 │   │   └── engine.py           # policy.toml loader, lifecycle_state enforcer
 │   │
-│   │── # ── BUILD EXTRA (pip install tank[build]) ────────────────
+│   │── # ── BUILD EXTRA (pip install synaptic-drift[build]) ────────────────
 │   │
 │   ├── builder/
 │   │   ├── __init__.py
@@ -761,14 +761,14 @@ tank/
 │   ├── cli/
 │   │   ├── __init__.py
 │   │   ├── main.py             # tank root command (click group)
-│   │   ├── build.py            # tank build
-│   │   ├── verify.py           # tank verify
-│   │   ├── add.py              # tank add (+ deprecated pull alias)
-│   │   ├── sync.py             # tank sync
-│   │   ├── remove.py           # tank remove
+│   │   ├── build.py            # synd build
+│   │   ├── verify.py           # synd verify
+│   │   ├── add.py              # synd add (+ deprecated pull alias)
+│   │   ├── sync.py             # synd sync
+│   │   ├── remove.py           # synd remove
 │   │   ├── _lockfile.py        # shared read_lockfile() / write_lockfile()
-│   │   ├── query.py            # tank query
-│   │   └── inspect.py          # tank inspect
+│   │   ├── query.py            # synd query
+│   │   └── inspect.py          # synd inspect
 │   │
 │   │── # ── DEFERRED (Phase 2) ───────────────────────────────────
 │   │   # crawler/              # Crawl4AI orchestration
@@ -794,7 +794,7 @@ tank/
 ```toml
 [project.scripts]
 tank = "tank.cli.main:cli"
-# MCP server launched via: tank serve
+# MCP server launched via: synd serve
 
 [project.optional-dependencies]
 build = [
@@ -803,25 +803,25 @@ build = [
 embeddings = [
     "FlagEmbedding>=1.2",
 ]
-all = ["tank[build]", "tank[embeddings]", "pytest", "pytest-asyncio"]
+all = ["synaptic-drift[build]", "synaptic-drift[embeddings]", "pytest", "pytest-asyncio"]
 ```
 
 ## Implementation Phases
 
 ### Phase 1 — MVP (this document)
 
-- `tank build` from local source directories (Markdown / HTML)
+- `synd build` from local source directories (Markdown / HTML)
 - Archive safety validator (unconditional, 8-step sequence)
-- `tank verify` with `policy.toml` enforcement
-- `tank add` (verify-then-import, atomic transaction; deprecated `tank pull` alias retained)
-- `tank sync` (lockfile-driven idempotent import; enables `git clone && tank sync`)
-- `tank remove` (delete from index and rewrite lockfile)
-- `tank query` with FTS5/BM25 and full source attribution
-- `tank inspect` for debugging pack contents and the local index
+- `synd verify` with `policy.toml` enforcement
+- `synd add` (verify-then-import, atomic transaction; deprecated `synd pull` alias retained)
+- `synd sync` (lockfile-driven idempotent import; enables `git clone && synd sync`)
+- `synd remove` (delete from index and rewrite lockfile)
+- `synd query` with FTS5/BM25 and full source attribution
+- `synd inspect` for debugging pack contents and the local index
 - MCP server: `search` (summaries + chunk IDs) and `fetch` (full content by ID)
 - SQLite schema with governance and attribution columns
 - Policy file (`policy.toml`) with lifecycle state and signature enforcement
-- `tank.lock` as a human-readable record of imported packs (schema v2 TOML)
+- `synd.lock` as a human-readable record of imported packs (schema v2 TOML)
 
 ### Phase 2 — Crawling and Registry
 
@@ -833,18 +833,18 @@ all = ["tank[build]", "tank[embeddings]", "pytest", "pytest-asyncio"]
   - Scope limiting to doc path prefixes
   - Concurrency model: packages crawled in parallel but per-domain queues remain serial
 - deps.dev integration for doc URL resolution (`HOMEPAGE` → `SOURCE_REPO` → well-known patterns → manual overrides)
-- `tank build --source <URL>` (URL crawling path, in addition to existing local path)
+- `synd build --source <URL>` (URL crawling path, in addition to existing local path)
 - Incremental re-crawl using HTTP ETags (`If-None-Match` / `If-Modified-Since`)
-- Remote registry: `tank publish`, `tank add <package@version>` from registry URL
+- Remote registry: `tank publish`, `synd add <package@version>` from registry URL
 - Lifecycle promotion workflow: `tank promote`, `tank revoke`
 - Staleness detection against project lockfiles (`index-deps` MCP tool scans `requirements.txt`, `package.json`, `Cargo.toml`, etc.)
 - Auto-discovery of dependency files in the project directory
-- Private and internal packages via `--auth` flag in `tank build`
+- Private and internal packages via `--auth` flag in `synd build`
 - Registry governance: signing, content hash verification on upload, reproducibility checks
 
 ### Phase 3 — Embeddings
 
-- BGE-M3 embeddings (dense + sparse) as `tank[embeddings]` optional extra
+- BGE-M3 embeddings (dense + sparse) as `synaptic-drift[embeddings]` optional extra
 - `dense_embedding BLOB` and `sparse_weights TEXT` columns added to `chunks`
 - Hybrid search: dense cosine similarity + BGE-M3 sparse + FTS5, fused with Reciprocal Rank Fusion (RRF)
 - ColBERT multi-vector retrieval as opt-in via `config.toml`
@@ -854,15 +854,15 @@ all = ["tank[build]", "tank[embeddings]", "pytest", "pytest-asyncio"]
 
 ## What Is Deferred
 
-The following are explicitly out of scope for Tank v1. No MVP schema or format decision will need to be broken to add them.
+The following are explicitly out of scope for Synaptic Drift v1. No MVP schema or format decision will need to be broken to add them.
 
 ### Deferred to Phase 2 (Crawling and Registry)
 
-- URL crawling (`tank build` currently requires `--source <local-path>`)
+- URL crawling (`synd build` currently requires `--source <local-path>`)
 - deps.dev integration for doc URL resolution
 - ReadTheDocs and GitHub version resolution
 - Incremental re-crawl with HTTP ETags
-- Remote registry: `tank publish`, `tank add <pkg@version>` from a registry URL
+- Remote registry: `tank publish`, `synd add <pkg@version>` from a registry URL
 - Community or public registry hosting
 - Lifecycle promotion workflows (`tank promote`, `tank revoke`)
 - Staleness detection against project lockfiles
@@ -890,7 +890,7 @@ The following are explicitly out of scope for Tank v1. No MVP schema or format d
 
 - **Chunk-level source_url**: `source_url` is always populated, never null. Local builds store the relative path from the `--source` argument (e.g. `--source ./docs` + file at `docs/auth/oauth.md` = `source_url: "docs/auth/oauth.md"`). Only `./` is stripped from the front. Phase 2 web builds use full `https://` URLs. No fallback logic is needed at query time because the field is never absent.
 
-- **Source tree handling**: `tank build --source <path>` recurses subdirectories by default. Files are discovered by extension whitelist (`.md`, `.html`, `.htm`). Walk order is lexicographic (sorted by full relative path) to guarantee deterministic chunk ID assignment and reproducible `normalized_content_hash`. Phase 2 crawled builds must establish their own deterministic sort (e.g. canonical URL) before assigning IDs.
+- **Source tree handling**: `synd build --source <path>` recurses subdirectories by default. Files are discovered by extension whitelist (`.md`, `.html`, `.htm`). Walk order is lexicographic (sorted by full relative path) to guarantee deterministic chunk ID assignment and reproducible `normalized_content_hash`. Phase 2 crawled builds must establish their own deterministic sort (e.g. canonical URL) before assigning IDs.
 
 - **Python version**: 3.11+ required. Uses `tomllib` from stdlib. No backport dependencies.
 
@@ -898,4 +898,4 @@ The following are explicitly out of scope for Tank v1. No MVP schema or format d
 
 - **Policy inheritance in CI**: when a `.ctx` is built in CI with `lifecycle_state: draft` and a human later promotes it to `approved`, should the pack be rebuilt (new `pack_digest`) or should a side-channel approval record update the existing imported entry? Rebuilding is cleaner but requires re-running the pipeline; updating the packages table's `lifecycle_state` in place is pragmatic but means the stored `pack_digest` no longer reflects the approved state. To be resolved when designing the Phase 2 promotion workflow.
 
-- **Policy merge semantics in monorepos**: a monorepo may want a root-level policy and workspace-level overrides. The lookup order (workspace `.tank/policy.toml` > root `.tank/policy.toml` > user default) seems right, but whether workspace policy is additive (can only restrict further) or fully overriding needs to be specified before Phase 2 implementation.
+- **Policy merge semantics in monorepos**: a monorepo may want a root-level policy and workspace-level overrides. The lookup order (workspace `.synd/policy.toml` > root `.synd/policy.toml` > user default) seems right, but whether workspace policy is additive (can only restrict further) or fully overriding needs to be specified before Phase 2 implementation.

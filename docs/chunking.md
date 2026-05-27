@@ -1,4 +1,4 @@
-# Tank — Chunking
+# Synaptic Drift — Chunking
 
 How chunkana splits documentation files into chunks, what controls chunk size, and what the defaults mean for token budgets at query time.
 
@@ -6,7 +6,7 @@ For the broader build pipeline context, see `docs/document-processing.md`.
 
 ## How chunkana splits documents
 
-Tank passes raw file content to `chunkana.chunk_text()` with no configuration override, so chunkana uses its defaults. Chunkana splits at structural boundaries — headings, code blocks, and tables — rather than at arbitrary character counts. The chunk boundaries are document-aware:
+Synaptic Drift passes raw file content to `chunkana.chunk_text()` with no configuration override, so chunkana uses its defaults. Chunkana splits at structural boundaries — headings, code blocks, and tables — rather than at arbitrary character counts. The chunk boundaries are document-aware:
 
 - A new heading always starts a new chunk.
 - Code blocks and tables are **atomic** — they are never split mid-block, even if they exceed `max_chunk_size`.
@@ -24,7 +24,7 @@ The strategy chunkana selects depends on the document's content mix:
 
 ## Default configuration
 
-Tank calls `chunk_text(raw_content)` with no `ChunkConfig` argument. The active defaults are:
+Synaptic Drift calls `chunk_text(raw_content)` with no `ChunkConfig` argument. The active defaults are:
 
 | Parameter | Default | Description |
 |---|---|---|
@@ -37,7 +37,7 @@ Tank calls `chunk_text(raw_content)` with no `ChunkConfig` argument. The active 
 
 ## Chunk size in practice
 
-The character limits translate to approximate token counts using the `len(content) // 4` estimator Tank uses everywhere:
+The character limits translate to approximate token counts using the `len(content) // 4` estimator Synaptic Drift uses everywhere:
 
 | Bound | Characters | Estimated tokens |
 |---|---|---|
@@ -72,7 +72,7 @@ See `docs/ranking.md` for how the greedy budget enforcement works.
 
 ## Configuring chunk size
 
-Tank does not currently expose `ChunkConfig` parameters through the CLI. To change chunking behaviour, modify the `_chunk_text(raw_content)` call in `src/tank/builder/chunking.py:54` to pass an explicit config:
+Synaptic Drift does not currently expose `ChunkConfig` parameters through the CLI. To change chunking behaviour, modify the `_chunk_text(raw_content)` call in `src/tank/builder/chunking.py:54` to pass an explicit config:
 
 ```python
 from chunkana.config import ChunkConfig
@@ -91,4 +91,4 @@ Chunkana provides several preset configs as class methods on `ChunkConfig`:
 | `ChunkConfig.minimal()` | 1024 | 256 | 50 | Dense retrieval, small context windows |
 | `ChunkConfig.for_changelogs()` | 6144 | 256 | 100 | Changelogs, release notes |
 
-Exposing this via `tank build --chunk-config <preset>` is a candidate for a future release.
+Exposing this via `synd build --chunk-config <preset>` is a candidate for a future release.

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from tank.errors import SchemaValidationError
-from tank.schemas import validate_manifest
+from synd.errors import SchemaValidationError
+from synd.schemas import validate_manifest
 
 
 def _valid_manifest() -> dict[str, object]:
     return {
         "schema_version": 2,
-        "pack_format": "tank-text-v1",
+        "pack_format": "synd-text-v1",
         "package": "test-lib",
         "version": "1.0.0",
         "pack_digest": "sha256:" + "a" * 64,

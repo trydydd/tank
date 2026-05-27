@@ -2,8 +2,8 @@ import json
 import zipfile
 from pathlib import Path
 
-from tank.builder.build import build_pack
-from tank.errors import BuildError
+from synd.builder.build import build_pack
+from synd.errors import BuildError
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:
@@ -39,7 +39,7 @@ def test_build_produces_valid_ctx(tmp_path: Path) -> None:
         assert manifest["pack_digest"].startswith("sha256:")
         assert manifest["normalized_content_hash"].startswith("sha256:")
         assert manifest["schema_version"] == 2
-        assert manifest["pack_format"] == "tank-text-v1"
+        assert manifest["pack_format"] == "synd-text-v1"
 
 
 def test_build_deterministic_hash(tmp_path: Path) -> None:
@@ -234,7 +234,7 @@ def test_source_urls_use_forward_slashes(tmp_path: Path) -> None:
 
 def test_discover_files_sorted_by_forward_slash_path(tmp_path: Path) -> None:
     """discover_files returns files sorted by their forward-slash relative path."""
-    from tank.builder.chunking import discover_files
+    from synd.builder.chunking import discover_files
 
     docs = tmp_path / "docs"
     docs.mkdir()

@@ -28,12 +28,12 @@ from typing import Any
 
 import pytest
 
-import tank
-from tank.server import create_server
-from tank.server import fetch_docs as _fetch_docs
-from tank.server import search_docs as _search_docs
-from tank.storage.db import Database
-from tank.storage.models import Chunk, Pack, Page
+import synd as tank
+from synd.server import create_server
+from synd.server import fetch_docs as _fetch_docs
+from synd.server import search_docs as _search_docs
+from synd.storage.db import Database
+from synd.storage.models import Chunk, Pack, Page
 
 RESULTS_DIR = Path(__file__).parent / "results"
 
@@ -629,7 +629,7 @@ def _build_chunks() -> list[Chunk]:
 
 @pytest.fixture(scope="module")
 def bench_db(tmp_path_factory: pytest.TempPathFactory) -> Database:
-    path = tmp_path_factory.mktemp("bench") / ".tank" / "index.db"
+    path = tmp_path_factory.mktemp("bench") / ".synd" / "index.db"
     db = Database(path)
     db.create_schema()
     # page_id FK note: first import into a fresh DB — AUTOINCREMENT assigns

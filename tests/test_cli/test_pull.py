@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.builder.build import build_pack
-from tank.builder.manifest import compute_pack_digest
-from tank.cli.main import cli
+from synd.builder.build import build_pack
+from synd.builder.manifest import compute_pack_digest
+from synd.cli.main import cli
 
 _ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
 
@@ -111,7 +111,7 @@ class TestPullCommand:
         assert result.exit_code == 0, f"pull failed: {result.output}"
         assert "success" in result.output.lower() or "imported" in result.output.lower()
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         assert db_path.exists()
         conn = sqlite3.connect(str(db_path))
         count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
@@ -173,7 +173,7 @@ class TestPullCommand:
         result = CliRunner().invoke(cli, ["pull", str(broken)])
         assert result.exit_code == 1
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
@@ -189,7 +189,7 @@ class TestPullCommand:
         result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
         assert result.exit_code == 0, f"pull failed: {result.output}"
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         conn = sqlite3.connect(str(db_path))
         status = conn.execute("SELECT doc_version_status FROM packages").fetchone()[0]
         conn.close()
@@ -209,7 +209,7 @@ class TestPullCommand:
         assert "warning" in result.output.lower()
         assert "unknown" in result.output.lower()
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         conn = sqlite3.connect(str(db_path))
         status = conn.execute("SELECT doc_version_status FROM packages").fetchone()[0]
         conn.close()

@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.builder.build import build_pack
-from tank.cli.main import cli
+from synd.builder.build import build_pack
+from synd.cli.main import cli
 
 _FIXTURE_DOCS = Path(__file__).parent.parent / "fixtures" / "sample_docs"
 
@@ -23,7 +23,7 @@ def _make_ctx(tmp_path: Path, package: str, version: str) -> Path:
 
 
 def _write_lockfile(tmp_path: Path, entries: dict[str, dict[str, str]]) -> None:
-    """Write a minimal tank.lock with the given pack entries."""
+    """Write a minimal synd.lock with the given pack entries."""
     lines = [
         "[meta]",
         "schema_version = 2",
@@ -35,7 +35,7 @@ def _write_lockfile(tmp_path: Path, entries: dict[str, dict[str, str]]) -> None:
         for k, v in fields.items():
             lines.append(f'{k} = "{v}"')
         lines.append("")
-    (tmp_path / "tank.lock").write_text("\n".join(lines), encoding="utf-8")
+    (tmp_path / "synd.lock").write_text("\n".join(lines), encoding="utf-8")
 
 
 class TestSyncCommand:
@@ -44,13 +44,13 @@ class TestSyncCommand:
     def test_sync_imports_packs_from_lockfile(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """sync imports all packs listed in tank.lock that aren't already in the index."""
+        """sync imports all packs listed in synd.lock that aren't already in the index."""
         monkeypatch.chdir(tmp_path)
         ctx1 = _make_ctx(tmp_path, "lib-a", "1.0.0")
         ctx2 = _make_ctx(tmp_path, "lib-b", "2.0.0")
 
         # Build digests from the actual .ctx files
-        from tank.builder.manifest import compute_pack_digest
+        from synd.builder.manifest import compute_pack_digest
 
         digest1 = compute_pack_digest(ctx1)
         digest2 = compute_pack_digest(ctx2)
@@ -77,7 +77,7 @@ class TestSyncCommand:
         assert result.exit_code == 0, f"sync failed: {result.output}"
         assert "2 imported" in result.output
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         conn = sqlite3.connect(str(db_path))
         count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
         conn.close()
@@ -90,7 +90,7 @@ class TestSyncCommand:
         monkeypatch.chdir(tmp_path)
         ctx1 = _make_ctx(tmp_path, "lib-a", "1.0.0")
 
-        from tank.builder.manifest import compute_pack_digest
+        from synd.builder.manifest import compute_pack_digest
 
         digest1 = compute_pack_digest(ctx1)
 
@@ -117,7 +117,7 @@ class TestSyncCommand:
         assert "1 skipped" in result2.output
 
         # DB still has exactly 1 pack
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         conn = sqlite3.connect(str(db_path))
         count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
         conn.close()
@@ -152,7 +152,7 @@ class TestSyncCommand:
         )
 
         # Nothing was imported
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
@@ -210,11 +210,11 @@ class TestSyncCommand:
     def test_sync_missing_lockfile_exits_1(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """sync exits 1 with a helpful error when tank.lock does not exist."""
+        """sync exits 1 with a helpful error when synd.lock does not exist."""
         monkeypatch.chdir(tmp_path)
         result = CliRunner().invoke(cli, ["sync"])
         assert result.exit_code == 1
-        assert "tank.lock" in result.output or "tank add" in result.output
+        assert "synd.lock" in result.output or "tank add" in result.output
 
     def test_sync_empty_lockfile_is_noop(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

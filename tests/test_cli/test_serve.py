@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from click.testing import CliRunner
 
-from tank.cli.main import cli
+from synd.cli.main import cli
 
 
 def test_serve_registered_in_help() -> None:

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from tank.storage.models import Chunk, Page, Pack
+from synd.storage.models import Chunk, Page, Pack
 
 
 def test_pack_creation() -> None:

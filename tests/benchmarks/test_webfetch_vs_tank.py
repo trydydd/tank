@@ -50,12 +50,12 @@ from typing import Any
 
 import pytest
 
-import tank
-from tank.builder.build import build_pack
-from tank.storage.db import Database
-from tank.storage.models import Pack
-from tank.server import fetch_docs as _fetch_docs
-from tank.server import search_docs as _search_docs
+import synd as tank
+from synd.builder.build import build_pack
+from synd.storage.db import Database
+from synd.storage.models import Pack
+from synd.server import fetch_docs as _fetch_docs
+from synd.server import search_docs as _search_docs
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -113,13 +113,13 @@ def bench_db(tmp_path_factory: pytest.TempPathFactory) -> Database:
         doc_version_status="stable",
     )
 
-    db_path = tmp / ".tank" / "index.db"
+    db_path = tmp / ".synd" / "index.db"
     db = Database(db_path)
     db.create_schema()
 
     import zipfile
     import json as _json
-    from tank.storage.models import Chunk, Page
+    from synd.storage.models import Chunk, Page
 
     with zipfile.ZipFile(ctx_path) as zf:
         manifest = _json.loads(zf.read("manifest.json"))

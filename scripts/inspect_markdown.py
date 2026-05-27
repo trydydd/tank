@@ -18,14 +18,26 @@ from pathlib import Path
 # Each check is (label, pattern). Patterns are matched against lines *outside*
 # code fences, so false positives from code samples are not a concern.
 CHECKS: list[tuple[str, re.Pattern[str]]] = [
-    ("Dirty code fence (extra info-string attrs)",   re.compile(r"^```[a-z][^\s`]*[ \t]")),
-    ("MDX JSX component tag",                        re.compile(r"^<[A-Z][a-zA-Z]+")),
-    ("Stray HTML block tag",                         re.compile(r"^<(div|span|p|section|aside|nav|header|footer|script|style|iframe|html|head|body)\b", re.I)),
-    ("Bare JSX / curly expression",                  re.compile(r"^\{[^`]")),
-    ("MDX import / export statement",                re.compile(r"^(import|export)\s+(default\s+)?[{A-Z*]")),
-    ("Leftover MDX theme attribute",                 re.compile(r"theme=\{")),
-    ("Unescaped HTML entity",                        re.compile(r"&[a-z]{2,8};|&#[0-9]+;")),
-    ("Inline HTML self-closing tag (<br/>, <hr/>)",  re.compile(r"<(br|hr)\s*/?>")),
+    (
+        "Dirty code fence (extra info-string attrs)",
+        re.compile(r"^```[a-z][^\s`]*[ \t]"),
+    ),
+    ("MDX JSX component tag", re.compile(r"^<[A-Z][a-zA-Z]+")),
+    (
+        "Stray HTML block tag",
+        re.compile(
+            r"^<(div|span|p|section|aside|nav|header|footer|script|style|iframe|html|head|body)\b",
+            re.I,
+        ),
+    ),
+    ("Bare JSX / curly expression", re.compile(r"^\{[^`]")),
+    (
+        "MDX import / export statement",
+        re.compile(r"^(import|export)\s+(default\s+)?[{A-Z*]"),
+    ),
+    ("Leftover MDX theme attribute", re.compile(r"theme=\{")),
+    ("Unescaped HTML entity", re.compile(r"&[a-z]{2,8};|&#[0-9]+;")),
+    ("Inline HTML self-closing tag (<br/>, <hr/>)", re.compile(r"<(br|hr)\s*/?>")),
 ]
 
 
@@ -48,9 +60,13 @@ def inspect(path: Path) -> list[tuple[int, str, str]]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("file", help="Markdown file to inspect")
-    ap.add_argument("-v", "--verbose", action="store_true", help="Show every issue line")
+    ap.add_argument(
+        "-v", "--verbose", action="store_true", help="Show every issue line"
+    )
     args = ap.parse_args()
 
     path = Path(args.file)

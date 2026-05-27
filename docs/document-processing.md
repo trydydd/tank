@@ -1,6 +1,6 @@
-# Tank — Document Processing Pipeline
+# Synaptic Drift — Document Processing Pipeline
 
-How `tank build` transforms a local directory of documentation files into a `.ctx` pack.
+How `synd build` transforms a local directory of documentation files into a `.ctx` pack.
 
 ## Pipeline Overview
 
@@ -129,7 +129,7 @@ The manifest is built from CLI arguments and computed values:
 | Field | Source |
 |---|---|
 | `schema_version` | Hardcoded: `2` |
-| `pack_format` | Hardcoded: `"tank-text-v1"` |
+| `pack_format` | Hardcoded: `"synd-text-v1"` |
 | `package` | From CLI argument (`my-lib` in `my-lib@1.0.0`) |
 | `version` | From CLI argument (`1.0.0` in `my-lib@1.0.0`) |
 | `pack_digest` | Computed after archive assembly |
@@ -177,7 +177,7 @@ The output filename is `<package>@<version>.ctx` (e.g. `my-lib@1.0.0.ctx`).
 Given this source tree and command:
 
 ```bash
-tank build my-lib@1.0.0 --source ./docs --output ./packs
+synd build my-lib@1.0.0 --source ./docs --output ./packs
 ```
 
 ```
@@ -215,7 +215,7 @@ The pipeline produces:
 
 ## Compatibility with Phase 2 Crawled Builds
 
-Phase 2 will add `tank build --source <URL>` for web-crawled documentation. The processing pipeline is the same from step 3 onward (chunking through archive assembly). The differences are:
+Phase 2 will add `synd build --source <URL>` for web-crawled documentation. The processing pipeline is the same from step 3 onward (chunking through archive assembly). The differences are:
 
 - **Source discovery** (step 1): replaced by the crawler, which produces downloaded HTML/Markdown files
 - **Page construction** (step 2): `url` is the canonical web URL instead of a file path; `title` is extracted from HTML `<title>` or `<h1>`

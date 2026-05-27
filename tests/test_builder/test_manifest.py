@@ -3,7 +3,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from tank.builder.manifest import (
+from synd.builder.manifest import (
     build_manifest,
     compute_normalized_content_hash,
     compute_pack_digest,
@@ -26,7 +26,7 @@ class TestBuildManifest:
             source_commit=None,
         )
         assert manifest["schema_version"] == 2
-        assert manifest["pack_format"] == "tank-text-v1"
+        assert manifest["pack_format"] == "synd-text-v1"
         assert manifest["package"] == "my-lib"
         assert manifest["version"] == "1.0.0"
         assert manifest["chunks"] == 10
@@ -34,7 +34,7 @@ class TestBuildManifest:
         assert manifest["lifecycle_state"] == "draft"
         assert manifest["doc_version_status"] == "stable"
         assert manifest["source_url"] == "docs"
-        assert manifest["created_by"] == "tank/0.1.0"
+        assert manifest["created_by"] == "synd/0.1.1"
         # Optional fields should not be present when None
         assert "owner" not in manifest
         assert "policy_profile" not in manifest

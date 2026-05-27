@@ -3,10 +3,10 @@ import tempfile
 
 import pytest
 
-from tank.errors import SearchError
-from tank.search.fts import search, get_chunks_by_id
-from tank.storage.db import Database
-from tank.storage.models import Chunk, Page, Pack
+from synd.errors import SearchError
+from synd.search.fts import search, get_chunks_by_id
+from synd.storage.db import Database
+from synd.storage.models import Chunk, Page, Pack
 
 
 def _make_db() -> Database:

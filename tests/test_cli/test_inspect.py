@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.cli.main import cli
-from tank.builder.build import build_pack
+from synd.cli.main import cli
+from synd.builder.build import build_pack
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:
@@ -56,7 +56,7 @@ class TestInspectCommand:
         result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
         assert result.exit_code == 0, f"pull failed: {result.output}"
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         result = CliRunner().invoke(
             cli,
             ["inspect", str(db_path)],

@@ -2,8 +2,8 @@ from pathlib import Path
 import tempfile
 import textwrap
 import pytest
-from tank.policy.engine import Policy
-from tank.errors import PolicyError
+from synd.policy.engine import Policy
+from synd.errors import PolicyError
 
 
 def _write_toml(path: Path, content: str) -> Path:
@@ -34,7 +34,7 @@ def test_load_from_explicit_path() -> None:
 
 def test_load_from_project_dir() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        p = Path(tmp) / ".tank" / "policy.toml"
+        p = Path(tmp) / ".synd" / "policy.toml"
         _write_toml(
             p,
             """
@@ -51,7 +51,7 @@ def test_load_from_project_dir() -> None:
 def test_load_from_user_dir() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         home = Path(tmp)
-        p = home / ".tank" / "policy.toml"
+        p = home / ".synd" / "policy.toml"
         _write_toml(
             p,
             """
@@ -60,7 +60,7 @@ def test_load_from_user_dir() -> None:
             rejected_doc_version_statuses = []
         """,
         )
-        # home_dir simulates ~/.tank/ — user dir is checked after project dir
+        # home_dir simulates ~/.synd/ — user dir is checked after project dir
         policy = Policy.load(project_dir=Path("/nonexistent"), home_dir=home)
         assert policy.allowed_lifecycle_states == ["approved", "deprecated"]
 
@@ -144,7 +144,7 @@ def test_nonexistent_policy_path_raises() -> None:
 def test_load_uses_home_dir_fallback() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         home = Path(tmp)
-        p = home / ".tank" / "policy.toml"
+        p = home / ".synd" / "policy.toml"
         _write_toml(
             p,
             """

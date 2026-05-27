@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from tank.builder.chunking import RawChunk, chunk_file, discover_files, generate_summary
+from synd.builder.chunking import RawChunk, chunk_file, discover_files, generate_summary
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:

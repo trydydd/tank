@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.builder.build import build_pack
-from tank.builder.manifest import compute_pack_digest
-from tank.cli.main import cli
+from synd.builder.build import build_pack
+from synd.builder.manifest import compute_pack_digest
+from synd.cli.main import cli
 
 _ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
 
@@ -110,7 +110,7 @@ class TestAddCommand:
         assert result.exit_code == 0, f"add failed: {result.output}"
         assert "success" in result.output.lower() or "imported" in result.output.lower()
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         assert db_path.exists()
         conn = sqlite3.connect(str(db_path))
         count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
@@ -172,7 +172,7 @@ class TestAddCommand:
         result = CliRunner().invoke(cli, ["add", str(broken)])
         assert result.exit_code == 1
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
@@ -188,7 +188,7 @@ class TestAddCommand:
         result = CliRunner().invoke(cli, ["add", str(ctx_path)])
         assert result.exit_code == 0, f"add failed: {result.output}"
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         conn = sqlite3.connect(str(db_path))
         status = conn.execute("SELECT doc_version_status FROM packages").fetchone()[0]
         conn.close()
@@ -208,7 +208,7 @@ class TestAddCommand:
         assert "warning" in result.output.lower()
         assert "unknown" in result.output.lower()
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         conn = sqlite3.connect(str(db_path))
         status = conn.execute("SELECT doc_version_status FROM packages").fetchone()[0]
         conn.close()
@@ -232,14 +232,14 @@ class TestAddCommand:
     def test_add_writes_lockfile(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """tank.lock is written after a successful add."""
+        """synd.lock is written after a successful add."""
         monkeypatch.chdir(tmp_path)
         ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
         result = CliRunner().invoke(cli, ["add", str(ctx_path)])
         assert result.exit_code == 0, f"add failed: {result.output}"
 
-        lock_path = tmp_path / "tank.lock"
-        assert lock_path.exists(), "tank.lock should exist after add"
+        lock_path = tmp_path / "synd.lock"
+        assert lock_path.exists(), "synd.lock should exist after add"
         content = lock_path.read_text()
         assert "my-lib" in content
         assert "1.0.0" in content
@@ -268,7 +268,7 @@ class TestPullAlias:
         result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
         assert result.exit_code == 0
 
-        db_path = tmp_path / ".tank" / "index.db"
+        db_path = tmp_path / ".synd" / "index.db"
         assert db_path.exists()
         conn = sqlite3.connect(str(db_path))
         count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]

@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.cli.main import cli
-from tank.builder.build import build_pack
+from synd.cli.main import cli
+from synd.builder.build import build_pack
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:
@@ -32,10 +32,10 @@ class TestQueryCommand:
         )
         ctx_path = build_out / "test-pkg@1.0.0.ctx"
 
-        # Both pull and query use .tank/index.db relative to CWD.
-        # pull opens DB at ctx_path.parent / ".tank" / "index.db",
-        # query opens DB at DEFAULT_DB = ".tank/index.db".
-        # We need to run from build_out so both resolve to build_out/.tank/index.db.
+        # Both pull and query use .synd/index.db relative to CWD.
+        # pull opens DB at ctx_path.parent / ".synd" / "index.db",
+        # query opens DB at DEFAULT_DB = ".synd/index.db".
+        # We need to run from build_out so both resolve to build_out/.synd/index.db.
         monkeypatch.chdir(build_out)
         result = CliRunner().invoke(
             cli,

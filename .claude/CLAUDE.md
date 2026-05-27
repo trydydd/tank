@@ -1,4 +1,4 @@
-# Tank — Development Guide
+# Synaptic Drift — Development Guide
 
 ## Source of Truth
 
@@ -21,7 +21,7 @@
   ```
   To auto-fix formatting: `.venv/bin/ruff format src/ tests/`
 - Spell out every parameter explicitly. No `**kwargs` pass-through.
-- Prefer dedicated exception classes over generic `ValueError`/`TypeError`. The CLI maps exceptions to specific exit codes and user-facing messages. Start with a base `TankError` class; discover and add specific subclasses during TDD as failure modes emerge.
+- Prefer dedicated exception classes over generic `ValueError`/`TypeError`. The CLI maps exceptions to specific exit codes and user-facing messages. Start with a base `SyndError` class; discover and add specific subclasses during TDD as failure modes emerge.
 - Always use type hints. Prefer `str | None` union syntax over `Optional[str]`.
 
 ## MVP Design Decisions
@@ -73,6 +73,6 @@
 
 - **FastMCP tool names**: `@mcp.tool()` registers the Python function name, not a hyphenated name. `def search_tool()` becomes `"search_tool"`, not `"search"`. Always pass `name=` explicitly: `@mcp.tool(name="search")`.
 
-- **CliRunner and working directory**: `CliRunner.invoke()` does not accept a `cwd=` parameter. CLI commands that use relative `.tank/` paths need the process cwd set. Pattern used in the test suite: `os.chdir(tmp_path)` with a `try/finally` to restore the original cwd. See `_cli_in_cwd()` in `tests/test_integration.py`.
+- **CliRunner and working directory**: `CliRunner.invoke()` does not accept a `cwd=` parameter. CLI commands that use relative `.synd/` paths need the process cwd set. Pattern used in the test suite: `os.chdir(tmp_path)` with a `try/finally` to restore the original cwd. See `_cli_in_cwd()` in `tests/test_integration.py`.
 
 - **Tamper tests must recompute `pack_digest`**: Re-zipping a modified archive changes its binary representation even with identical `manifest.json` bytes, so `pack_digest` verification fails at step 6 before reaching the intended step 7 content hash check. After tampering with chunk content, zero the digest in the manifest, re-zip, hash the result, and write the real digest back before asserting on the verification step.

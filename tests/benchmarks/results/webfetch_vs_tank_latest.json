@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-26T05:33:22.284696+00:00",
-  "git_commit": "a05459b",
-  "tank_version": "0.1.0",
+  "timestamp": "2026-05-27T23:01:31.119187+00:00",
+  "git_commit": "cc3b1e9",
+  "tank_version": "0.1.1",
   "token_counter": "len_div_4",
   "source_url": "https://gofastmcp.com/deployment/running-server",
   "natural_language_query": "how do I configure a stdio implementation in fastmcp",

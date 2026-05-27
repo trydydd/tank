@@ -23,11 +23,11 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.cli.main import cli  # type: ignore[import-untyped]
-from tank.policy.engine import Policy  # type: ignore[import-untyped]
-from tank.search.fts import search  # type: ignore[import-untyped]
-from tank.storage.db import Database  # type: ignore[import-untyped]
-from tank.validator.verify import verify  # type: ignore[import-untyped]
+from synd.cli.main import cli  # type: ignore[import-untyped]
+from synd.policy.engine import Policy  # type: ignore[import-untyped]
+from synd.search.fts import search  # type: ignore[import-untyped]
+from synd.storage.db import Database  # type: ignore[import-untyped]
+from synd.validator.verify import verify  # type: ignore[import-untyped]
 from click.testing import Result
 
 
@@ -55,7 +55,7 @@ def sample_docs() -> Path:
 
 
 def _cli_in_cwd(runner: CliRunner, args: list[str], tmp_path: Path) -> Result:
-    """Invoke CliRunner with cwd set to tmp_path (add/query need .tank relative)."""
+    """Invoke CliRunner with cwd set to tmp_path (add/query need .synd relative)."""
     old = os.getcwd()
     os.chdir(tmp_path)
     try:
@@ -154,7 +154,7 @@ def test_full_pipeline_build_verify_add_query(
     result = runner.invoke(cli, ["verify", str(ctx_path)])
     assert result.exit_code == 0, result.output
 
-    # --- add (needs CWD=tmp_path for relative .tank path) ---
+    # --- add (needs CWD=tmp_path for relative .synd path) ---
     result = _cli_in_cwd(runner, ["add", str(ctx_path)], tmp_path)
     assert result.exit_code == 0, result.output
 
@@ -271,7 +271,7 @@ def test_add_populates_fts_index(
     assert result.exit_code == 0, result.output
 
     # Check FTS contents directly
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
         rows = db.conn.execute("SELECT COUNT(*) AS cnt FROM chunks_fts").fetchone()
@@ -351,10 +351,10 @@ def test_query_progressive_disclosure(
     assert result.exit_code == 0, result.output
 
     # Server API for programmatic checks
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
-        from tank.server import fetch_docs, search_docs
+        from synd.server import fetch_docs, search_docs
 
         summary_resp = search_docs(db, "oauth")
         assert "results" in summary_resp
@@ -381,11 +381,11 @@ def test_query_progressive_disclosure(
 def test_add_writes_lockfile(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
-    """tank.lock exists at project root after add, contains pack name, version,
+    """synd.lock exists at project root after add, contains pack name, version,
     and pack_digest."""
     output_dir = tmp_path / "output"
     ctx_path = output_dir / "lock-test@2.0.0.ctx"
-    lock_file = tmp_path / "tank.lock"
+    lock_file = tmp_path / "synd.lock"
 
     result = runner.invoke(
         cli,
@@ -403,7 +403,7 @@ def test_add_writes_lockfile(
     result = _cli_in_cwd(runner, ["add", str(ctx_path)], tmp_path)
     assert result.exit_code == 0, result.output
 
-    assert lock_file.exists(), "tank.lock should exist at project root after add"
+    assert lock_file.exists(), "synd.lock should exist at project root after add"
 
     content = lock_file.read_text()
     assert "lock-test" in content, "lockfile should contain pack name"
@@ -476,7 +476,7 @@ def test_revoked_pack_excluded_from_query(
     assert result.exit_code == 0, result.output
 
     # Manually set lifecycle_state to revoked
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
         db.conn.execute(
@@ -488,7 +488,7 @@ def test_revoked_pack_excluded_from_query(
         db.close()
 
     # Query should not return results from the revoked pack
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
         hits = search(db, "oauth")
@@ -535,7 +535,7 @@ def test_add_does_not_leave_partial_state_on_failure(
     assert result.exit_code != 0, "Second add should fail"
 
     # Exactly 1 package in DB (the first successful import)
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
         rows = db.conn.execute("SELECT COUNT(*) AS cnt FROM packages").fetchone()
@@ -574,7 +574,7 @@ def test_revoked_pack_not_in_query_results(
     assert result.exit_code == 0, result.output
 
     # Mark as revoked
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
         db.conn.execute(
@@ -586,7 +586,7 @@ def test_revoked_pack_not_in_query_results(
         db.close()
 
     # Query via search API
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
         hits = search(db, "sample")
@@ -608,7 +608,7 @@ def test_build_verify_cycle_is_symmetric(
 ) -> None:
     """A .ctx file produced by build_pack() must always pass verify() with
     default policy. If this fails, build and verify are inconsistent."""
-    from tank.builder.build import build_pack  # type: ignore[import-untyped]
+    from synd.builder.build import build_pack  # type: ignore[import-untyped]
 
     output_dir = tmp_path / "output"
 
@@ -640,7 +640,7 @@ def test_content_tampering_captured_at_step_7(
 ) -> None:
     """Verify that modifying chunk content fails at step 7 specifically,
     not step 6 (pack_digest)."""
-    from tank.builder.build import build_pack
+    from synd.builder.build import build_pack
 
     output_dir = tmp_path / "output"
 
@@ -678,7 +678,7 @@ def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
     (~2MB, ~54k lines) and is the canonical check that tank handles
     large single-file sources correctly.
     """
-    from tank.builder.build import build_pack
+    from synd.builder.build import build_pack
 
     source_dir = tmp_path / "source"
     output_dir = tmp_path / "output"
@@ -721,7 +721,7 @@ def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
     assert result.exit_code == 0, result.output
 
     # --- query ---
-    db = Database(tmp_path / ".tank" / "index.db")
+    db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
         hits = search(db, "tool", packages=["fastmcp"], limit=5)

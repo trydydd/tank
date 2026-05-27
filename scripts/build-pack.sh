@@ -84,6 +84,6 @@ echo "Saved to $SOURCE_FILE ($(wc -c < "$SOURCE_FILE" | tr -d ' ') bytes)"
 mkdir -p "$OUTPUT_DIR"
 
 echo "Building $PACK_NAME ..."
-tank build "$PACK_NAME" --source "$WORK_DIR" --output "$OUTPUT_DIR"
+synd build "$PACK_NAME" --source "$WORK_DIR" --output "$OUTPUT_DIR"
 
 echo "Done: $OUTPUT_DIR/$PACK_NAME.ctx"

@@ -7,8 +7,8 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from tank.cli.main import cli
-from tank.builder.build import build_pack
+from synd.cli.main import cli
+from synd.builder.build import build_pack
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:

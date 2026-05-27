@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from tank.builder.build import build_pack
-from tank.policy.engine import Policy
-from tank.validator.verify import VerifyResult, verify
+from synd.builder.build import build_pack
+from synd.policy.engine import Policy
+from synd.validator.verify import VerifyResult, verify
 
 _REQUIRED_FIELDS = [
     "schema_version",
@@ -213,7 +213,7 @@ def _make_manifest(**overrides: object) -> dict:
     """Create a minimal valid manifest with optional overrides."""
     m = {
         "schema_version": 2,
-        "pack_format": "tank-text-v1",
+        "pack_format": "synd-text-v1",
         "package": "test-lib",
         "version": "1.0.0",
         "pack_digest": "sha256:" + "a" * 64,
@@ -223,7 +223,7 @@ def _make_manifest(**overrides: object) -> dict:
         "lifecycle_state": "approved",
         "doc_version_status": "stable",
         "created_at": time.time(),
-        "created_by": "tank/0.1.0",
+        "created_by": "synd/0.1.1",
     }
     m.update(overrides)
     return m

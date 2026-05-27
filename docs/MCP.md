@@ -1,6 +1,6 @@
-# Tank — MCP Server
+# Synaptic Drift — MCP Server
 
-How to wire the Tank MCP server into Claude Code, Cursor, or VS Code so an AI agent can query your indexed documentation packs.
+How to wire the Synaptic Drift MCP server into Claude Code, Cursor, or VS Code so an AI agent can query your indexed documentation packs.
 
 ## Current state
 
@@ -12,25 +12,25 @@ The MCP server is functional via stdio transport with two tools: `search` and `f
 
 ## Prerequisites
 
-1. Tank installed in the environment the MCP harness will use:
+1. Synaptic Drift installed in the environment the MCP harness will use:
    ```bash
-   pip install tank        # once on PyPI; until then: pip install -e .
+   pip install synaptic-drift        # once on PyPI; until then: pip install -e .
    ```
 
 2. At least one pack imported into the local index:
    ```bash
-   tank build my-lib@1.0.0 --source ./docs --output ./packs
-   tank add ./packs/my-lib@1.0.0.ctx
+   synd build my-lib@1.0.0 --source ./docs --output ./packs
+   synd add ./packs/my-lib@1.0.0.ctx
    ```
-   Or, to reproduce an existing index from a committed `tank.lock`:
+   Or, to reproduce an existing index from a committed `synd.lock`:
    ```bash
-   tank sync
+   synd sync
    ```
-   Both create `.tank/index.db` in the project root.
+   Both create `.synd/index.db` in the project root.
 
 ## Working directory requirement
 
-The server opens `.tank/index.db` relative to its working directory. It must be started from the project root — the same directory that contains `.tank/`. Each MCP config below sets `cwd` explicitly to ensure this.
+The server opens `.synd/index.db` relative to its working directory. It must be started from the project root — the same directory that contains `.synd/`. Each MCP config below sets `cwd` explicitly to ensure this.
 
 ## Configuration
 
@@ -87,7 +87,7 @@ Or add to your global `~/.claude/mcp.json` if you prefer not to check it in.
 
 ### Using a virtualenv
 
-If Tank is installed in a project-local virtualenv rather than the system Python, point directly at the venv binary:
+If Synaptic Drift is installed in a project-local virtualenv rather than the system Python, point directly at the venv binary:
 
 ```json
 {
@@ -202,8 +202,8 @@ Based on the fastmcp stdio benchmark (`tests/benchmarks/results/webfetch_vs_tank
 | approach | tokens | vs full page fetch |
 |---|---:|---:|
 | WebFetch (full page) | 2,257 | — |
-| Tank single-step full | 1,550 | −31% |
-| Tank two-step, agentless | 1,631 | −28% |
-| Tank two-step, agent-selected | ~360 | ~−84% |
+| Synaptic Drift single-step full | 1,550 | −31% |
+| Synaptic Drift two-step, agentless | 1,631 | −28% |
+| Synaptic Drift two-step, agent-selected | ~360 | ~−84% |
 
 The agent-selected figure requires the agent to read summaries and choose only the relevant chunk — the agentless benchmark fetches all matched chunks unconditionally.

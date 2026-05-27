@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from tank.errors import ImportError_
-from tank.storage.db import Database
-from tank.storage.models import Pack, Page, Chunk
+from synd.errors import ImportError_
+from synd.storage.db import Database
+from synd.storage.models import Pack, Page, Chunk
 
 
 def _now() -> str:
@@ -57,7 +57,7 @@ def _make_chunk(
 
 @pytest.fixture()
 def db_path(tmp_path: Path) -> Path:
-    return tmp_path / ".tank" / "index.db"
+    return tmp_path / ".synd" / "index.db"
 
 
 @pytest.fixture()
@@ -248,7 +248,7 @@ def test_import_pack_page_ids_remapped_for_second_pack(db: Database) -> None:
 
 
 def test_tank_directory_created_if_missing(tmp_path: Path) -> None:
-    db_path = tmp_path / "nested" / ".tank" / "index.db"
+    db_path = tmp_path / "nested" / ".synd" / "index.db"
     db = Database(db_path)
     db.create_schema()
     assert db_path.parent.exists()

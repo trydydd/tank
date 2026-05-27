@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from tank.cli.build import _parse_package_spec
-from tank.cli.main import cli
-from tank.errors import BuildError
+from synd.cli.build import _parse_package_spec
+from synd.cli.main import cli
+from synd.errors import BuildError
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:

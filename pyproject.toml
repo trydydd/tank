@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "synthesist"
+name = "synaptic-drift"
 version = "0.1.1"
 requires-python = ">=3.12"
 dependencies = [
@@ -25,11 +25,11 @@ serve = [
     "mcp",
 ]
 all = [
-    "synthesist[dev,serve]",
+    "synaptic-drift[dev,serve]",
 ]
 
 [project.scripts]
-synthesist = "tank.cli.main:cli"
+synd = "synd.cli.main:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -56,7 +56,7 @@ commit_args = "--no-verify"
 message = "chore: bump version {current_version} → {new_version}"
 
 [tool.setuptools.package-data]
-"tank.schemas" = ["*.json"]
+"synd.schemas" = ["*.json"]
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"

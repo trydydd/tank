@@ -1,4 +1,4 @@
-# Tank — Semver Roadmap
+# Synaptic Drift — Semver Roadmap
 
 ## Current Focus — v0.2.0
 
@@ -6,7 +6,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 **Implementation complete (205/206 tests passing):**
 - MCP two-tool refactor (`search` / `fetch`)
-- `tank serve` CLI command
+- `synd serve` CLI command
 - FTS5 `heading_path` column with 2.5× BM25 weight
 - Full docs refresh (MCP.md, ranking.md, architecture.md, roadmap.md)
 
@@ -20,10 +20,10 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 **Status**: Tagged. Not on PyPI (blocked — see v0.2.0).
 
-- [x] `tank build` — source tree → `.ctx` pack (Markdown/HTML, lexicographic walk, deterministic chunk IDs)
-- [x] `tank verify` — 8-step archive safety validator, policy enforcement, `pack_digest` integrity check
-- [x] `tank pull` — verify-before-import, atomic SQLite transaction, WAL mode
-- [x] `tank query` — FTS5 BM25 search with source attribution
+- [x] `synd build` — source tree → `.ctx` pack (Markdown/HTML, lexicographic walk, deterministic chunk IDs)
+- [x] `synd verify` — 8-step archive safety validator, policy enforcement, `pack_digest` integrity check
+- [x] `synd pull` — verify-before-import, atomic SQLite transaction, WAL mode
+- [x] `synd query` — FTS5 BM25 search with source attribution
 - [x] MCP server — `query-docs` and `resolve-deps` tools over stdio
 - [x] Policy engine — lifecycle state gating (`draft` / `approved` / `deprecated` / `revoked`)
 - [x] CI workflow — lint, typecheck, test on push/PR
@@ -41,12 +41,12 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - [x] Expose `limit` parameter on `query-docs` MCP tool and `query_docs()`
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
 - [x] GitHub Actions benchmark workflow — PR delta comparison via `tests/benchmarks/compare.py`
-- [x] WebFetch vs Tank benchmark — `tests/benchmarks/test_webfetch_vs_tank.py` with fastmcp fixture
-- [x] Extend PR comment bot to include WebFetch vs Tank results alongside token overhead
+- [x] WebFetch vs Synaptic Drift benchmark — `tests/benchmarks/test_webfetch_vs_tank.py` with fastmcp fixture
+- [x] Extend PR comment bot to include WebFetch vs Synaptic Drift results alongside token overhead
 - [x] Benchmark output cleanup — PR comment redesigned with plain-English headline table and collapsed detail; raw JSON dump replaced with formatted standalone output. Console output unchanged (runs under `-s`, not in reviewers' way).
 - [x] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
 - [x] Docs cleanup — consolidate `.work/` artifacts, merge `todo.md` into `roadmap.md`, migrate gotchas to `CLAUDE.md`, absorb `ultraplan` findings into canonical docs
-- [x] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
+- [x] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && synd build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
 
 ---
 
@@ -57,33 +57,33 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 ### Completed
 
 - [x] **MCP two-tool refactor** — replace `query-docs` (single tool with `detail` parameter) with separate `search` (summaries + chunk IDs) and `fetch` (full content by ID) tools. Enforces the two-step agent pattern structurally.
-- [x] **`tank serve` CLI command** — `tank serve` launches the MCP stdio server, discoverable from `tank --help`. Replaces the undiscoverable `python -m tank.server` invocation.
-- [x] **MCP documentation refresh** — `docs/MCP.md` rewritten with accurate `search`/`fetch` API; all config examples updated to `tank serve`; `README.md` MCP snippet updated with `cwd`.
+- [x] **`synd serve` CLI command** — `synd serve` launches the MCP stdio server, discoverable from `tank --help`. Replaces the undiscoverable `python -m tank.server` invocation.
+- [x] **MCP documentation refresh** — `docs/MCP.md` rewritten with accurate `search`/`fetch` API; all config examples updated to `synd serve`; `README.md` MCP snippet updated with `cwd`.
 - [x] **FTS5 heading_path + BM25 weight tuning** — `heading_path` added as first column in `chunks_fts` with 2.5× weight; BM25 tuned to heading 2.5× > summary 1.5× > content 1.0×.
 
 ### Foundation — no blockers, start now
 
 - [x] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it. Establishes a stable schema contract before PyPI release.
 - [x] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
-- [x] **Error message polish** — every error path produces an actionable message. Audit all `TankError` subclass usage
-- [x] **Lockfile in git** — `tank.lock` at project root, written by `tank add`; commit to version-control documentation dependencies analogous to `Cargo.lock`
-- [x] **`tank add` (renamed from `tank pull`)** — `tank pull` was misleading (implies remote fetch; only imports local files). Renamed to `tank add`, consistent with `cargo add`, `uv add`, `npm install <pkg>`. `tank pull` kept as a hidden deprecated alias. See `decisions.md` D19.
-- [x] **`tank sync`** — reads `tank.lock`, skips already-imported packs (idempotent), verifies digest against lockfile before importing (supply-chain check), imports any missing packs. Enables `git clone && tank sync` workflow. HTTPS `source_url` fetch deferred until URL fetcher module lands (exits with actionable `FetchError`). See `src/tank/cli/sync.py`.
-- [x] **`tank remove`** — removes a pack from `index.db` and rewrites `tank.lock`. Completes the verb set: without it, removing a pack requires hand-editing the lockfile. See `src/tank/cli/remove.py`.
+- [x] **Error message polish** — every error path produces an actionable message. Audit all `SyndError` subclass usage
+- [x] **Lockfile in git** — `synd.lock` at project root, written by `synd add`; commit to version-control documentation dependencies analogous to `Cargo.lock`
+- [x] **`synd add` (renamed from `synd pull`)** — `synd pull` was misleading (implies remote fetch; only imports local files). Renamed to `synd add`, consistent with `cargo add`, `uv add`, `npm install <pkg>`. `synd pull` kept as a hidden deprecated alias. See `decisions.md` D19.
+- [x] **`synd sync`** — reads `synd.lock`, skips already-imported packs (idempotent), verifies digest against lockfile before importing (supply-chain check), imports any missing packs. Enables `git clone && synd sync` workflow. HTTPS `source_url` fetch deferred until URL fetcher module lands (exits with actionable `FetchError`). See `src/tank/cli/sync.py`.
+- [x] **`synd remove`** — removes a pack from `index.db` and rewrites `synd.lock`. Completes the verb set: without it, removing a pack requires hand-editing the lockfile. See `src/tank/cli/remove.py`.
 
 ### Chunker quality stream — S7 → chunker → S2 → summary
 
 - [ ] **Custom markdown chunker** — replace chunkana with a `markdown-it-py`-backed chunker that splits at all heading levels (`#` through `######`), keeps code fences atomic, and builds `heading_path` accurately by construction. Removes the `##`-only limitation that produces 900-token multi-section chunks. See `decisions.md` D14.
   - *Requires [S7](docs/spikes.yaml) (custom chunker implementation plan) to be completed before work can begin.*
   - Replace `src/tank/builder/chunking.py`; remove chunkana from dependencies; add `markdown-it-py>=3.0`
-- [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` in `tank build`. Modify `src/tank/builder/chunking.py`
+- [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` in `synd build`. Modify `src/tank/builder/chunking.py`
 - [ ] **Heading-aware summary heuristic** — prefix chunk summaries with the leaf heading node (`"STDIO Transport: STDIO is the default transport..."` instead of `"You can now run this server..."`). Eliminates false-positive summaries for chunks that open with transitional sentences or code. See `decisions.md` D13.
   - *Requires [S2](docs/spikes.yaml) (heading-aware summary implementation) to be completed before work can begin. Benefits from the custom chunker landing first — accurate `heading_path` at all levels makes the prefix reliable.*
   - Modify `generate_summary()` in `src/tank/builder/chunking.py`; no schema changes
 
 ### URL fetch stream — S6 → llms-full.txt → (S8 in parallel) → llms.txt → packs
 
-- [ ] **`tank build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
+- [ ] **`synd build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
   - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) to be completed before work can begin.*
   - Modify `src/tank/builder/build.py` to accept URL sources
   - New module: `src/tank/builder/fetch.py` (single-file HTTP fetch, no crawl logic)
@@ -93,7 +93,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
     - Use each `Source:` URL as the page `source_url`; derive page title from the first `#` heading
     - Feed resulting per-page documents into the existing chunker individually so `heading_path` values are page-relative and meaningful
   - **Note:** `llms-full.txt` from Mintlify-based docs sites (FastMCP, MCP, and many others) is a raw MDX concatenation, not clean markdown. Passing it through the existing pipeline without preprocessing produces garbage heading paths (`llms-full / \`ClassName\` <sup>...</sup>`), polluted summaries (`Source: https://...`), and section collisions (identical heading names from different pages merged). The preprocessor is required for usable pack quality, not optional.
-- [ ] **`tank build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched individually, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
+- [ ] **`synd build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched individually, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
   - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) and [S8](docs/spikes.yaml) (web page to markdown pipeline research) to be completed before work can begin.*
   - **Mintlify behaviour**: `llms.txt` on Mintlify sites already contains `.md` URLs (no URL manipulation needed). Fetching them returns MDX directly — no HTML-to-markdown conversion required. JSX components (`<Frame>`, `<Note>`, `<Tabs>`, `<Warning>`, etc.) must still be stripped; inner text kept, wrappers discarded. Images inside `<Frame>` are discarded.
   - For non-Mintlify sites (ReadTheDocs, Docusaurus, etc.): HTML fetch → S6 library → markdown
@@ -110,7 +110,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 ### Release — after foundation + S5
 
-- [ ] **PyPI release** (`pip install tank`, `pip install tank[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
+- [ ] **PyPI release** (`pip install synaptic-drift`, `pip install synaptic-drift[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
   - *Requires [S5](docs/spikes.yaml) (PyPI packaging diagnosis) to be completed before work can begin.*
 - [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. The current implementation reads the entire ZIP into memory, then reconstructs a second in-memory ZIP — decompressing and re-compressing every file — solely to zero out `pack_digest` and hash the result. Near the 500MB archive limit this allocates 500MB+, decompresses everything, and holds it all in memory simultaneously. Fix: hash individual entries in a defined order instead of reconstructing the archive.
 
@@ -128,12 +128,12 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 **Theme**: Multi-user, multi-project, CI-integrated. Start looking like infrastructure.
 
-- [ ] **`tank build --source <url>`** — general web crawler: follow links from a docs site root, fetch and chunk all reachable pages. For sites without `llms.txt` or `llms-full.txt`. Rate limiting, `robots.txt` compliance, configurable `User-Agent`. No embeddings or JS rendering — static HTML only.
+- [ ] **`synd build --source <url>`** — general web crawler: follow links from a docs site root, fetch and chunk all reachable pages. For sites without `llms.txt` or `llms-full.txt`. Rate limiting, `robots.txt` compliance, configurable `User-Agent`. No embeddings or JS rendering — static HTML only.
   - New module: `src/tank/builder/crawler.py`
   - Extend `src/tank/builder/fetch.py` with link extraction and crawl frontier logic
-- [ ] **Pack registry (static hosting)** — `tank add fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
+- [ ] **Pack registry (static hosting)** — `synd add fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
   - New module: `src/tank/registry/` (client only; server is a static file host)
-  - `tank add` accepts `package@version` in addition to file paths
+  - `synd add` accepts `package@version` in addition to file paths
 - [ ] **CI/CD templates** — GitHub Actions, GitLab CI, CircleCI: build packs on release, verify in PRs, publish to static registry
 - [ ] **Pre-built packs for top 100 libraries** — scale up pack-building CI pipeline
 - [ ] **Token budget intelligence** — `max_tokens` on `search`/`fetch` controls response size, balancing breadth vs. depth within the budget
@@ -150,7 +150,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - [ ] **Schema migrations** — `PRAGMA user_version`-based forward-only migrations. Modify `src/tank/storage/db.py`. Must land before any new column additions.
 - [ ] **Real signature verification** — Step 8 currently only checks file existence. Implement ed25519 or Sigstore. Modify `src/tank/validator/verify.py`, add `src/tank/signing/`
 - [ ] **Observability** — health endpoint for HTTP transport, query latency metrics, import audit trail. Modify `src/tank/server.py`
-- [ ] **Multi-project support** — configurable `.tank/` location, monorepo workspace support
+- [ ] **Multi-project support** — configurable `.synd/` location, monorepo workspace support
 - [ ] **Policy profiles** — per-team/per-workspace policy overrides
 - [ ] **Audit logging** — who imported what, when, from where. New `audit_log` table in `index.db`
 - [ ] **Backup and recovery** — `tank rebuild --from-lockfile`
@@ -164,7 +164,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 **Trigger**: Real user feedback shows vocabulary-mismatch failures on semantic queries that tuned FTS5 cannot address.
 
-- [ ] **Import-side embeddings** — BGE-M3 dense + sparse vectors computed at `tank add` time, stored in `index.db`. Pack format unchanged — no embedding vectors in `.ctx` files.
+- [ ] **Import-side embeddings** — BGE-M3 dense + sparse vectors computed at `synd add` time, stored in `index.db`. Pack format unchanged — no embedding vectors in `.ctx` files.
 - [ ] Hybrid search: dense cosine + BGE-M3 sparse + FTS5, fused with Reciprocal Rank Fusion (RRF)
-- [ ] `tank[embeddings]` optional dependency group (`pip install tank[embeddings]`)
+- [ ] `synaptic-drift[embeddings]` optional dependency group (`pip install synaptic-drift[embeddings]`)
 - [ ] Re-embedding on model change (stored chunk text → new vectors, no re-pull required)

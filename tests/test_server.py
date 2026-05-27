@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from tank.storage.db import Database
-from tank.storage.models import Chunk, Pack, Page
-from tank.server import (
+from synd.storage.db import Database
+from synd.storage.models import Chunk, Pack, Page
+from synd.server import (
     fetch_docs,
     search_docs,
 )
@@ -21,7 +21,7 @@ from tank.server import (
 @pytest.fixture()
 def db(tmp_path: Path) -> Database:
     """Create a fresh Database with schema and return it."""
-    db_path = tmp_path / ".tank" / "index.db"
+    db_path = tmp_path / ".synd" / "index.db"
     db = Database(db_path)
     db.create_schema()
     return db
@@ -411,7 +411,7 @@ def test_http_does_not_bind_external() -> None:
     NEG: Server binds to '0.0.0.0', '', or any non-loopback address.
     """
     import inspect
-    import tank.server as srv
+    import synd.server as srv
 
     assert srv._HTTP_HOST == "127.0.0.1", "_HTTP_HOST must be 127.0.0.1"
     source = inspect.getsource(srv.run_http)

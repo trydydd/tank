@@ -1,4 +1,4 @@
-# Tank — Decision Log
+# Synaptic Drift — Decision Log
 
 Decisions made during architecture and pre-implementation planning, with reasoning and rejected alternatives. This document exists so that future contributors (human or agent) don't re-open settled questions.
 
@@ -10,7 +10,7 @@ Each entry records: the decision, the alternatives considered, why we chose what
 
 ## D1: Implementation Language — Python
 
-**Decision**: implement Tank entirely in Python.
+**Decision**: implement Synaptic Drift entirely in Python.
 
 **Alternatives considered**:
 - **Rust**: single-binary distribution, memory safety in archive validator, 10-50x faster normalization/hashing. Rejected because: 2-3x slower development velocity, less mature MCP SDK, higher contributor barrier for the target audience (enterprise teams), and `chunkana` is Python-only (would need rewrite or PyO3 bridge defeating single-binary goal).
@@ -79,7 +79,7 @@ Each entry records: the decision, the alternatives considered, why we chose what
 **Decision**: `token_count` is computed as `len(content) // 4`. Documented clearly as an approximate estimate for budget planning.
 
 **Alternatives considered**:
-- **tiktoken (cl100k_base)**: exact counts for Claude/GPT-4 class models. Rejected because: adds a ~2MB dependency to `tank[build]`, and the "right" tokenizer varies by model (cl100k, o200k, etc.). Since `token_count` is advisory — agents use it to estimate "will this fit?" not for exact accounting — the heuristic is good enough.
+- **tiktoken (cl100k_base)**: exact counts for Claude/GPT-4 class models. Rejected because: adds a ~2MB dependency to `synaptic-drift[build]`, and the "right" tokenizer varies by model (cl100k, o200k, etc.). Since `token_count` is advisory — agents use it to estimate "will this fit?" not for exact accounting — the heuristic is good enough.
 - **Multiple tokenizer counts** (generic + Anthropic + OpenAI): maximum accuracy across models. Rejected because: ~30 bytes of bloat per chunk in `chunks.jsonl` for accuracy that doesn't change any decision. An agent with 2000 tokens of budget doesn't care if a chunk is 387 or 412 tokens.
 
 **Revisit when**: agents start making tight budget decisions based on `token_count` and the ~20% error margin causes problems. The field can be recomputed at build time without a format change.
@@ -100,7 +100,7 @@ Each entry records: the decision, the alternatives considered, why we chose what
 
 ## D8: Source Tree Handling — Recursive with Lexicographic Sort
 
-**Decision**: `tank build --source <path>` recurses subdirectories by default. Files are discovered by extension whitelist (`.md`, `.html`, `.htm`), sorted lexicographically by full relative path. This sort order determines chunk ID assignment and `normalized_content_hash`.
+**Decision**: `synd build --source <path>` recurses subdirectories by default. Files are discovered by extension whitelist (`.md`, `.html`, `.htm`), sorted lexicographically by full relative path. This sort order determines chunk ID assignment and `normalized_content_hash`.
 
 **Alternatives considered**:
 - **Flat only (no recursion)**: process only top-level files in the source directory. Rejected because: real documentation is almost always nested (`docs/api/`, `docs/guides/`, etc.). Requiring users to flatten their docs first is a poor UX for zero benefit.
@@ -113,7 +113,7 @@ Each entry records: the decision, the alternatives considered, why we chose what
 
 ## D9: Error Model — Emergent via TDD
 
-**Decision**: start with a base `TankError` class. Discover and add specific exception subclasses during TDD as failure modes emerge from writing tests.
+**Decision**: start with a base `SyndError` class. Discover and add specific exception subclasses during TDD as failure modes emerge from writing tests.
 
 **Alternatives considered**:
 - **Define full exception hierarchy up front**: lay out every exception class and exit code before writing code. Rejected because: speculating about failure modes without implementation experience leads to either over-engineering (exceptions that never get raised) or gaps (real failures that don't fit the pre-defined classes). TDD naturally surfaces the real failure modes.
@@ -208,18 +208,18 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 
 **MVP decision**: use chunkana for MVP structural chunking, accepting its limitations.
 
-**chunkana verdict**: does not support heading-based splitting at arbitrary depth. The `structural` strategy splits only at `##` level, keeping all `###` subsections together. `header_path` is always `[]`; Tank works around this by reading `section_tags[0]`, but this is the ceiling of what chunkana can provide. Observed impact: in the fastmcp benchmark, chunk 5 spans six `###` sections (932 tokens) and is matched by FTS5 on incidental keyword overlap rather than relevance.
+**chunkana verdict**: does not support heading-based splitting at arbitrary depth. The `structural` strategy splits only at `##` level, keeping all `###` subsections together. `header_path` is always `[]`; Synaptic Drift works around this by reading `section_tags[0]`, but this is the ceiling of what chunkana can provide. Observed impact: in the fastmcp benchmark, chunk 5 spans six `###` sections (932 tokens) and is matched by FTS5 on incidental keyword overlap rather than relevance.
 
 **Library survey (S1 — done)**: four production-stable (≥1.0.0) candidates evaluated:
 
-- **chunknorris 1.2.2** — meets all requirements (all heading levels, heading_path as ordered list by construction, code fences atomic, paragraph overflow splitting) but ships parsers for PDF, Word, Excel, and Jupyter Notebooks Tank will never use. PyMuPDF, pandas, matplotlib in the dependency tree. ~30MB install footprint for a markdown chunker.
+- **chunknorris 1.2.2** — meets all requirements (all heading levels, heading_path as ordered list by construction, code fences atomic, paragraph overflow splitting) but ships parsers for PDF, Word, Excel, and Jupyter Notebooks Synaptic Drift will never use. PyMuPDF, pandas, matplotlib in the dependency tree. ~30MB install footprint for a markdown chunker.
 - **langchain-text-splitters 1.1.2 `MarkdownHeaderTextSplitter`** — code fences atomic, all heading levels configurable, but heading_path returns as a flat dict (requires reconstruction glue) and no paragraph overflow splitting. Requires `langchain-core`.
 - **semantic-text-splitter 0.30.1** — pre-1.0, no heading hierarchy output. Eliminated.
 - **chonkie 1.6.7** — delimiter-based, no structural heading tracking. Eliminated.
 
 **Decision**: build a custom chunker using `markdown-it-py` 3.0.0+ as the parsing backend.
 
-**Rationale**: neither off-the-shelf library is a clean drop-in. `markdown-it-py` is MIT-licensed, zero additional dependencies, actively maintained, and is already a widely-used CommonMark parser. The chunknorris markdown chunker is ~250 lines of reference implementation; Tank's equivalent with `markdown-it-py` tokens gives full control over heading_path construction, code-fence atomicity, and paragraph overflow with no dependency weight penalty. This aligns with Tank's local-first, minimal-dependency philosophy.
+**Rationale**: neither off-the-shelf library is a clean drop-in. `markdown-it-py` is MIT-licensed, zero additional dependencies, actively maintained, and is already a widely-used CommonMark parser. The chunknorris markdown chunker is ~250 lines of reference implementation; Synaptic Drift's equivalent with `markdown-it-py` tokens gives full control over heading_path construction, code-fence atomicity, and paragraph overflow with no dependency weight penalty. This aligns with Synaptic Drift's local-first, minimal-dependency philosophy.
 
 **What the custom chunker must do**:
 - Split at heading boundaries at all levels (`#`, `##`, `###`, `####`, and deeper) as the primary split point
@@ -238,33 +238,33 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 
 **Decision**: ship the Model Context Protocol spec (`mcp@2025-11-25`) as the v0.1.1 release artifact alongside fastmcp@3.3.0.
 
-**Rationale**: Tank depends on `mcp` directly, and the MCP tool split (D12) is the largest single v0.2.0 work item — agents using the `search`/`fetch` tools will query this pack constantly. `modelcontextprotocol.io` publishes `llms-full.txt`, making it buildable today without a crawler or HTML extraction.
+**Rationale**: Synaptic Drift depends on `mcp` directly, and the MCP tool split (D12) is the largest single v0.2.0 work item — agents using the `search`/`fetch` tools will query this pack constantly. `modelcontextprotocol.io` publishes `llms-full.txt`, making it buildable today without a crawler or HTML extraction.
 
 **Alternatives considered**:
 - **httpx@0.28.1**: still pre-1.0 (0.x), no API stability commitment. Rejected.
 - **requests**: stable (2.x), good candidate for HTTP client docs, but uses RST source and no llms-full.txt — requires S6 HTML extraction work first.
-- **click / rich**: Tank's other deps, but their docs are sparse and less queried by agents.
+- **click / rich**: Synaptic Drift's other deps, but their docs are sparse and less queried by agents.
 
 **Source**: `modelcontextprotocol.io/llms-full.txt` (spec version 2025-11-25). Build command (download locally until v0.2.0 URL fetch lands):
 ```
 mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt
-tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
+synd build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
 ```
 
 **Revisit when**: never — this is a release artifact decision. Future packs follow the same evaluation process.
 
 ---
 
-## D16: Lockfile location — `tank.lock` at project root
+## D16: Lockfile location — `synd.lock` at project root
 
-**Decision**: The lockfile lives at `tank.lock` in the project root, not `.tank/index.lock`.
+**Decision**: The lockfile lives at `synd.lock` in the project root, not `.synd/index.lock`.
 
-**Rationale**: All established package managers (`Cargo.lock`, `package-lock.json`, `poetry.lock`, `Pipfile.lock`) place the lockfile at the project root. A root-level file is immediately visible, committed without gitignore exceptions, and signals its purpose to any developer who opens the repo. `.tank/index.lock` required a `!.tank/index.lock` gitignore negation which silently fails if the parent directory rule uses `/` rather than `/*` — a correctness hazard that tripped us in practice (B1 in the code review).
+**Rationale**: All established package managers (`Cargo.lock`, `package-lock.json`, `poetry.lock`, `Pipfile.lock`) place the lockfile at the project root. A root-level file is immediately visible, committed without gitignore exceptions, and signals its purpose to any developer who opens the repo. `.synd/index.lock` required a `!.synd/index.lock` gitignore negation which silently fails if the parent directory rule uses `/` rather than `/*` — a correctness hazard that tripped us in practice (B1 in the code review).
 
 **Alternatives considered**:
-- **`.tank/index.lock`**: Keeps all Tank state under one directory but requires gitignore gymnastics and is invisible at the root level. Rejected.
+- **`.synd/index.lock`**: Keeps all Synaptic Drift state under one directory but requires gitignore gymnastics and is invisible at the root level. Rejected.
 
-**Revisit when**: Never — this is a UX convention decision. The location is now baked into `add.py`, docs, and `tank.lock` itself.
+**Revisit when**: Never — this is a UX convention decision. The location is now baked into `add.py`, docs, and `synd.lock` itself.
 
 ---
 
@@ -272,14 +272,14 @@ tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
 
 **Decision**: The `packages` table carries two separate URL fields: `source_url` (from the manifest — where the documentation was authored) and `pack_source` (set at import time — where the `.ctx` file was fetched from).
 
-**Lockfile `source_url` population** (refined in D19): the lockfile's `source_url` field prefers the manifest's `source_url` when it is an HTTPS URL (canonical distribution address for official packs), and falls back to `pack_source` (the local import path) otherwise. This ensures `tank sync` can fetch official packs by URL while still recording a usable path for locally-built packs.
+**Lockfile `source_url` population** (refined in D19): the lockfile's `source_url` field prefers the manifest's `source_url` when it is an HTTPS URL (canonical distribution address for official packs), and falls back to `pack_source` (the local import path) otherwise. This ensures `synd sync` can fetch official packs by URL while still recording a usable path for locally-built packs.
 
-**Rationale**: These are fundamentally different things. `source_url` in the manifest is provenance metadata about the documentation content (e.g., `docs/api`). `pack_source` is the local path where the `.ctx` was imported from. For official packs built with a canonical HTTPS `source_url` in their manifest, that URL is what `tank sync` needs to re-fetch the pack. Conflating them caused the lockfile to show the build-time docs directory as the fetch location, making `tank sync` impossible to implement correctly.
+**Rationale**: These are fundamentally different things. `source_url` in the manifest is provenance metadata about the documentation content (e.g., `docs/api`). `pack_source` is the local path where the `.ctx` was imported from. For official packs built with a canonical HTTPS `source_url` in their manifest, that URL is what `synd sync` needs to re-fetch the pack. Conflating them caused the lockfile to show the build-time docs directory as the fetch location, making `synd sync` impossible to implement correctly.
 
 **Alternatives considered**:
 - **Overwrite `source_url` with the pull path**: Destroys provenance metadata. Rejected.
 - **Store pull path only in the lockfile, not the DB**: Loses the data if the lockfile is regenerated. Rejected.
-- **Always use `pack_source`**: Would record `/tmp/fastmcp@3.3.0.ctx` in the lockfile, breaking `tank sync` for official packs. Rejected.
+- **Always use `pack_source`**: Would record `/tmp/fastmcp@3.3.0.ctx` in the lockfile, breaking `synd sync` for official packs. Rejected.
 
 **Revisit when**: Phase 2 registry design — `pack_source` may evolve to carry a structured registry reference rather than a raw URL.
 
@@ -303,13 +303,13 @@ tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
 
 ## D19: CLI command set — `add`, `sync`, `remove` replace/extend `pull`
 
-**Decision**: Rename `tank pull` → `tank add`; implement `tank sync`; add `tank remove`. Keep `tank pull` as a hidden deprecated alias for one minor version.
+**Decision**: Rename `synd pull` → `synd add`; implement `synd sync`; add `synd remove`. Keep `synd pull` as a hidden deprecated alias for one minor version.
 
 **Rationale**:
-- `tank pull` was misleading: "pull" implies a remote fetch (`git pull`, `docker pull`), but the command only imports a local file. The misnaming becomes actively harmful once `tank sync` lands and *does* fetch.
-- `tank add` is the correct verb: it is consistent with `cargo add`, `uv add`, `npm install <pkg>`, and reads correctly with any input source (local path, HTTPS URL, future registry spec).
-- `tank sync` closes the "nothing reads `tank.lock`" gap. It enables `git clone && tank sync` to reproduce the local index on a fresh checkout — the primary missing workflow for teams.
-- `tank remove` completes the verb set. Without it, removing a pack requires hand-editing the lockfile, which breaks the invariant that the lockfile is always written by the CLI.
+- `synd pull` was misleading: "pull" implies a remote fetch (`git pull`, `docker pull`), but the command only imports a local file. The misnaming becomes actively harmful once `synd sync` lands and *does* fetch.
+- `synd add` is the correct verb: it is consistent with `cargo add`, `uv add`, `npm install <pkg>`, and reads correctly with any input source (local path, HTTPS URL, future registry spec).
+- `synd sync` closes the "nothing reads `synd.lock`" gap. It enables `git clone && synd sync` to reproduce the local index on a fresh checkout — the primary missing workflow for teams.
+- `synd remove` completes the verb set. Without it, removing a pack requires hand-editing the lockfile, which breaks the invariant that the lockfile is always written by the CLI.
 
 **Command surface after this change (8 commands, two personas)**:
 
@@ -322,11 +322,11 @@ No individual user touches all 8. Consumer persona needs ~4 in normal use (`sync
 
 **`add` vs `sync` kept separate** (not collapsed à la `npm install [pkg]`): the operations are genuinely different — ad-hoc acquisition of a new pack vs. reproducing the full index from the lockfile. The uv/Cargo discipline of one-verb-one-thing holds here.
 
-**`tank.toml` deferred**: without a registry there is no resolution step that would distinguish a manifest from a lock. The lockfile continues to serve as both declaration and receipt until the Phase 3 static registry introduces real version ranges. At that point, `tank.toml` + `tank.lock` split cleanly along the Cargo/uv model.
+**`tank.toml` deferred**: without a registry there is no resolution step that would distinguish a manifest from a lock. The lockfile continues to serve as both declaration and receipt until the Phase 3 static registry introduces real version ranges. At that point, `tank.toml` + `synd.lock` split cleanly along the Cargo/uv model.
 
 **Alternatives considered**:
 - **`tank install [<ref>]` (npm-style unification)**: `npm install` (no args) = from lock; `npm install <pkg>` = add. Familiar but conflates two distinct operations. Broadly considered a design mistake in npm. Rejected in favour of explicit verbs.
 - **`tank import`**: accurate but unused by any major package manager. Less discoverable. Rejected.
-- **Drop `tank verify` from the top-level**: too useful for CI pipelines ("verify this .ctx before importing"). Kept as standalone; it is also already implicit in `add` and `sync`.
+- **Drop `synd verify` from the top-level**: too useful for CI pipelines ("verify this .ctx before importing"). Kept as standalone; it is also already implicit in `add` and `sync`.
 
-**Revisit when**: Phase 3 static registry lands and `tank.toml` is introduced — at that point `tank add <pkg@range>` becomes the primary declaration verb and `tank sync` becomes the "ensure lockfile is satisfied" executor, matching the Cargo model exactly.
+**Revisit when**: Phase 3 static registry lands and `tank.toml` is introduced — at that point `synd add <pkg@range>` becomes the primary declaration verb and `synd sync` becomes the "ensure lockfile is satisfied" executor, matching the Cargo model exactly.

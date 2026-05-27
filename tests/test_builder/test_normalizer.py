@@ -1,6 +1,6 @@
 import unicodedata
 
-from tank.builder.normalizer import normalize
+from synd.builder.normalizer import normalize
 
 
 def test_collapse_blank_lines() -> None:
