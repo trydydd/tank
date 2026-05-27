@@ -94,7 +94,9 @@ def strip_mdx(text: str) -> str:
     # Remove JSX/MDX import/export lines.
     cleaned = re.sub(r"^\s*(?:import|export)\s+.+?$", "", cleaned, flags=re.MULTILINE)
     # Remove self-closing JSX component lines.
-    cleaned = re.sub(r"^\s*<([A-Z][\w.]*)\b[^>]*?/?>\s*$", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(
+        r"^\s*<([A-Z][\w.]*)\b[^>]*?/?>\s*$", "", cleaned, flags=re.MULTILINE
+    )
     # Remove JSX expression wrappers but keep text literals where possible.
     cleaned = re.sub(r"\{`([^`]*)`\}", r"\1", cleaned)
     cleaned = re.sub(r"\{\s*" + '"([^"]*)"' + r"\s*\}", r"\1", cleaned)
@@ -138,7 +140,9 @@ def convert_to_markdown(raw_text: str) -> str:
 def read_input(source: str) -> str:
     parsed = urlparse(source)
     if parsed.scheme in {"http", "https"}:
-        request = Request(source, headers={"User-Agent": "Mozilla/5.0 tank-llms-full-converter"})
+        request = Request(
+            source, headers={"User-Agent": "Mozilla/5.0 tank-llms-full-converter"}
+        )
         with urlopen(request, timeout=30) as response:  # nosec: B310 (user-supplied URL by design)
             return response.read().decode("utf-8", errors="replace")
     return Path(source).read_text(encoding="utf-8")
