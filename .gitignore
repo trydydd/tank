@@ -29,6 +29,7 @@ htmlcov/
 
 # Synaptic Drift runtime artifacts
 .synd/
+.tank/
 
 # Built packs (release artifacts, not stored in repo)
 packs/
