@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from synd.builder.build import build_pack
 from synd.cli.main import cli
 
 _FIXTURE_DOCS = Path(__file__).parent.parent / "fixtures" / "sample_docs"
@@ -16,10 +15,19 @@ _FIXTURE_DOCS = Path(__file__).parent.parent / "fixtures" / "sample_docs"
 
 def _make_ctx(tmp_path: Path, package: str, version: str) -> Path:
     out = tmp_path / "build"
-    out.mkdir(parents=True, exist_ok=True)
-    return build_pack(
-        package=package, version=version, source=_FIXTURE_DOCS, output=out
+    result = CliRunner().invoke(
+        cli,
+        [
+            "build",
+            f"{package}@{version}",
+            "--source",
+            str(_FIXTURE_DOCS),
+            "--output",
+            str(out),
+        ],
     )
+    assert result.exit_code == 0, f"build setup failed: {result.output}"
+    return out / f"{package}@{version}.ctx"
 
 
 def _write_lockfile(tmp_path: Path, entries: dict[str, dict[str, str]]) -> None:

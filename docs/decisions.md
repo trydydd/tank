@@ -142,7 +142,7 @@ Each entry records: the decision, the alternatives considered, why we chose what
 
 - ✅ **`heading_path` added to `chunks_fts`** — `db.py:48-52` creates the FTS5 table with `heading_path` as the first column; both triggers updated to include it. `section_tags[0]` from chunkana provides the `##`-level heading; `###` depth requires D14 (custom chunker).
 - ✅ **BM25 column weights tuned** — `fts.py:67` uses `bm25(chunks_fts, 2.5, 1.5, 1.0)` (heading 2.5×, summary 1.5×, content 1.0×). Weight only activates when `heading_path` is non-null; FTS5 treats NULL as empty string for fallback-chunked documents.
-- ⬜ **Query preprocessing** — stopword filtering, term normalisation. Still deferred.
+- ✅ **Query sanitization (partial)** — `fts.py` strips FTS5 special characters (`.`, `(`, `)`, `"`, `*`, etc.) before passing to `MATCH`, preventing syntax errors on symbol-heavy queries like `mcp.tool`. Stopword filtering and term normalisation remain deferred.
 - ⬜ **Synonym expansion** — `auth` → `authentication`, `JWT` → `JSON Web Token`. Still deferred.
 - ⬜ **Custom tokenizer** — porter stemmer or unicode61 with diacritics removal. Still deferred; low-priority for technical docs where exact terms dominate.
 
@@ -245,10 +245,9 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 - **requests**: stable (2.x), good candidate for HTTP client docs, but uses RST source and no llms-full.txt — requires S6 HTML extraction work first.
 - **click / rich**: Synaptic Drift's other deps, but their docs are sparse and less queried by agents.
 
-**Source**: `modelcontextprotocol.io/llms-full.txt` (spec version 2025-11-25). Build command (download locally until v0.2.0 URL fetch lands):
+**Source**: `modelcontextprotocol.io/llms-full.txt` (spec version 2025-11-25). Build command:
 ```
-mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt
-synd build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
+synd build mcp@2025-11-25 --source https://modelcontextprotocol.io/llms-full.txt --output ./packs
 ```
 
 **Revisit when**: never — this is a release artifact decision. Future packs follow the same evaluation process.

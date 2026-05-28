@@ -8,7 +8,6 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from synd.cli.main import cli
-from synd.builder.build import build_pack
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:
@@ -20,15 +19,20 @@ class TestVerifyCommand:
 
     def test_verify_command_pass(self, tmp_path: Path) -> None:
         """A valid .ctx must pass verification."""
-        # Build a valid .ctx first
         source = _fixture_path()
         build_out = tmp_path / "build"
-        build_pack(
-            package="my-lib",
-            version="1.0.0",
-            source=source,
-            output=build_out,
+        result = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "my-lib@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(build_out),
+            ],
         )
+        assert result.exit_code == 0, f"build setup failed: {result.output}"
         ctx_path = build_out / "my-lib@1.0.0.ctx"
         result = CliRunner().invoke(
             cli,

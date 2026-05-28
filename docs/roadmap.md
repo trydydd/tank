@@ -103,6 +103,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 ### FTS5 tuning — parallel, no blockers
 
 - [ ] **FTS5 search quality** — two remaining improvements:
+  - [x] Query sanitization: FTS5 special characters stripped in `fts.py` (prevents crashes on `mcp.tool` style queries)
   - [ ] Query preprocessing: stopword filtering, term normalization
   - [ ] Synonym expansion: `auth` → `authentication`, `JWT` → `JSON Web Token`, etc.
 - [ ] **Query latency benchmark** — measure actual FTS5 query time against a representative index (target: 100K chunks); replace the unbenchmarked sub-10ms claim in `architecture.md` with a measured number. Add to `tests/benchmarks/` alongside the existing token overhead and WebFetch benchmarks.

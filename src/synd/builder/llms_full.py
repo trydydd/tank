@@ -57,32 +57,41 @@ def split_llms_full_txt(text: str) -> list[LlmsFullPage]:
     section's content is run through process_mdx() to strip JSX/MDX tags
     and heading pollution before being returned.
 
-    Sections with no content after MDX processing are skipped.
-    Returns pages in source order.
+    Sections with no content after MDX processing are skipped. Duplicate
+    Source URLs are deduplicated (last occurrence wins). A warning is emitted
+    when both occurrences have non-empty, differing content.
+    Returns pages in first-occurrence order.
     """
-    pages: list[LlmsFullPage] = []
+    seen: dict[str, LlmsFullPage] = {}
     current_url: str | None = None
     current_lines: list[str] = []
+
+    def _flush(url: str, lines: list[str]) -> None:
+        content = process_mdx("\n".join(lines))
+        if not content.strip():
+            return
+        page = LlmsFullPage(url=url, content=content)
+        if url in seen and seen[url].content != content:
+            _log.warning(
+                "Duplicate Source URL with differing content, keeping last occurrence: %s",
+                url,
+            )
+        seen[url] = page
 
     for line in text.splitlines():
         m = _SOURCE_RE.match(line)
         if m:
             if current_url is not None:
-                content = process_mdx("\n".join(current_lines))
-                if content.strip():
-                    pages.append(LlmsFullPage(url=current_url, content=content))
+                _flush(current_url, current_lines)
             current_url = m.group(1)
             current_lines = []
         else:
             current_lines.append(line)
 
-    # Flush the last section
     if current_url is not None:
-        content = process_mdx("\n".join(current_lines))
-        if content.strip():
-            pages.append(LlmsFullPage(url=current_url, content=content))
+        _flush(current_url, current_lines)
 
-    return pages
+    return list(seen.values())
 
 
 def fetch_llms_full_pages(index_url: str) -> list[LlmsFullPage]:
