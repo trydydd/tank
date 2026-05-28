@@ -18,7 +18,7 @@ dev = [
     "pytest",
     "mypy",
     "types-jsonschema",
-    "ruff==0.15.8",
+    "ruff",
     "bump-my-version",
 ]
 serve = [

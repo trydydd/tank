@@ -7,8 +7,19 @@
 
 ## Language and Runtime
 
-- Python 3.11+ required. Use `tomllib` from stdlib, no `tomli` backport.
+- Python 3.12+ required (`requires-python = ">=3.12"` in pyproject.toml). Use `tomllib` from stdlib, no `tomli` backport.
 - Prioritize maintainability and readability over cleverness or line count reduction.
+
+## Dev Environment Setup
+
+Create the venv using the minimum supported Python version from pyproject.toml (3.12):
+
+```
+python3.12 -m venv .venv
+.venv/bin/pip install -e ".[all]"
+```
+
+`[all]` installs both `[dev]` (ruff, mypy, pytest) and `[serve]` (mcp) so mypy can see the full type graph including the MCP server module.
 
 ## Code Style
 
