@@ -16,7 +16,6 @@ import hashlib
 import io
 import json
 import os
-import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -662,7 +661,7 @@ def test_content_tampering_captured_at_step_7(
 
 
 # ===========================================================================
-# NETWORK TEST 14 -- Full pipeline against real FastMCP docs
+# NETWORK TEST 14 -- Full pipeline against real FastMCP docs via CLI
 # ===========================================================================
 
 _FASTMCP_URL = "https://gofastmcp.com/llms-full.txt"
@@ -671,34 +670,29 @@ _FASTMCP_MIN_CHUNKS = 500  # sanity-check: real docs should produce many chunks
 
 @pytest.mark.network
 def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
-    """Download the FastMCP llms-full.txt, build a pack, verify it, add it,
-    and confirm a relevant query returns results.
+    """Build from the live FastMCP llms-full.txt URL using the synd build CLI,
+    verify it, add it, and confirm a relevant query returns results.
 
-    This test exercises the full pipeline against a real-world large file
-    (~2MB, ~54k lines) and is the canonical check that tank handles
-    large single-file sources correctly.
+    Exercises the full pipeline against a real-world large file (~2MB, ~54k lines)
+    via the public CLI entry points only.
     """
-    from synd.builder.build import build_pack
-
-    source_dir = tmp_path / "source"
     output_dir = tmp_path / "output"
-    source_dir.mkdir()
-    output_dir.mkdir()
-
-    # --- download ---
-    dest = source_dir / "llms-full.md"
-    urllib.request.urlretrieve(_FASTMCP_URL, dest)  # noqa: S310
-    assert dest.stat().st_size > 1_000_000, "Downloaded file suspiciously small"
+    ctx_path = output_dir / "fastmcp@3.3.0.ctx"
 
     # --- build ---
-    ctx_path = build_pack(
-        package="fastmcp",
-        version="3.3.0",
-        source=source_dir,
-        output=output_dir,
-        lifecycle="draft",
+    result = runner.invoke(
+        cli,
+        [
+            "build",
+            "fastmcp@3.3.0",
+            "--source",
+            _FASTMCP_URL,
+            "--output",
+            str(output_dir),
+        ],
     )
-    assert ctx_path.exists()
+    assert result.exit_code == 0, result.output
+    assert ctx_path.exists(), f"Expected .ctx at {ctx_path}"
 
     # Sanity-check chunk count — a real large doc should produce many chunks
     with zipfile.ZipFile(ctx_path) as zf:
@@ -710,11 +704,8 @@ def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
     )
 
     # --- verify ---
-    policy = Policy.default()
-    vresult = verify(ctx_path=ctx_path, policy=policy)
-    assert vresult.passed is True, (
-        f"Verification failed: step={vresult.step}, reason={vresult.reason}"
-    )
+    result = runner.invoke(cli, ["verify", str(ctx_path)])
+    assert result.exit_code == 0, result.output
 
     # --- add ---
     result = _cli_in_cwd(runner, ["add", str(ctx_path)], tmp_path)
