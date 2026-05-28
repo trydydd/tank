@@ -8,7 +8,6 @@ import pytest
 from click.testing import CliRunner
 
 from synd.cli.main import cli
-from synd.builder.build import build_pack
 
 
 def _fixture_path(name: str = "sample_docs") -> Path:
@@ -23,33 +22,21 @@ class TestQueryCommand:
     ) -> None:
         """Query with detail=summary returns results with headings and summaries."""
         source = _fixture_path()
-        build_out = tmp_path / "build"
-        build_pack(
-            package="test-pkg",
-            version="1.0.0",
-            source=source,
-            output=build_out,
+        build_out = tmp_path / "packs"
+        monkeypatch.chdir(tmp_path)
+
+        result = CliRunner().invoke(
+            cli,
+            ["build", "test-pkg@1.0.0", "--source", str(source), "--output", str(build_out)],
         )
+        assert result.exit_code == 0, f"build failed: {result.output}"
+
         ctx_path = build_out / "test-pkg@1.0.0.ctx"
+        result = CliRunner().invoke(cli, ["add", str(ctx_path)])
+        assert result.exit_code == 0, f"add failed: {result.output}"
 
-        # Both pull and query use .synd/index.db relative to CWD.
-        # pull opens DB at ctx_path.parent / ".synd" / "index.db",
-        # query opens DB at DEFAULT_DB = ".synd/index.db".
-        # We need to run from build_out so both resolve to build_out/.synd/index.db.
-        monkeypatch.chdir(build_out)
-        result = CliRunner().invoke(
-            cli,
-            ["pull", str(ctx_path)],
-        )
-        assert result.exit_code == 0, f"pull failed: {result.output}"
-
-        # Query for a term matching fixture content
-        result = CliRunner().invoke(
-            cli,
-            ["query", "install", "--detail", "summary"],
-        )
+        result = CliRunner().invoke(cli, ["query", "install", "--detail", "summary"])
         assert result.exit_code == 0, f"query failed: {result.output}"
-        # Review target: output contains heading_path from imported data
         assert "getting-started" in result.output, (
             f"Expected heading_path in output: {result.output}"
         )
@@ -59,23 +46,20 @@ class TestQueryCommand:
     ) -> None:
         """Query with detail=full includes content in results."""
         source = _fixture_path()
-        build_out = tmp_path / "build"
-        build_pack(
-            package="test-pkg",
-            version="1.0.0",
-            source=source,
-            output=build_out,
-        )
-        ctx_path = build_out / "test-pkg@1.0.0.ctx"
-
-        monkeypatch.chdir(build_out)
-        result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
-        assert result.exit_code == 0, f"pull failed: {result.output}"
+        build_out = tmp_path / "packs"
+        monkeypatch.chdir(tmp_path)
 
         result = CliRunner().invoke(
             cli,
-            ["query", "install", "--detail", "full"],
+            ["build", "test-pkg@1.0.0", "--source", str(source), "--output", str(build_out)],
         )
+        assert result.exit_code == 0, f"build failed: {result.output}"
+
+        ctx_path = build_out / "test-pkg@1.0.0.ctx"
+        result = CliRunner().invoke(cli, ["add", str(ctx_path)])
+        assert result.exit_code == 0, f"add failed: {result.output}"
+
+        result = CliRunner().invoke(cli, ["query", "install", "--detail", "full"])
         assert result.exit_code == 0, f"query failed: {result.output}"
 
     def test_query_does_not_crash_on_empty_db(self) -> None:
