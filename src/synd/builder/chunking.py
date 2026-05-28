@@ -11,6 +11,7 @@ from synd.builder.normalizer import normalize
 
 _MD = MarkdownIt()
 _DEFAULT_MAX_CHUNK_TOKENS: int = 500
+_DEFAULT_MIN_CHUNK_TOKENS: int = 20
 _WHITELISTED = {".md", ".html", ".htm"}
 
 
@@ -48,6 +49,7 @@ def chunk_content(
     source_url: str,
     page_id: int,
     max_chunk_tokens: int = _DEFAULT_MAX_CHUNK_TOKENS,
+    min_chunk_tokens: int = _DEFAULT_MIN_CHUNK_TOKENS,
 ) -> list[RawChunk]:
     """Chunk markdown content using a markdown-it-py token walker.
 
@@ -94,18 +96,22 @@ def chunk_content(
             )  # heading_open tokens always carry a source map
             heading_line = token.map[0]  # 0-indexed line number
 
-            # Emit content accumulated before this heading
-            _emit(heading_line)
+            # Only emit if accumulated content meets the minimum token threshold.
+            # Below threshold: leave chunk_start_line in place so stub content
+            # flows into the next section rather than becoming a near-empty chunk.
+            candidate = "\n".join(source_lines[chunk_start_line:heading_line]).strip()
+            if len(candidate) // 4 >= min_chunk_tokens:
+                _emit(heading_line)
+                chunk_start_line = heading_line
 
-            # Update ancestor stack: pop entries at this level or deeper
+            # Always update ancestor stack so heading_path is correct for the
+            # next emit regardless of whether we emitted above.
             while len(level_stack) > 1 and level_stack[-1] >= heading_level:
                 ancestor_stack.pop()
                 level_stack.pop()
             ancestor_stack.append(heading_text)
             level_stack.append(heading_level)
 
-            # New chunk starts at the heading line (heading is part of chunk content)
-            chunk_start_line = heading_line
             i += 3  # skip heading_open, inline, heading_close
             continue
 
