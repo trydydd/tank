@@ -225,7 +225,7 @@ def _finalize_pack(
 
     for rc in raw_chunks:
         if not rc.summary:
-            rc.summary = generate_summary(rc.content)
+            rc.summary = generate_summary(rc.content, heading_path=rc.heading_path)
 
     manifest = build_manifest(
         package=package,
