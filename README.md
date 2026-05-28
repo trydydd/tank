@@ -80,14 +80,14 @@ Every result tells the agent what it found, where it came from, and whether it s
 ## Installation
 
 ```bash
-# Query and serve docs (MCP server)
+# Full CLI (build, verify, add, query)
 pip install synaptic-drift
 
-# Full toolchain (build + verify + pull)
-pip install synaptic-drift[build]
+# + MCP server for AI agents
+pip install synaptic-drift[serve]
 ```
 
-Requires Python 3.11+.
+Requires Python 3.12+.
 
 ## Connect to Your Agent
 
@@ -96,8 +96,8 @@ Add Synaptic Drift as an MCP server in your editor's configuration:
 ```json
 {
   "mcpServers": {
-    "tank": {
-      "command": "tank",
+    "synd": {
+      "command": "synd",
       "args": ["serve"],
       "cwd": "${workspaceFolder}"
     }
@@ -119,7 +119,7 @@ Works with Claude Code, Claude Desktop, Cursor, VS Code, and any MCP-compatible 
 
 ## Status
 
-Synaptic Drift v0.1.1 is code-complete. Active development is on v0.2.0 (235 tests passing). See [roadmap.md](docs/roadmap.md) for current focus.
+Synaptic Drift v0.1.1 is code-complete. Active development is on v0.2.0 (339 tests passing). See [roadmap.md](docs/roadmap.md) for current focus.
 
 ## License
 

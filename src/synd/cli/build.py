@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from synd.builder.build import build_pack
+from synd.builder.build import build_pack, build_pack_from_url
 from synd.errors import BuildError, SyndError
 
 console = Console()
@@ -42,7 +42,12 @@ def _parse_package_spec(spec: str) -> tuple[str, str]:
 
 @click.command()
 @click.argument("package_spec")
-@click.option("--source", required=True, type=click.Path(path_type=Path))
+@click.option(
+    "--source",
+    required=True,
+    type=str,
+    help="Local directory or URL (llms-full.txt / llms.txt)",
+)
 @click.option("--output", type=click.Path(path_type=Path), default=Path("."))
 @click.option(
     "--lifecycle", default="draft", help="Lifecycle state (draft, approved, deprecated)"
@@ -56,16 +61,19 @@ def _parse_package_spec(spec: str) -> tuple[str, str]:
 @click.option("--policy-profile", default=None, help="Policy profile name")
 def build(
     package_spec: str,
-    source: Path,
+    source: str,
     output: Path,
     lifecycle: str,
     doc_version_status: str,
     owner: str | None,
     policy_profile: str | None,
 ) -> None:
-    """Build a documentation pack from source files.
+    """Build a documentation pack from source files or a URL.
 
     PACKAGE_SPEC is in the format package@version (e.g. my-lib@1.0.0).
+
+    --source accepts a local directory or a URL ending in llms-full.txt
+    or llms.txt (e.g. https://docs.example.com/llms-full.txt).
     """
     try:
         pkg, ver = _parse_package_spec(package_spec)
@@ -73,23 +81,39 @@ def build(
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(1)
 
-    if not source.is_dir():
-        console.print(f"[red]error: source directory does not exist: {source}[/red]")
-        sys.exit(1)
+    output_dir = Path(output)
 
     try:
-        output_dir = Path(output)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        ctx_path = build_pack(
-            package=pkg,
-            version=ver,
-            source=source,
-            output=output_dir,
-            lifecycle=lifecycle,
-            doc_version_status=doc_version_status,
-            owner=owner,
-            policy_profile=policy_profile,
-        )
+        if source.startswith(("http://", "https://")):
+            output_dir.mkdir(parents=True, exist_ok=True)
+            ctx_path = build_pack_from_url(
+                package=pkg,
+                version=ver,
+                source_url=source,
+                output=output_dir,
+                lifecycle=lifecycle,
+                doc_version_status=doc_version_status,
+                owner=owner,
+                policy_profile=policy_profile,
+            )
+        else:
+            source_path = Path(source)
+            if not source_path.is_dir():
+                console.print(
+                    f"[red]error: source directory does not exist: {source_path}[/red]"
+                )
+                sys.exit(1)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            ctx_path = build_pack(
+                package=pkg,
+                version=ver,
+                source=source_path,
+                output=output_dir,
+                lifecycle=lifecycle,
+                doc_version_status=doc_version_status,
+                owner=owner,
+                policy_profile=policy_profile,
+            )
         console.print(f"[green]Pack built: {ctx_path}[/green]")
     except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")

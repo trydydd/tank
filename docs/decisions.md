@@ -354,3 +354,28 @@ No individual user touches all 8. Consumer persona needs ~4 in normal use (`sync
 **BeautifulSoup4 is already a `markdownify` transitive dependency** — no additional install cost. `markdownify` is a core dependency (not `[serve]`) because URL fetch is a `synd build` feature, not an MCP server feature.
 
 **Revisit when**: S8 implementation encounters a site type where the BeautifulSoup content-element selector (`<main>`, `<article>`, `role="main"`) produces poor results. Add site-specific selector logic to `html_to_markdown()` at that point.
+
+---
+
+## D21: URL Fetch Pipeline — `urllib.request`, Markdown output, Regex MDX stripping (S8)
+
+**Decision**: the `synd build --source <url>/llms.txt` pipeline uses `urllib.request` (stdlib) for HTTP, produces CommonMark markdown as its output format, and strips MDX/JSX via regex (not a full JSX parser).
+
+**Five sub-decisions and rationale**:
+
+| Question | Decision | Rationale |
+|---|---|---|
+| Output format | CommonMark markdown | Preserves heading structure (`##`, `###`) that the S7 chunker uses to build `heading_path`. Converting to plain text loses this signal entirely. Same format as local-file pipeline — same chunker handles both paths. |
+| HTTP library | `urllib.request` (stdlib) | Zero additional dependency. `httpx` ruled out — still pre-1.0 (same reasoning as D15 which rejected it for Pack #2). Pattern already established in `scripts/llms_full_to_markdown.py`. Async not needed: builder is synchronous; if async/pooling becomes necessary in the v0.3.0 crawler, that's the right time to re-evaluate. |
+| Content-type routing | URL ends in `.md` → MDX path; otherwise → HTML path | Mintlify-hosted sites already expose `.md` URLs in their `llms.txt` (confirmed in S8 context). Fetching a `.md` URL returns MDX directly — no HTML-to-markdown step needed. Non-`.md` URLs serve rendered HTML and go through D20's `html_to_markdown()` pipeline. |
+| MDX stripping approach | Regex (not full JSX parser) | Covers the confirmed Mintlify tag set (`<Note>`, `<Warning>`, `<Tip>`, `<Tabs>`, `<Tab>`, `<Frame>`, `<Icon />`, `<FeatureBadge />`, etc.) without additional dependencies. A full JSX/XML parser would add complexity for marginal correctness gain on a known, finite tag set. |
+| Rate limiting | Configurable `sleep`, default 0.5s between pages | Simple; correct for sequential single-threaded fetches. Token bucket deferred — not needed until the v0.3.0 crawler introduces concurrent fetching. |
+
+**New modules** (implemented as part of S8):
+- `src/synd/builder/mdx.py` — `strip_mdx()`, `unwrap_jsx_blocks()`, `clean_heading()`, `process_mdx()`. Functions promoted and extended from `scripts/llms_full_to_markdown.py`.
+- `src/synd/builder/llms_full.py` — `LlmsPage`, `parse_llms_txt()`, `fetch_pages()`. Parses the `[label](url)` link format from a `llms.txt` index and orchestrates per-page fetching.
+- `src/synd/builder/fetch.py` extended with `fetch_page(url, *, rate_limit_sleep)` — unified entry point that routes on URL extension.
+
+**`pyproject.toml`**: no change — `urllib.request` is stdlib.
+
+**Revisit when**: the v0.3.0 crawler needs concurrent fetching (add connection pooling / async at that point); or a new site type is encountered where `.md` extension detection misfires (extend routing heuristic or add explicit `Content-Type` check).

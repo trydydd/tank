@@ -40,6 +40,37 @@ def discover_files(source: Path) -> list[Path]:
     return result
 
 
+def chunk_content(
+    content: str,
+    heading_prefix: str,
+    source_url: str,
+    page_id: int,
+) -> list[RawChunk]:
+    """Chunk a text string using chunkana.
+
+    heading_prefix: the leading component of each chunk's heading_path
+      (e.g. file stem "api/auth" or URL path label "api/auth").
+    source_url: stored verbatim on every chunk (file path or page URL).
+    """
+    ana_chunks = _chunk_text(content)
+    chunks: list[RawChunk] = []
+    for ana in ana_chunks:
+        section_tags: list[str] = ana.metadata.get("section_tags") or []
+        parts: list[str] = [heading_prefix]
+        if section_tags:
+            parts.append(section_tags[0])
+        heading_path = " / ".join(parts)
+        chunks.append(
+            RawChunk(
+                heading_path=heading_path,
+                content=normalize(ana.content),
+                source_url=source_url,
+                page_id=page_id,
+            )
+        )
+    return chunks
+
+
 def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
     """Chunk a single documentation file using chunkana.
 
@@ -49,30 +80,11 @@ def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
     the chunk; header_path is always empty and not used.
     """
     relative = Path(os.path.relpath(file_path, source)).as_posix()
-    prefix = Path(relative).with_suffix("")  # e.g. "auth/oauth"
-
+    prefix = str(Path(relative).with_suffix(""))  # e.g. "auth/oauth"
     raw_content = file_path.read_text(encoding="utf-8")
-    ana_chunks = _chunk_text(raw_content)
-
-    chunks: list[RawChunk] = []
-    for ana in ana_chunks:
-        # chunkana never populates header_path; section headings are in section_tags.
-        section_tags: list[str] = ana.metadata.get("section_tags") or []
-        parts: list[str] = [str(prefix)]
-        if section_tags:
-            parts.append(section_tags[0])
-        heading_path = " / ".join(parts)
-
-        content = normalize(ana.content)
-        chunks.append(
-            RawChunk(
-                heading_path=heading_path,
-                content=content,
-                source_url=relative,
-                page_id=page_id,
-            )
-        )
-    return chunks
+    return chunk_content(
+        raw_content, heading_prefix=prefix, source_url=relative, page_id=page_id
+    )
 
 
 def generate_summary(content: str) -> str:

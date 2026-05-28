@@ -83,21 +83,20 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
 ### URL fetch stream — S6 → llms-full.txt → (S8 in parallel) → llms.txt → packs
 
-- [ ] **`synd build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
+- [x] **`synd build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
   - *[S6](docs/spikes.yaml) done — `html_to_markdown()` in `src/synd/builder/fetch.py`, `markdownify` in core deps.*
-  - Modify `src/tank/builder/build.py` to accept URL sources
-  - New module: `src/tank/builder/fetch.py` (single-file HTTP fetch, no crawl logic)
-  - New module: `src/tank/builder/llms_full.py` — Mintlify-aware preprocessor:
+  - `src/synd/builder/build.py` accepts URL sources via `build_pack_from_url()`
+  - `src/synd/builder/fetch.py` — `fetch_text()` and `fetch_page()` using `urllib.request`; content routing: `.md` → `process_mdx()`, else → `html_to_markdown()`
+  - `src/synd/builder/llms_full.py` — Mintlify-aware preprocessor:
     - Split on `Source: <url>` boundary lines to recover individual pages
     - Strip MDX/JSX tags (e.g. `<FeatureBadge />`, `<Note>`, `<McpClient>`, `<Icon />`, inline `<sup><a ...>`) — keep inner text, discard component wrappers
     - Use each `Source:` URL as the page `source_url`; derive page title from the first `#` heading
     - Feed resulting per-page documents into the existing chunker individually so `heading_path` values are page-relative and meaningful
-  - **Note:** `llms-full.txt` from Mintlify-based docs sites (FastMCP, MCP, and many others) is a raw MDX concatenation, not clean markdown. Passing it through the existing pipeline without preprocessing produces garbage heading paths (`llms-full / \`ClassName\` <sup>...</sup>`), polluted summaries (`Source: https://...`), and section collisions (identical heading names from different pages merged). The preprocessor is required for usable pack quality, not optional.
-- [ ] **`synd build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched individually, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
-  - *[S6](docs/spikes.yaml) done. Requires [S8](docs/spikes.yaml) (web page to markdown pipeline research) to be completed before work can begin.*
+  - `src/synd/builder/mdx.py` — `process_mdx()` pipeline: strip MDX imports/exports, unwrap JSX blocks, clean headings, collapse blank lines. See D21.
+- [x] **`synd build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched individually, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
+  - *[S6](docs/spikes.yaml) done. [S8](docs/spikes.yaml) done — see D21.*
   - **Mintlify behaviour**: `llms.txt` on Mintlify sites already contains `.md` URLs (no URL manipulation needed). Fetching them returns MDX directly — no HTML-to-markdown conversion required. JSX components (`<Frame>`, `<Note>`, `<Tabs>`, `<Warning>`, etc.) must still be stripped; inner text kept, wrappers discarded. Images inside `<Frame>` are discarded.
-  - For non-Mintlify sites (ReadTheDocs, Docusaurus, etc.): HTML fetch → S6 library → markdown
-  - Strip MDX/JSX components from Mintlify content; strip HTML boilerplate from non-Mintlify content
+  - For non-Mintlify sites (ReadTheDocs, Docusaurus, etc.): HTML fetch → `html_to_markdown()` via markdownify + BeautifulSoup4
   - Use the page URL as `source_url`; derive title from first `#` heading
 - [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
 

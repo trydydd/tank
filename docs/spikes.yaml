@@ -254,7 +254,22 @@ spikes:
 
   - id: S8
     title: Web page to markdown conversion — library, pipeline, and output format research
-    status: open
+    status: done
+    outcome: |
+      Five decisions settled (see decisions.md D21):
+      1. Output format: CommonMark markdown — preserves heading structure for the S7 chunker.
+      2. HTTP library: urllib.request (stdlib) — httpx ruled out (pre-1.0, same as D15).
+      3. Content routing: URL ends in .md → MDX strip path; otherwise → HTML path.
+      4. MDX stripping: regex-based covering the confirmed Mintlify tag set; no new deps.
+      5. Rate limiting: configurable sleep, default 0.5s.
+
+      Implemented:
+      - src/synd/builder/mdx.py — strip_mdx(), unwrap_jsx_blocks(), clean_heading(),
+        process_mdx(). Promoted and extended from scripts/llms_full_to_markdown.py.
+      - src/synd/builder/llms_full.py — parse_llms_txt(), fetch_pages(), LlmsPage.
+      - src/synd/builder/fetch.py extended with fetch_page(url, *, rate_limit_sleep).
+      - 34 new tests in tests/test_builder/test_mdx.py, test_fetch.py, test_llms_full.py.
+      Next: wire fetch_pages() into build.py to support synd build --source <url>/llms.txt.
     context: |
       tank build --source <url>/llms.txt (v0.2.0 roadmap) fetches individual doc
       pages and must convert them to a clean intermediate format for the chunker.

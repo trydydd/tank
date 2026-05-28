@@ -12,21 +12,23 @@ dependencies = [
     "chunkana>=0.1",
     "jsonschema>=4.0",
     "markdownify>=1.0",
+    "beautifulsoup4>=4.0",
 ]
 
 [project.optional-dependencies]
-dev = [
+serve = [
+    "mcp",
+]
+all = [
     "pytest",
     "mypy",
     "types-jsonschema",
     "ruff",
     "bump-my-version",
+    "synaptic-drift[serve]",
 ]
-serve = [
-    "mcp",
-]
-all = [
-    "synaptic-drift[dev,serve]",
+dev = [
+    "synaptic-drift[all]",
 ]
 
 [project.scripts]
