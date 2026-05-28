@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 
 from synd.builder.chunking import (
     RawChunk,
+    _DEFAULT_MAX_CHUNK_TOKENS,
+    _DEFAULT_MIN_CHUNK_TOKENS,
     chunk_content,
     chunk_file,
     discover_files,
@@ -38,7 +40,10 @@ def build_pack(
     owner: str | None = None,
     policy_profile: str | None = None,
     source_commit: str | None = None,
-) -> Path:
+    max_chunk_tokens: int = _DEFAULT_MAX_CHUNK_TOKENS,
+    min_chunk_tokens: int = _DEFAULT_MIN_CHUNK_TOKENS,
+    warn_chunk_tokens: int | None = None,
+) -> tuple[Path, list[RawChunk]]:
     """Build a .ctx pack from a local source directory.
 
     Returns the path to the created .ctx file.
@@ -86,7 +91,13 @@ def build_pack(
         )
 
         # Chunk the file
-        file_chunks = chunk_file(file_path, source, page_id)
+        file_chunks = chunk_file(
+            file_path,
+            source,
+            page_id,
+            max_chunk_tokens=max_chunk_tokens,
+            min_chunk_tokens=min_chunk_tokens,
+        )
         for chunk in file_chunks:
             chunk.source_url = file_source_url
             raw_chunks.append(chunk)
@@ -106,6 +117,8 @@ def build_pack(
         owner=owner,
         policy_profile=policy_profile,
         source_commit=source_commit,
+        max_chunk_tokens=max_chunk_tokens,
+        warn_chunk_tokens=warn_chunk_tokens,
     )
 
 
@@ -121,7 +134,10 @@ def build_pack_from_url(
     source_commit: str | None = None,
     rate_limit_sleep: float = 0.5,
     excluded_url_patterns: tuple[str, ...] = DEFAULT_NOISE_URL_PATTERNS,
-) -> Path:
+    max_chunk_tokens: int = _DEFAULT_MAX_CHUNK_TOKENS,
+    min_chunk_tokens: int = _DEFAULT_MIN_CHUNK_TOKENS,
+    warn_chunk_tokens: int | None = None,
+) -> tuple[Path, list[RawChunk]]:
     """Build a .ctx pack from a URL source (llms-full.txt or llms.txt).
 
     source_url must be an HTTP/HTTPS URL ending in 'llms-full.txt' or 'llms.txt'.
@@ -184,6 +200,8 @@ def build_pack_from_url(
             heading_prefix=label,
             source_url=page_url,
             page_id=page_id,
+            max_chunk_tokens=max_chunk_tokens,
+            min_chunk_tokens=min_chunk_tokens,
         )
         raw_chunks.extend(page_chunks)
 
@@ -205,6 +223,8 @@ def build_pack_from_url(
         owner=owner,
         policy_profile=policy_profile,
         source_commit=source_commit,
+        max_chunk_tokens=max_chunk_tokens,
+        warn_chunk_tokens=warn_chunk_tokens,
     )
 
 
@@ -220,11 +240,14 @@ def _finalize_pack(
     owner: str | None = None,
     policy_profile: str | None = None,
     source_commit: str | None = None,
-) -> Path:
+    max_chunk_tokens: int = _DEFAULT_MAX_CHUNK_TOKENS,
+    warn_chunk_tokens: int | None = None,
+) -> tuple[Path, list[RawChunk]]:
     """Assign IDs, compute hashes, generate summaries, write .ctx archive.
 
     Shared by build_pack() (directory sources) and build_pack_from_url()
-    (URL sources). Returns pack_path.
+    (URL sources). Returns (pack_path, oversized_chunks) where oversized_chunks
+    are chunks whose token_count exceeds warn_chunk_tokens (defaults to 2× max).
     """
     for i, rc in enumerate(raw_chunks, start=1):
         rc.id = i
@@ -262,7 +285,15 @@ def _finalize_pack(
         path=pack_path, manifest=manifest, raw_chunks=raw_chunks, pages=pages
     )
 
-    return pack_path
+    # Detect chunks that exceed the warning threshold after all splits.
+    # warn_chunk_tokens defaults to 2× max_chunk_tokens when not specified.
+    effective_warn = (
+        warn_chunk_tokens if warn_chunk_tokens is not None else 2 * max_chunk_tokens
+    )
+    oversized = [rc for rc in raw_chunks if (rc.token_count or 0) > effective_warn]
+    oversized.sort(key=lambda rc: rc.token_count or 0, reverse=True)
+
+    return pack_path, oversized
 
 
 def _url_path_label(url: str) -> str:

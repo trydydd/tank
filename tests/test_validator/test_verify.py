@@ -44,12 +44,13 @@ def _build_valid_ctx(tmp_path: Path) -> Path:
     try:
         output = tmp_path / "packs"
         output.mkdir()
-        return build_pack(
+        ctx_path, _ = build_pack(
             package="test-lib",
             version="1.0.0",
             source=_fixture_path(),
             output=output,
         )
+        return ctx_path
     finally:
         os.chdir(old_cwd)
 
@@ -534,7 +535,7 @@ def test_step7_content_hash_mismatch(tmp_path: Path) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
     output = build_dir / "packs"
     output.mkdir()
-    ctx_path = build_pack(
+    ctx_path, _ = build_pack(
         package="test-lib",
         version="1.0.0",
         source=_fixture_path(),
@@ -559,7 +560,7 @@ def test_step8_signature_required_but_missing(tmp_path: Path) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
     output = build_dir / "packs"
     output.mkdir()
-    ctx_path = build_pack(
+    ctx_path, _ = build_pack(
         package="test-lib",
         version="1.0.0",
         source=_fixture_path(),
@@ -588,7 +589,7 @@ def test_step8_signature_present_passes(tmp_path: Path) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
     output = build_dir / "packs"
     output.mkdir()
-    ctx_path = build_pack(
+    ctx_path, _ = build_pack(
         package="test-lib",
         version="1.0.0",
         source=_fixture_path(),
@@ -621,7 +622,7 @@ def test_verify_does_not_extract_to_disk(tmp_path: Path) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
     output = build_dir / "packs"
     output.mkdir()
-    ctx_path = build_pack(
+    ctx_path, _ = build_pack(
         package="test-lib",
         version="1.0.0",
         source=_fixture_path(),
@@ -662,7 +663,7 @@ def test_step6_does_not_pass_tampered_manifest(tmp_path: Path) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
     output = build_dir / "packs"
     output.mkdir()
-    ctx = build_pack(
+    ctx, _ = build_pack(
         package="test-lib",
         version="1.0.0",
         source=_fixture_path(),

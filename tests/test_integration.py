@@ -611,7 +611,7 @@ def test_build_verify_cycle_is_symmetric(
 
     output_dir = tmp_path / "output"
 
-    ctx_path = build_pack(
+    ctx_path, _ = build_pack(
         package="sym-test",
         version="1.0.0",
         source=sample_docs,
@@ -643,7 +643,7 @@ def test_content_tampering_captured_at_step_7(
 
     output_dir = tmp_path / "output"
 
-    ctx_path = build_pack(
+    ctx_path, _ = build_pack(
         package="step-test",
         version="1.0.0",
         source=sample_docs,

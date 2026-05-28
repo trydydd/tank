@@ -83,8 +83,9 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
   - Fences inside Tab bodies had indented closing `\`\`\`` lines (4+ spaces); CommonMark requires ≤3 spaces on a closing fence, so `markdown-it-py` never closed them and treated the rest of the page as fence content
   - Fixed in `src/synd/builder/mdx.py`: swap pipeline order, `textwrap.dedent()` in `unwrap_jsx_blocks`, `_INDENTED_FENCE_CLOSE_RE` in `_extract_code_fences`
   - Result: `build-server` 22,496t → 111 chunks (max 1,065t); `build-client` 15,172t → 99 chunks (max 651t)
-- [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` CLI params on `synd build`. See [S9](docs/spikes.yaml).
-  - Modify `src/synd/builder/chunking.py` and `src/synd/cli/build.py`
+- [x] **Chunk size tuning** — `--max-chunk-tokens` (default: 800), `--min-chunk-tokens` (default: 20), and `--warn-chunk-tokens` (default: 2× max) CLI params on `synd build`. Default max raised from 500 → 800 for code-heavy SDK docs. Oversized-chunk warnings emitted at build time. See [S9](docs/spikes.yaml), [D24](docs/decisions.md).
+  - Modified `src/synd/builder/chunking.py`, `src/synd/builder/build.py`, `src/synd/cli/build.py`
+  - Added `scripts/validate_chunk_sizes.py` for real-production-data validation
 - [x] **Minimum-token merge** — chunker-internal guard that suppresses stub chunks (heading-only, <20 tokens) by skipping the emit when a heading boundary would produce below-threshold content. The suppressed content carries forward and is absorbed by the next section naturally. Eliminates ~249 stubs from the MCP pack without a separate post-processing pass. See [S10](docs/spikes.yaml), [D23](docs/decisions.md).
   - Modified `src/synd/builder/chunking.py`: added `_DEFAULT_MIN_CHUNK_TOKENS = 20`, `min_chunk_tokens` param on `chunk_content()`
 - [x] **Tab heading disambiguation** — chunks produced by expanding Mintlify `<Tabs>` blocks carry identical `heading_path` values across all language tabs. BM25 cannot distinguish "Python / Implementing tool execution" from "TypeScript / Implementing tool execution" because the tab title is discarded during unwrapping.

@@ -445,7 +445,15 @@ spikes:
 
   - id: S9
     title: Chunk size gate — warning threshold and oversized chunk handling
-    status: open
+    status: done
+    outcome: |
+      Implemented warn-only strategy (D24). Default max_chunk_tokens raised 500 → 800
+      (code-heavy SDK docs benefit from larger prose budget). warn_chunk_tokens defaults
+      to 2× max (1,600t at defaults). Three new synd build CLI params:
+      --max-chunk-tokens, --min-chunk-tokens, --warn-chunk-tokens. No automatic
+      splitting of structural tokens (code_block, table, fence) — incoherent fragments
+      are worse than one large chunk; noise filter already handles the canonical case
+      (changelog pages). See D24 in decisions.md.
     context: |
       The paragraph overflow split in the custom chunker fires when accumulated
       content exceeds max_chunk_tokens (default 500 tokens, ~2000 chars). However

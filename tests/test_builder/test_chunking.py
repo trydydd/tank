@@ -101,6 +101,30 @@ class TestChunkFile:
         auth_code = next(c for c in chunks if "Authorization Code" in c.heading_path)
         assert "OAuth2" in auth_code.heading_path
 
+    def test_chunk_file_forwards_max_chunk_tokens(self, tmp_path: Path) -> None:
+        """chunk_file() must pass max_chunk_tokens through to chunk_content()."""
+        doc = tmp_path / "big.md"
+        paras = [f"Para {i}: " + ("word " * 40) for i in range(6)]
+        doc.write_text("## Section\n\n" + "\n\n".join(paras) + "\n")
+        chunks_tight = chunk_file(doc, tmp_path, page_id=1, max_chunk_tokens=100)
+        chunks_loose = chunk_file(doc, tmp_path, page_id=1, max_chunk_tokens=2000)
+        assert len(chunks_tight) > len(chunks_loose), (
+            "Tighter max_chunk_tokens must produce more chunks"
+        )
+
+    def test_chunk_file_forwards_min_chunk_tokens(self, tmp_path: Path) -> None:
+        """chunk_file() must pass min_chunk_tokens through to chunk_content()."""
+        doc = tmp_path / "stubs.md"
+        # Two headings with no prose between them — only the second has content
+        doc.write_text("## A\n\n### B\n\nSome actual content here.\n")
+        # With min_chunk_tokens=0 every non-empty heading section emits
+        chunks_zero = chunk_file(doc, tmp_path, page_id=1, min_chunk_tokens=0)
+        # With min_chunk_tokens=100 the stub "## A" is merged into B
+        chunks_merged = chunk_file(doc, tmp_path, page_id=1, min_chunk_tokens=100)
+        assert len(chunks_zero) > len(chunks_merged), (
+            "High min_chunk_tokens must suppress stub chunks"
+        )
+
 
 class TestChunkContent:
     def test_preamble_chunk_uses_prefix_as_heading_path(self) -> None:

@@ -104,7 +104,7 @@ def bench_db(tmp_path_factory: pytest.TempPathFactory) -> Database:
     source_dir.mkdir()
     shutil.copy(FIXTURE_FILE, source_dir / FIXTURE_FILE.name)
 
-    ctx_path = build_pack(
+    ctx_path, _ = build_pack(
         package="fastmcp",
         version="3.0.0",
         source=source_dir,

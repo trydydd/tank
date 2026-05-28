@@ -439,3 +439,43 @@ The MCP pack had 249 such stubs across 2,089 chunks.
 **Implementation**: `_unwrap_tab_block()` in `src/synd/builder/mdx.py` replaces the inline lambda in `_JSX_UNWRAP_RE.sub()`.
 
 **Revisit when**: a non-Mintlify doc site uses a different multi-tab component name (add to the `_JSX_UNWRAP_RE` tag list and handle in `_unwrap_tab_block` if title injection is appropriate); or heading depth semantics change (unlikely).
+
+---
+
+## D23: Minimum-Token Stub Elimination — Internal Chunker Guard
+
+*(recorded inline above; D23 is `min_chunk_tokens` implementation in S10)*
+
+---
+
+## D24: Chunk Size Gate — Warn-Only Strategy; Default max_chunk_tokens Raised to 800
+
+**Decision**:
+1. `_DEFAULT_MAX_CHUNK_TOKENS` raised from 500 → **800** tokens.
+2. A new warning system detects chunks that exceed a configurable `warn_chunk_tokens` threshold (default: `2 × max_chunk_tokens = 1,600`) **after** all splits. Warnings are emitted by `cli/build.py`; no changes to `chunk_content()` return type.
+3. No automatic splitting of structural token types (`code_block`, `table`, long `fence`). Warn-only.
+4. Three new `synd build` CLI params: `--max-chunk-tokens`, `--min-chunk-tokens`, `--warn-chunk-tokens`.
+
+**Why raise the default to 800?** Synaptic Drift's primary target corpus is technical developer documentation (SDK references, API guides, code-heavy tutorials). The original 500-token default was set before real production packs existed. Analysis of the MCP pack (P95 ≈ 423t at 500t max) confirmed that 95% of sections already fit comfortably. However, for developer docs, a prose section of 600–800 tokens typically represents a complete concept explanation that should stay intact for coherent retrieval; splitting it forces the LLM agent to assemble context from two adjacent chunks. Industry tools targeting code-heavy docs commonly use 800–1,024 tokens. The real-data validation script (`scripts/validate_chunk_sizes.py`) confirms the distribution at both defaults.
+
+**Why warn-only (no automatic split for structural tokens)?** Three token types bypass the paragraph-overflow split: `code_block` (4-space indented content, e.g. changelog pages), `table`, and very long `fence` blocks. Automatic line-boundary splitting of these would produce incoherent fragments:
+- Indented code block split mid-line: arbitrary cut, no code-structural boundary.
+- Table split mid-row: continuation chunks lack the header row, breaking semantic context.
+- Fenced code split mid-function: violates the fence-atomicity invariant that is required for correct code-example retrieval.
+
+The URL noise filter (`DEFAULT_NOISE_URL_PATTERNS`) already handles the canonical production case (changelog pages). Warn-only gives pack authors actionable information without risking worse retrieval quality from forced splits.
+
+**`warn_chunk_tokens` formula**: defaults to `2 × max_chunk_tokens` (not a fixed constant). This scales sensibly when authors tune `--max-chunk-tokens` (e.g. `--max-chunk-tokens 300` warns at 600t). The 2× multiplier leaves room for legitimate large fenced code examples (which legitimately bypass the prose split) while still catching true blobs.
+
+**Alternatives considered**:
+- Automatic split of `code_block` / `table` at line boundaries — rejected (incoherent fragments, see above).
+- Hard cap with fence-breaking split — rejected (breaks fence-atomicity invariant; a code example cut mid-function is worse than one large chunk).
+- Keeping `max_chunk_tokens = 500` — rejected (too conservative for code-heavy SDK docs; evidence from MCP/FastMCP production packs).
+
+**Implementation**:
+- `src/synd/builder/chunking.py`: `_DEFAULT_MAX_CHUNK_TOKENS = 800`; `chunk_file()` now forwards `max_chunk_tokens` and `min_chunk_tokens` to `chunk_content()`.
+- `src/synd/builder/build.py`: `build_pack()` and `build_pack_from_url()` accept all three params; `_finalize_pack()` detects oversized chunks and returns `tuple[Path, list[RawChunk]]`.
+- `src/synd/cli/build.py`: three new `@click.option` decorators; `_print_oversized_warnings()` formats the warning output.
+- `scripts/validate_chunk_sizes.py`: live validation against MCP and FastMCP `llms-full.txt`.
+
+**Revisit when**: real user feedback shows that oversized structural-token chunks (tables, code blocks) materially degrade search quality in a way that automatic splitting would fix without worse side effects; or when the warning system generates enough data about which structural bypasses are most common to design a targeted mitigation.
