@@ -4,13 +4,8 @@ from __future__ import annotations
 
 import re
 
-try:
-    import markdownify
-    from bs4 import BeautifulSoup
-except ImportError as exc:
-    raise ImportError(
-        "URL fetch requires the serve extra: pip install 'synaptic-drift[serve]'"
-    ) from exc
+import markdownify
+from bs4 import BeautifulSoup
 
 _BOILERPLATE_TAGS = ["nav", "header", "footer", "aside", "script", "style", "noscript"]
 

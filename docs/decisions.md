@@ -351,6 +351,6 @@ No individual user touches all 8. Consumer persona needs ~4 in normal use (`sync
 - **html2text (MIT)**: zero dependencies, but outputs indented (4-space) code blocks rather than fenced ` ``` ` blocks. Incompatible with the chunker's fence detection in `normalizer.py`. Rejected.
 - **scripts/llms_full_to_markdown.py (stdlib only)**: handles MDX source (Mintlify `.md` endpoints, `llms-full.txt`) via `strip_mdx()` + `MarkdownExtractor`. Not suitable for rendered browser HTML — no content extraction, nav bleeds through as plain text. Kept in `scripts/` as reference; `strip_mdx()` and `_extract_code_fences()` are candidates for promotion to `src/synd/builder/mdx.py` in S8.
 
-**BeautifulSoup4 is already a `markdownify` transitive dependency** — no additional install cost.
+**BeautifulSoup4 is already a `markdownify` transitive dependency** — no additional install cost. `markdownify` is a core dependency (not `[serve]`) because URL fetch is a `synd build` feature, not an MCP server feature.
 
 **Revisit when**: S8 implementation encounters a site type where the BeautifulSoup content-element selector (`<main>`, `<article>`, `role="main"`) produces poor results. Add site-specific selector logic to `html_to_markdown()` at that point.

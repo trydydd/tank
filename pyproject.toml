@@ -11,6 +11,7 @@ dependencies = [
     "rich",
     "chunkana>=0.1",
     "jsonschema>=4.0",
+    "markdownify>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -23,7 +24,6 @@ dev = [
 ]
 serve = [
     "mcp",
-    "markdownify>=1.0",
 ]
 all = [
     "synaptic-drift[dev,serve]",

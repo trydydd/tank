@@ -10,7 +10,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 - FTS5 `heading_path` column with 2.5× BM25 weight
 - Full docs refresh (MCP.md, ranking.md, architecture.md, roadmap.md)
 
-**Next up:** PyPI release (blocked on packaging), `schemas/manifest.v2.schema.json`, `tank init`, URL fetch sources.
+**Next up:** PyPI release (blocked on packaging), `tank init`, URL fetch sources (S6 done; S7, S8 open).
 
 ---
 
@@ -84,7 +84,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 ### URL fetch stream — S6 → llms-full.txt → (S8 in parallel) → llms.txt → packs
 
 - [ ] **`synd build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
-  - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) to be completed before work can begin.*
+  - *[S6](docs/spikes.yaml) done — `html_to_markdown()` in `src/synd/builder/fetch.py`, `markdownify` in core deps.*
   - Modify `src/tank/builder/build.py` to accept URL sources
   - New module: `src/tank/builder/fetch.py` (single-file HTTP fetch, no crawl logic)
   - New module: `src/tank/builder/llms_full.py` — Mintlify-aware preprocessor:
@@ -94,7 +94,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
     - Feed resulting per-page documents into the existing chunker individually so `heading_path` values are page-relative and meaningful
   - **Note:** `llms-full.txt` from Mintlify-based docs sites (FastMCP, MCP, and many others) is a raw MDX concatenation, not clean markdown. Passing it through the existing pipeline without preprocessing produces garbage heading paths (`llms-full / \`ClassName\` <sup>...</sup>`), polluted summaries (`Source: https://...`), and section collisions (identical heading names from different pages merged). The preprocessor is required for usable pack quality, not optional.
 - [ ] **`synd build --source <url>/llms.txt`** — fetch `llms.txt` index, fetch each linked page individually, chunk and build a `.ctx` pack. Higher quality than `llms-full.txt`: each page is fetched individually, giving page-relative heading paths and clean structure. Basic rate limiting + `User-Agent`.
-  - *Requires [S6](docs/spikes.yaml) (HTML-to-markdown library selection) and [S8](docs/spikes.yaml) (web page to markdown pipeline research) to be completed before work can begin.*
+  - *[S6](docs/spikes.yaml) done. Requires [S8](docs/spikes.yaml) (web page to markdown pipeline research) to be completed before work can begin.*
   - **Mintlify behaviour**: `llms.txt` on Mintlify sites already contains `.md` URLs (no URL manipulation needed). Fetching them returns MDX directly — no HTML-to-markdown conversion required. JSX components (`<Frame>`, `<Note>`, `<Tabs>`, `<Warning>`, etc.) must still be stripped; inner text kept, wrappers discarded. Images inside `<Frame>` are discarded.
   - For non-Mintlify sites (ReadTheDocs, Docusaurus, etc.): HTML fetch → S6 library → markdown
   - Strip MDX/JSX components from Mintlify content; strip HTML boilerplate from non-Mintlify content
@@ -111,7 +111,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 ### Release — after foundation + S5
 
 - [ ] **PyPI release** (`pip install synaptic-drift`, `pip install synaptic-drift[build]`) — blocked on resolving the MCP server packaging: either a CLI-only release that excludes the server, or a refactor of the server layer to remove the dependency conflict. Release workflow already produces artifacts; needs a `twine upload` / `pypi-publish` step once unblocked.
-  - *Requires [S5](docs/spikes.yaml) (PyPI packaging diagnosis) to be completed before work can begin.*
+  - *[S5](docs/spikes.yaml) resolved — optional `[serve]` extra approach confirmed. Needs `twine upload` / `pypi-publish` step wired into release workflow.*
 - [ ] **Validator optimization** — refactor `_read_archive_bytes()` to avoid full in-memory ZIP reconstruction for digest computation. The current implementation reads the entire ZIP into memory, then reconstructs a second in-memory ZIP — decompressing and re-compressing every file — solely to zero out `pack_digest` and hash the result. Near the 500MB archive limit this allocates 500MB+, decompresses everything, and holds it all in memory simultaneously. Fix: hash individual entries in a defined order instead of reconstructing the archive.
 
 ### Discovery — after PyPI release + pre-built packs

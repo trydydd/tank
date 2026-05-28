@@ -166,7 +166,8 @@ spikes:
       markdownify(heading_style="ATX"), strip pilcrow anchor links (¶), collapse
       blank lines. BeautifulSoup4 is already a markdownify dependency — no additional
       transitive dep cost. Implemented in src/synd/builder/fetch.py as html_to_markdown().
-      Added markdownify>=1.0 to pyproject.toml [serve] optional extra.
+      Added markdownify>=1.0 to core dependencies in pyproject.toml (builder persona,
+      not serve persona — URL fetch is a synd build feature).
 
       Evaluated against ReadTheDocs (requests.readthedocs.io/en/latest/user/quickstart/):
       - markdownify: clean fenced code, pipe tables, no nav bleed — winner
