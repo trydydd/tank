@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -6,6 +7,8 @@ from synd.errors import SearchError
 
 if TYPE_CHECKING:
     from synd.storage.db import Database
+
+_FTS5_SPECIAL_RE = re.compile(r"[^\w\s]")
 
 
 @dataclass
@@ -35,7 +38,8 @@ def search(
     detail: str = "summary",
     limit: int = 10,
 ) -> list[SearchResult]:
-    if not query.strip():
+    sanitized = " ".join(_FTS5_SPECIAL_RE.sub(" ", query).split())
+    if not sanitized:
         return []
 
     conn = db.conn
@@ -74,7 +78,7 @@ WHERE chunks_fts.rowid = c.id
 ORDER BY score DESC
 LIMIT ?"""
 
-        params.append(query)
+        params.append(sanitized)
         params.append(limit)
 
         rows = conn.execute(sql, params).fetchall()

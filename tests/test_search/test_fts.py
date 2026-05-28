@@ -330,6 +330,55 @@ def test_search_malformed_query_raises_search_error() -> None:
         search(db, "foo AND")  # incomplete binary operator — invalid FTS5 syntax
 
 
+def test_search_dot_in_query_does_not_raise() -> None:
+    """'mcp.tool' must not crash — dot is an FTS5 syntax error without sanitization."""
+    db = _make_db()
+    results = search(db, "mcp.tool")
+    assert results == []
+
+
+def test_search_parens_in_query_do_not_raise() -> None:
+    db = _make_db()
+    results = search(db, "foo(bar)")
+    assert results == []
+
+
+def test_search_special_chars_stripped_still_matches() -> None:
+    """Tokens survive sanitization and still match indexed content."""
+    db = _make_db()
+    pack = Pack(
+        name="docs",
+        version="1.0.0",
+        lifecycle_state="approved",
+        doc_version_status="stable",
+        indexed_at="2026-01-01T00:00:00Z",
+    )
+    pages = [Page(id=1, package="docs", version="1.0.0", url="index.md")]
+    chunks = [
+        Chunk(
+            id=1,
+            package="docs",
+            version="1.0.0",
+            page_id=1,
+            heading_path="Tools",
+            summary="Tool usage",
+            content="Use the mcp tool decorator to register functions",
+            source_url="index.md",
+        ),
+    ]
+    _import_pack(db, pack, pages, chunks)
+
+    results = search(db, "mcp.tool")
+    assert len(results) == 1
+    assert results[0].heading_path == "Tools"
+
+
+def test_search_query_of_only_special_chars_returns_empty() -> None:
+    db = _make_db()
+    results = search(db, "...")
+    assert results == []
+
+
 def test_search_best_match_first() -> None:
     db = _make_db()
     pack = Pack(
