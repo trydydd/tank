@@ -5,7 +5,7 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from synd.builder.fetch import fetch_page
+from synd.builder.fetch import fetch_page, fetch_text
 from synd.errors import FetchError
 
 
@@ -85,3 +85,36 @@ def test_fetch_page_no_sleep_when_zero() -> None:
     ):
         fetch_page("https://example.com/page.md", rate_limit_sleep=0.0)
     mock_time.sleep.assert_not_called()
+
+
+# --- fetch_text ---
+
+
+def test_fetch_text_returns_raw_content() -> None:
+    body = "Source: https://example.com/page.md\n# Title\nContent.\n"
+    with patch("synd.builder.fetch.urlopen", return_value=_mock_urlopen(body)):
+        result = fetch_text("https://example.com/llms-full.txt")
+    assert result == body
+
+
+def test_fetch_text_raises_fetch_error_on_4xx() -> None:
+    import http.client
+
+    headers = http.client.HTTPMessage()
+    with patch(
+        "synd.builder.fetch.urlopen",
+        side_effect=HTTPError(
+            "https://example.com/llms-full.txt", 404, "Not Found", headers, None
+        ),
+    ):
+        with pytest.raises(FetchError, match="HTTP 404"):
+            fetch_text("https://example.com/llms-full.txt")
+
+
+def test_fetch_text_raises_fetch_error_on_network_failure() -> None:
+    with patch(
+        "synd.builder.fetch.urlopen",
+        side_effect=URLError("connection refused"),
+    ):
+        with pytest.raises(FetchError, match="Network error"):
+            fetch_text("https://example.com/llms-full.txt")

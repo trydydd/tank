@@ -1,8 +1,10 @@
 import json
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
-from synd.builder.build import build_pack
+from synd.builder.build import build_pack, build_pack_from_url
+from synd.builder.llms_full import LlmsFullPage
 from synd.errors import BuildError
 
 
@@ -247,3 +249,145 @@ def test_discover_files_sorted_by_forward_slash_path(tmp_path: Path) -> None:
     assert len(result) == 2
     rel_paths = [p.relative_to(docs).as_posix() for p in result]
     assert rel_paths == sorted(rel_paths), f"Not sorted: {rel_paths}"
+
+
+# --- build_pack_from_url ---
+
+_FAKE_LLMS_TXT_PAGES = [
+    (
+        "https://docs.example.com/intro.md",
+        "# Introduction\n\nWelcome to the library.\n",
+    ),
+    (
+        "https://docs.example.com/api.md",
+        "# API Reference\n\nUse `client.get()` to fetch data.\n",
+    ),
+]
+
+_FAKE_LLMS_FULL_PAGES = [
+    LlmsFullPage(
+        url="https://docs.example.com/intro.md", content="# Introduction\n\nWelcome.\n"
+    ),
+    LlmsFullPage(
+        url="https://docs.example.com/api.md",
+        content="# API Reference\n\nDetails here.\n",
+    ),
+]
+
+
+def test_build_pack_from_url_llms_txt_produces_valid_ctx(tmp_path: Path) -> None:
+    with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
+        ctx_path = build_pack_from_url(
+            package="test-lib",
+            version="1.0.0",
+            source_url="https://docs.example.com/llms.txt",
+            output=tmp_path / "packs",
+        )
+
+    assert ctx_path.exists()
+    assert ctx_path.suffix == ".ctx"
+    with zipfile.ZipFile(ctx_path) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        assert manifest["package"] == "test-lib"
+        assert manifest["version"] == "1.0.0"
+        assert manifest["pack_digest"].startswith("sha256:")
+        assert manifest["source_url"] == "https://docs.example.com/llms.txt"
+
+
+def test_build_pack_from_url_llms_full_txt_produces_valid_ctx(tmp_path: Path) -> None:
+    with patch(
+        "synd.builder.build.fetch_llms_full_pages", return_value=_FAKE_LLMS_FULL_PAGES
+    ):
+        ctx_path = build_pack_from_url(
+            package="test-lib",
+            version="1.0.0",
+            source_url="https://docs.example.com/llms-full.txt",
+            output=tmp_path / "packs",
+        )
+
+    assert ctx_path.exists()
+    with zipfile.ZipFile(ctx_path) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        assert manifest["source_url"] == "https://docs.example.com/llms-full.txt"
+
+
+def test_build_pack_from_url_chunk_source_url_is_page_url(tmp_path: Path) -> None:
+    with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
+        ctx_path = build_pack_from_url(
+            package="test-lib",
+            version="1.0.0",
+            source_url="https://docs.example.com/llms.txt",
+            output=tmp_path / "packs",
+        )
+
+    with zipfile.ZipFile(ctx_path) as zf:
+        chunks = [
+            json.loads(ln)
+            for ln in zf.read("chunks.jsonl").decode().strip().split("\n")
+        ]
+    urls = {c["source_url"] for c in chunks}
+    assert "https://docs.example.com/intro.md" in urls
+    assert "https://docs.example.com/api.md" in urls
+
+
+def test_build_pack_from_url_page_url_is_full_url(tmp_path: Path) -> None:
+    with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
+        ctx_path = build_pack_from_url(
+            package="test-lib",
+            version="1.0.0",
+            source_url="https://docs.example.com/llms.txt",
+            output=tmp_path / "packs",
+        )
+
+    with zipfile.ZipFile(ctx_path) as zf:
+        pages = json.loads(zf.read("pages.json"))
+    page_urls = {p["url"] for p in pages}
+    assert "https://docs.example.com/intro.md" in page_urls
+
+
+def test_build_pack_from_url_heading_path_uses_url_stem(tmp_path: Path) -> None:
+    with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
+        ctx_path = build_pack_from_url(
+            package="test-lib",
+            version="1.0.0",
+            source_url="https://docs.example.com/llms.txt",
+            output=tmp_path / "packs",
+        )
+
+    with zipfile.ZipFile(ctx_path) as zf:
+        chunks = [
+            json.loads(ln)
+            for ln in zf.read("chunks.jsonl").decode().strip().split("\n")
+        ]
+    prefixes = {c["heading_path"].split(" / ")[0] for c in chunks}
+    assert "intro" in prefixes
+    assert "api" in prefixes
+
+
+def test_build_pack_from_url_unsupported_url_raises(tmp_path: Path) -> None:
+    try:
+        build_pack_from_url(
+            package="test-lib",
+            version="1.0.0",
+            source_url="https://docs.example.com/README.md",
+            output=tmp_path / "packs",
+        )
+    except BuildError as exc:
+        assert "Unsupported URL source" in str(exc)
+    else:
+        assert False, "Expected BuildError"
+
+
+def test_build_pack_from_url_no_pages_raises(tmp_path: Path) -> None:
+    with patch("synd.builder.build.fetch_pages", return_value=[]):
+        try:
+            build_pack_from_url(
+                package="test-lib",
+                version="1.0.0",
+                source_url="https://docs.example.com/llms.txt",
+                output=tmp_path / "packs",
+            )
+        except BuildError as exc:
+            assert "No pages" in str(exc)
+        else:
+            assert False, "Expected BuildError"

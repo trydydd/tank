@@ -41,6 +41,24 @@ def html_to_markdown(html: str) -> str:
     return md.strip()
 
 
+def fetch_text(url: str) -> str:
+    """Fetch a URL and return its raw decoded text content.
+
+    Use for plaintext index files (llms-full.txt, llms.txt) where no
+    HTML-to-markdown or MDX conversion is wanted.
+    Raises FetchError on HTTP error status or network failure.
+    """
+    req = Request(url, headers={"User-Agent": _USER_AGENT})
+    try:
+        with urlopen(req, timeout=30) as response:  # nosec: B310 (URL from llms.txt/caller)
+            raw: str = response.read().decode("utf-8", errors="replace")
+            return raw
+    except HTTPError as exc:
+        raise FetchError(f"HTTP {exc.code} fetching {url}") from exc
+    except URLError as exc:
+        raise FetchError(f"Network error fetching {url}: {exc.reason}") from exc
+
+
 def fetch_page(url: str, *, rate_limit_sleep: float = 0.0) -> str:
     """Fetch a documentation page and return normalised markdown.
 
@@ -54,14 +72,7 @@ def fetch_page(url: str, *, rate_limit_sleep: float = 0.0) -> str:
     rate_limit_sleep: seconds to sleep after a successful fetch. Pass a
     nonzero value when looping over many pages to avoid hammering the server.
     """
-    req = Request(url, headers={"User-Agent": _USER_AGENT})
-    try:
-        with urlopen(req, timeout=30) as response:  # nosec: B310 (URL from llms.txt/caller)
-            raw = response.read().decode("utf-8", errors="replace")
-    except HTTPError as exc:
-        raise FetchError(f"HTTP {exc.code} fetching {url}") from exc
-    except URLError as exc:
-        raise FetchError(f"Network error fetching {url}: {exc.reason}") from exc
+    raw = fetch_text(url)
 
     if rate_limit_sleep > 0:
         time.sleep(rate_limit_sleep)

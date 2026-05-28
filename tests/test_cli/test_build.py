@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
+from synd.builder.llms_full import LlmsFullPage
 from synd.cli.build import _parse_package_spec
 from synd.cli.main import cli
 from synd.errors import BuildError
@@ -208,3 +210,78 @@ class TestBuildCommand:
         with zipfile.ZipFile(ctx_files[0], "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))
             assert manifest["doc_version_status"] == "stable"
+
+
+class TestBuildCommandUrlSource:
+    """Tests for 'synd build' with a URL --source."""
+
+    _FAKE_PAGES = [
+        ("https://docs.example.com/intro.md", "# Introduction\n\nWelcome.\n"),
+        ("https://docs.example.com/api.md", "# API\n\nDetails.\n"),
+    ]
+
+    _FAKE_FULL_PAGES = [
+        LlmsFullPage(
+            url="https://docs.example.com/intro.md", content="# Intro\n\nWelcome.\n"
+        ),
+    ]
+
+    def test_url_source_llms_txt_exits_zero(self, tmp_path: Path) -> None:
+        output = tmp_path / "packs"
+        with patch("synd.builder.build.fetch_pages", return_value=self._FAKE_PAGES):
+            result = CliRunner().invoke(
+                cli,
+                [
+                    "build",
+                    "my-lib@1.0.0",
+                    "--source",
+                    "https://docs.example.com/llms.txt",
+                    "--output",
+                    str(output),
+                ],
+            )
+        assert result.exit_code == 0, f"build failed: {result.output}"
+        assert list(output.glob("*.ctx"))
+
+    def test_url_source_llms_full_txt_exits_zero(self, tmp_path: Path) -> None:
+        output = tmp_path / "packs"
+        with patch(
+            "synd.builder.build.fetch_llms_full_pages",
+            return_value=self._FAKE_FULL_PAGES,
+        ):
+            result = CliRunner().invoke(
+                cli,
+                [
+                    "build",
+                    "my-lib@1.0.0",
+                    "--source",
+                    "https://docs.example.com/llms-full.txt",
+                    "--output",
+                    str(output),
+                ],
+            )
+        assert result.exit_code == 0, f"build failed: {result.output}"
+
+    def test_url_source_unsupported_url_exits_one(self, tmp_path: Path) -> None:
+        result = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "my-lib@1.0.0",
+                "--source",
+                "https://docs.example.com/README.md",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "error" in result.output.lower()
+
+    def test_local_path_still_works_after_refactor(self, tmp_path: Path) -> None:
+        """Regression: local directory --source must still produce a .ctx pack."""
+        source = _fixture_path()
+        output = tmp_path / "packs"
+        result = CliRunner().invoke(
+            cli,
+            ["build", "my-lib@1.0.0", "--source", str(source), "--output", str(output)],
+        )
+        assert result.exit_code == 0, f"build failed: {result.output}"
+        assert list(output.glob("*.ctx"))

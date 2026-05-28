@@ -4,7 +4,14 @@ from unittest.mock import patch
 
 import pytest
 
-from synd.builder.llms_full import LlmsPage, fetch_pages, parse_llms_txt
+from synd.builder.llms_full import (
+    LlmsFullPage,
+    LlmsPage,
+    fetch_llms_full_pages,
+    fetch_pages,
+    parse_llms_txt,
+    split_llms_full_txt,
+)
 from synd.errors import FetchError
 
 _SAMPLE_LLMS_TXT = """\
@@ -22,6 +29,26 @@ _SAMPLE_LLMS_TXT = """\
 
 - [Changelog](https://docs.example.com/changelog.md)
 """
+
+_SAMPLE_LLMS_FULL_TXT = """\
+Source: https://docs.example.com/intro.md
+# Introduction
+
+Welcome to the library.
+
+Source: https://docs.example.com/api.md
+# API Reference
+
+Use `client.get()` to fetch data.
+
+Source: https://docs.example.com/guide.md
+# User Guide
+
+Step-by-step usage instructions.
+"""
+
+
+# --- parse_llms_txt ---
 
 
 def test_parse_llms_txt_extracts_urls() -> None:
@@ -62,17 +89,99 @@ def test_parse_llms_txt_returns_llms_page_instances() -> None:
     assert pages[0].label == "Title"
 
 
+# --- split_llms_full_txt ---
+
+
+def test_split_llms_full_txt_produces_one_page_per_source_boundary() -> None:
+    pages = split_llms_full_txt(_SAMPLE_LLMS_FULL_TXT)
+    assert len(pages) == 3
+
+
+def test_split_llms_full_txt_extracts_correct_urls() -> None:
+    pages = split_llms_full_txt(_SAMPLE_LLMS_FULL_TXT)
+    urls = [p.url for p in pages]
+    assert urls[0] == "https://docs.example.com/intro.md"
+    assert urls[1] == "https://docs.example.com/api.md"
+    assert urls[2] == "https://docs.example.com/guide.md"
+
+
+def test_split_llms_full_txt_content_contains_heading() -> None:
+    pages = split_llms_full_txt(_SAMPLE_LLMS_FULL_TXT)
+    assert "# Introduction" in pages[0].content
+    assert "# API Reference" in pages[1].content
+
+
+def test_split_llms_full_txt_content_does_not_include_source_lines() -> None:
+    pages = split_llms_full_txt(_SAMPLE_LLMS_FULL_TXT)
+    for page in pages:
+        assert "Source:" not in page.content
+
+
+def test_split_llms_full_txt_skips_empty_sections() -> None:
+    text = "Source: https://example.com/empty.md\n\nSource: https://example.com/real.md\n# Title\n\nContent.\n"
+    pages = split_llms_full_txt(text)
+    assert len(pages) == 1
+    assert pages[0].url == "https://example.com/real.md"
+
+
+def test_split_llms_full_txt_strips_mdx_from_content() -> None:
+    text = (
+        "Source: https://example.com/page.md\n"
+        "import Foo from 'bar'\n"
+        "# Title\n"
+        "<Note>Keep this text.</Note>\n"
+    )
+    pages = split_llms_full_txt(text)
+    assert len(pages) == 1
+    assert "import Foo" not in pages[0].content
+    assert "Keep this text." in pages[0].content
+
+
+def test_split_llms_full_txt_returns_llms_full_page_instances() -> None:
+    pages = split_llms_full_txt(_SAMPLE_LLMS_FULL_TXT)
+    assert all(isinstance(p, LlmsFullPage) for p in pages)
+
+
+def test_split_llms_full_txt_no_source_boundaries_returns_empty() -> None:
+    text = "# Title\n\nSome content without Source: lines.\n"
+    pages = split_llms_full_txt(text)
+    assert pages == []
+
+
+# --- fetch_llms_full_pages ---
+
+
+def test_fetch_llms_full_pages_calls_fetch_text_and_splits() -> None:
+    with patch("synd.builder.llms_full.fetch_text", return_value=_SAMPLE_LLMS_FULL_TXT):
+        pages = fetch_llms_full_pages("https://docs.example.com/llms-full.txt")
+    assert len(pages) == 3
+    assert pages[0].url == "https://docs.example.com/intro.md"
+
+
+def test_fetch_llms_full_pages_raises_fetch_error_on_failure() -> None:
+    with patch(
+        "synd.builder.llms_full.fetch_text",
+        side_effect=FetchError("HTTP 404 fetching llms-full.txt"),
+    ):
+        with pytest.raises(FetchError, match="HTTP 404"):
+            fetch_llms_full_pages("https://docs.example.com/llms-full.txt")
+
+
+# --- fetch_pages ---
+
+
 def test_fetch_pages_calls_fetch_page_for_each_entry() -> None:
     index_text = (
         "- [A](https://docs.example.com/a.md)\n- [B](https://docs.example.com/b.md)\n"
     )
 
-    def _fake_fetch(url: str, *, rate_limit_sleep: float = 0.0) -> str:
-        if url == "https://docs.example.com/index.txt":
-            return index_text
-        return f"# Content from {url}"
-
-    with patch("synd.builder.llms_full.fetch_page", side_effect=_fake_fetch):
+    with (
+        patch("synd.builder.llms_full.fetch_text", return_value=index_text),
+        patch(
+            "synd.builder.llms_full.fetch_page",
+            side_effect=lambda url, **kw: f"# Content from {url}",
+        ),
+    ):
         results = fetch_pages(
             "https://docs.example.com/index.txt", rate_limit_sleep=0.0
         )
@@ -89,14 +198,15 @@ def test_fetch_pages_skips_failed_pages() -> None:
         "- [Bad](https://docs.example.com/bad.md)\n"
     )
 
-    def _fake_fetch(url: str, *, rate_limit_sleep: float = 0.0) -> str:
-        if url == "https://docs.example.com/index.txt":
-            return index_text
+    def _fake_page(url: str, *, rate_limit_sleep: float = 0.0) -> str:
         if "bad" in url:
             raise FetchError("HTTP 404 fetching bad.md")
         return "# Good content"
 
-    with patch("synd.builder.llms_full.fetch_page", side_effect=_fake_fetch):
+    with (
+        patch("synd.builder.llms_full.fetch_text", return_value=index_text),
+        patch("synd.builder.llms_full.fetch_page", side_effect=_fake_page),
+    ):
         results = fetch_pages(
             "https://docs.example.com/index.txt", rate_limit_sleep=0.0
         )
@@ -107,7 +217,7 @@ def test_fetch_pages_skips_failed_pages() -> None:
 
 def test_fetch_pages_raises_fetch_error_when_index_fails() -> None:
     with patch(
-        "synd.builder.llms_full.fetch_page",
+        "synd.builder.llms_full.fetch_text",
         side_effect=FetchError("HTTP 404 fetching index"),
     ):
         with pytest.raises(FetchError, match="HTTP 404"):

@@ -5,16 +5,24 @@ import json
 import os
 import zipfile
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
-from synd.builder.chunking import RawChunk, chunk_file, discover_files, generate_summary
+from synd.builder.chunking import (
+    RawChunk,
+    chunk_content,
+    chunk_file,
+    discover_files,
+    generate_summary,
+)
+from synd.builder.llms_full import LlmsFullPage, fetch_llms_full_pages, fetch_pages
 from synd.builder.manifest import (
     build_manifest,
     compute_normalized_content_hash,
     compute_pack_digest,
 )
 from synd.builder.normalizer import normalize
-from synd.errors import BuildError
+from synd.errors import BuildError, FetchError
 from synd.storage.models import Page
 
 
@@ -81,23 +89,144 @@ def build_pack(
             chunk.source_url = file_source_url
             raw_chunks.append(chunk)
 
-    # Assign sequential IDs to raw_chunks (already in lexicographic file order)
+    output.mkdir(parents=True, exist_ok=True)
+    pack_path = output / f"{package}@{version}.ctx"
+
+    return _finalize_pack(
+        raw_chunks=raw_chunks,
+        pages=pages,
+        pack_path=pack_path,
+        package=package,
+        version=version,
+        source_url=source_url,
+        lifecycle=lifecycle,
+        doc_version_status=doc_version_status,
+        owner=owner,
+        policy_profile=policy_profile,
+        source_commit=source_commit,
+    )
+
+
+def build_pack_from_url(
+    package: str,
+    version: str,
+    source_url: str,
+    output: Path,
+    lifecycle: str = "draft",
+    doc_version_status: str = "stable",
+    owner: str | None = None,
+    policy_profile: str | None = None,
+    source_commit: str | None = None,
+    rate_limit_sleep: float = 0.5,
+) -> Path:
+    """Build a .ctx pack from a URL source (llms-full.txt or llms.txt).
+
+    source_url must be an HTTP/HTTPS URL ending in 'llms-full.txt' or 'llms.txt'.
+    Returns the path to the created .ctx file.
+    Raises BuildError if the URL type is unrecognised, the fetch fails, or
+    no pages are returned.
+    """
+    if source_url.endswith("llms-full.txt"):
+        try:
+            llms_pages: list[LlmsFullPage] = fetch_llms_full_pages(source_url)
+        except FetchError as exc:
+            raise BuildError(f"Failed to fetch {source_url}: {exc}") from exc
+        page_pairs = [(p.url, p.content) for p in llms_pages]
+    elif source_url.endswith("llms.txt"):
+        try:
+            page_pairs = fetch_pages(source_url, rate_limit_sleep=rate_limit_sleep)
+        except FetchError as exc:
+            raise BuildError(f"Failed to fetch {source_url}: {exc}") from exc
+    else:
+        raise BuildError(
+            f"Unsupported URL source: {source_url!r}. "
+            "Expected a URL ending in 'llms-full.txt' or 'llms.txt'."
+        )
+
+    if not page_pairs:
+        raise BuildError(f"No pages found at {source_url}")
+
+    raw_chunks: list[RawChunk] = []
+    pages: list[Page] = []
+
+    for page_id, (page_url, content) in enumerate(page_pairs, start=1):
+        label = _url_path_label(page_url)
+        normalized_content = normalize(content)
+        content_hash = (
+            "sha256:" + hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+        )
+        title = _extract_title(content) or label
+
+        pages.append(
+            Page(
+                id=page_id,
+                package=package,
+                version=version,
+                url=page_url,
+                title=title,
+                content_hash=content_hash,
+            )
+        )
+
+        page_chunks = chunk_content(
+            content,
+            heading_prefix=label,
+            source_url=page_url,
+            page_id=page_id,
+        )
+        raw_chunks.extend(page_chunks)
+
+    if not raw_chunks:
+        raise BuildError(f"No chunks produced from pages at {source_url}")
+
+    output.mkdir(parents=True, exist_ok=True)
+    pack_path = output / f"{package}@{version}.ctx"
+
+    return _finalize_pack(
+        raw_chunks=raw_chunks,
+        pages=pages,
+        pack_path=pack_path,
+        package=package,
+        version=version,
+        source_url=source_url,
+        lifecycle=lifecycle,
+        doc_version_status=doc_version_status,
+        owner=owner,
+        policy_profile=policy_profile,
+        source_commit=source_commit,
+    )
+
+
+def _finalize_pack(
+    raw_chunks: list[RawChunk],
+    pages: list[Page],
+    pack_path: Path,
+    package: str,
+    version: str,
+    source_url: str,
+    lifecycle: str = "draft",
+    doc_version_status: str = "stable",
+    owner: str | None = None,
+    policy_profile: str | None = None,
+    source_commit: str | None = None,
+) -> Path:
+    """Assign IDs, compute hashes, generate summaries, write .ctx archive.
+
+    Shared by build_pack() (directory sources) and build_pack_from_url()
+    (URL sources). Returns pack_path.
+    """
     for i, rc in enumerate(raw_chunks, start=1):
         rc.id = i
 
-    # Compute hashes
     normalized_content_hash = compute_normalized_content_hash(raw_chunks, normalize)
 
-    # Token counts on raw chunks
     for rc in raw_chunks:
         rc.token_count = len(rc.content) // 4
 
-    # Generate summaries for chunks without one yet
     for rc in raw_chunks:
-        if not hasattr(rc, "summary") or not rc.summary:
+        if not rc.summary:
             rc.summary = generate_summary(rc.content)
 
-    # Build manifest
     manifest = build_manifest(
         package=package,
         version=version,
@@ -112,32 +241,32 @@ def build_pack(
         source_commit=source_commit,
     )
 
-    # Create output directory if needed
-    output.mkdir(parents=True, exist_ok=True)
-
-    # Build archive with zeroed pack_digest
-    pack_filename = f"{package}@{version}.ctx"
-    pack_path = output / pack_filename
-
-    # Write the zip with empty pack_digest, then compute and rewrite
+    # Write with zeroed digest, compute real digest, rewrite.
     _write_archive(
-        path=pack_path,
-        manifest=manifest,
-        raw_chunks=raw_chunks,
-        pages=pages,
+        path=pack_path, manifest=manifest, raw_chunks=raw_chunks, pages=pages
     )
-
-    # Compute real pack_digest and rewrite manifest
     real_digest = compute_pack_digest(pack_path)
     manifest["pack_digest"] = real_digest
     _write_archive(
-        path=pack_path,
-        manifest=manifest,
-        raw_chunks=raw_chunks,
-        pages=pages,
+        path=pack_path, manifest=manifest, raw_chunks=raw_chunks, pages=pages
     )
 
     return pack_path
+
+
+def _url_path_label(url: str) -> str:
+    """Extract a path-relative label from a page URL for use in heading_path.
+
+    'https://docs.example.com/api/auth.md' → 'api/auth'
+    'https://docs.example.com/guide'       → 'guide'
+    Falls back to the full URL string when the path component is empty.
+    """
+    path = urlparse(url).path.lstrip("/")
+    if not path:
+        return url
+    p = PurePosixPath(path)
+    label = str(p.with_suffix("")) if p.suffix else path
+    return label or url
 
 
 def _write_archive(
