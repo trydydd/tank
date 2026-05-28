@@ -60,7 +60,7 @@ The builder uses a custom token-walker built on `markdown-it-py` to split docume
 - Every heading (`#` through `######`) starts a new chunk.
 - Fenced code blocks are atomic — never split mid-fence.
 - `heading_path` is built by construction as an ancestor stack while walking the token stream.
-- When a section exceeds `max_chunk_tokens` (default 500 tokens), the chunker splits at the next paragraph boundary.
+- When a section exceeds `max_chunk_tokens` (default 800 tokens), the chunker splits at the next paragraph boundary.
 
 **Heading path construction**: the relative file path (minus extension) is used as a prefix, followed by the full heading ancestry. The `--source` directory name is stripped from the prefix to avoid redundancy.
 
