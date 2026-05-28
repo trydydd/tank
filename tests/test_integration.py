@@ -720,3 +720,17 @@ def test_fastmcp_full_pipeline(tmp_path: Path, runner: CliRunner) -> None:
     assert result.exit_code == 0, result.output
     assert "fastmcp" in result.output
     assert "No results found" not in result.output
+
+    # --- remove ---
+    result = _cli_in_cwd(runner, ["remove", "fastmcp@3.3.0"], tmp_path)
+    assert result.exit_code == 0, result.output
+    assert "removed" in result.output.lower()
+
+    # confirm pack is gone from the index
+    result = _cli_in_cwd(
+        runner,
+        ["query", "tool", "--package", "fastmcp", "--limit", "1"],
+        tmp_path,
+    )
+    assert result.exit_code == 0, result.output
+    assert "No results found" in result.output
