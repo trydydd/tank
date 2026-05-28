@@ -377,3 +377,55 @@ spikes:
       - src/tank/builder/build.py
       - docs/decisions.md
     blocked_by: [S6]
+
+  - id: S9
+    title: Chunk size gate — warning threshold and oversized chunk handling
+    status: open
+    context: |
+      The paragraph overflow split in the custom chunker fires when accumulated
+      content exceeds max_chunk_tokens (default 500 tokens, ~2000 chars). However
+      some content structures bypass this check entirely:
+      - Changelog pages formatted as indented code blocks (4-space indent) produce
+        a single `code_block` token instead of `paragraph_open`/`paragraph_close`
+        pairs, so the overflow guard never fires. The fastmcp `updates` page is a
+        confirmed example: 5,707 tokens in one chunk.
+      - Very long fenced code blocks are always kept atomic by design (fence
+        atomicity invariant). A single fence could exceed max_chunk_tokens with
+        no split.
+      - Tables (single `table` token in markdown-it-py) have the same problem as
+        code_block — no paragraph boundary to split at.
+      These oversized chunks degrade BM25 ranking because they contain many
+      unrelated terms, elevating on nearly every query (noise).
+      A size gate — either a build-time warning or an automatic split — is needed
+      to surface or mitigate the issue. The URL noise filter (S8/feature/chunker)
+      addresses the changelog page problem upstream, but the underlying issue
+      remains for any content that legitimately exceeds 500 tokens.
+    task: |
+      Research and recommend a strategy for chunks that exceed a size threshold
+      after the heading-based and paragraph-overflow splits:
+      1. Thresholds: what is the right warning threshold (e.g. 1000 tokens)?
+         What is the right hard cap (if any) before a chunk is split regardless
+         of structure? Should these be configurable CLI params?
+      2. Warning vs. split: should `synd build` emit a warning and continue, or
+         should it attempt a fallback split (e.g. split at blank lines regardless
+         of paragraph token type, or split mid-code-block at line boundaries)?
+         Consider the user experience: a silent 5000-token chunk is worse than a
+         noisy split mid-fence.
+      3. Fence atomicity trade-off: the current invariant is "never split a fence."
+         Is there a safe way to split very long fences (e.g. at top-level function
+         boundaries in code) while preserving the atomicity guarantee for short ones?
+         Or should fence atomicity always hold and only warnings be emitted?
+      4. Metrics: what build output would help pack authors diagnose oversized chunks?
+         E.g. "3 chunks exceed 1000 tokens — run `synd inspect` to review."
+      Validate the recommendation against the fastmcp `updates` page (5,707 tokens)
+      and at least one legitimate long code example (expected: warning only, no split).
+    success: |
+      A recommended strategy (warn vs. split vs. both) with threshold values and
+      rationale. A code sketch of the detection logic in chunking.py. A recommendation
+      on whether fence atomicity should ever be broken. Enough detail to implement
+      without further research.
+    files:
+      - src/synd/builder/chunking.py
+      - src/synd/cli/build.py
+      - docs/decisions.md
+    blocked_by: []

@@ -89,7 +89,9 @@ def chunk_content(
             heading_level = int(token.tag[1])  # "h1"->1, "h2"->2, …
             inline_token = tokens[i + 1]
             heading_text = inline_token.content
-            assert token.map is not None  # heading_open tokens always carry a source map
+            assert (
+                token.map is not None
+            )  # heading_open tokens always carry a source map
             heading_line = token.map[0]  # 0-indexed line number
 
             # Emit content accumulated before this heading

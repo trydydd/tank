@@ -9,6 +9,7 @@ import click
 from rich.console import Console
 
 from synd.builder.build import build_pack, build_pack_from_url
+from synd.builder.url_filter import DEFAULT_NOISE_URL_PATTERNS
 from synd.errors import BuildError, SyndError
 
 console = Console()
@@ -59,6 +60,22 @@ def _parse_package_spec(spec: str) -> tuple[str, str]:
 )
 @click.option("--owner", default=None, help="Owner/team name")
 @click.option("--policy-profile", default=None, help="Policy profile name")
+@click.option(
+    "--exclude-url-pattern",
+    multiple=True,
+    metavar="PATTERN",
+    help=(
+        "Additional URL path segment to exclude (e.g. 'changelog'). "
+        "Can be repeated. Appended to the built-in noise list. "
+        "URL builds only."
+    ),
+)
+@click.option(
+    "--no-url-filter",
+    is_flag=True,
+    default=False,
+    help="Disable all URL noise filtering. URL builds only.",
+)
 def build(
     package_spec: str,
     source: str,
@@ -67,6 +84,8 @@ def build(
     doc_version_status: str,
     owner: str | None,
     policy_profile: str | None,
+    exclude_url_pattern: tuple[str, ...],
+    no_url_filter: bool,
 ) -> None:
     """Build a documentation pack from source files or a URL.
 
@@ -74,6 +93,10 @@ def build(
 
     --source accepts a local directory or a URL ending in llms-full.txt
     or llms.txt (e.g. https://docs.example.com/llms-full.txt).
+
+    URL builds filter out noise pages (changelogs, release notes, etc.) by
+    default. Use --exclude-url-pattern to add extra patterns or --no-url-filter
+    to disable filtering entirely.
     """
     try:
         pkg, ver = _parse_package_spec(package_spec)
@@ -82,6 +105,11 @@ def build(
         sys.exit(1)
 
     output_dir = Path(output)
+
+    if no_url_filter:
+        url_patterns: tuple[str, ...] = ()
+    else:
+        url_patterns = DEFAULT_NOISE_URL_PATTERNS + tuple(exclude_url_pattern)
 
     try:
         if source.startswith(("http://", "https://")):
@@ -95,6 +123,7 @@ def build(
                 doc_version_status=doc_version_status,
                 owner=owner,
                 policy_profile=policy_profile,
+                excluded_url_patterns=url_patterns,
             )
         else:
             source_path = Path(source)
