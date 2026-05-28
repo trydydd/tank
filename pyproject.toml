@@ -11,6 +11,7 @@ dependencies = [
     "rich",
     "chunkana>=0.1",
     "jsonschema>=4.0",
+    "markdownify>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -18,7 +19,7 @@ dev = [
     "pytest",
     "mypy",
     "types-jsonschema",
-    "ruff==0.15.8",
+    "ruff",
     "bump-my-version",
 ]
 serve = [

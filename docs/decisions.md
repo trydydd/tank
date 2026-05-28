@@ -330,3 +330,27 @@ No individual user touches all 8. Consumer persona needs ~4 in normal use (`sync
 - **Drop `synd verify` from the top-level**: too useful for CI pipelines ("verify this .ctx before importing"). Kept as standalone; it is also already implicit in `add` and `sync`.
 
 **Revisit when**: Phase 3 static registry lands and `tank.toml` is introduced — at that point `synd add <pkg@range>` becomes the primary declaration verb and `synd sync` becomes the "ensure lockfile is satisfied" executor, matching the Cargo model exactly.
+
+---
+
+## D20: HTML-to-Markdown Conversion — markdownify + BeautifulSoup4
+
+**Decision**: use `markdownify` (MIT) with `BeautifulSoup4` (MIT) for converting rendered HTML documentation pages to markdown for the chunker. Added to the `[serve]` optional extra in `pyproject.toml`.
+
+**Pipeline** (implemented in `src/synd/builder/fetch.py`):
+1. Parse with `BeautifulSoup(html, "html.parser")`
+2. Decompose boilerplate elements: `nav`, `header`, `footer`, `aside`, `script`, `style`, `noscript`
+3. Extract main content: `<main>`, `role="main"`, or `<article>` — fall back to `<body>` if none found
+4. Convert with `markdownify.markdownify(target, heading_style="ATX")`
+5. Strip pilcrow anchor links (`¶`) left by ReadTheDocs/Sphinx heading anchors
+6. Collapse runs of blank lines
+
+**Alternatives evaluated** against `requests.readthedocs.io/en/latest/user/quickstart/`:
+
+- **trafilatura (Apache 2.0)**: good content extraction but inline code spans get fragmented — backtick-enclosed text broken by newlines in output, corrupting prose for FTS and chunking. Rejected.
+- **html2text (MIT)**: zero dependencies, but outputs indented (4-space) code blocks rather than fenced ` ``` ` blocks. Incompatible with the chunker's fence detection in `normalizer.py`. Rejected.
+- **scripts/llms_full_to_markdown.py (stdlib only)**: handles MDX source (Mintlify `.md` endpoints, `llms-full.txt`) via `strip_mdx()` + `MarkdownExtractor`. Not suitable for rendered browser HTML — no content extraction, nav bleeds through as plain text. Kept in `scripts/` as reference; `strip_mdx()` and `_extract_code_fences()` are candidates for promotion to `src/synd/builder/mdx.py` in S8.
+
+**BeautifulSoup4 is already a `markdownify` transitive dependency** — no additional install cost. `markdownify` is a core dependency (not `[serve]`) because URL fetch is a `synd build` feature, not an MCP server feature.
+
+**Revisit when**: S8 implementation encounters a site type where the BeautifulSoup content-element selector (`<main>`, `<article>`, `role="main"`) produces poor results. Add site-specific selector logic to `html_to_markdown()` at that point.
