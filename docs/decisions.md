@@ -381,6 +381,35 @@ No individual user touches all 8. Consumer persona needs ~4 in normal use (`sync
 
 ---
 
+## D23: Minimum-Token Stub Elimination — Internal Chunker Guard
+
+**Decision**: eliminate stub chunks (heading-only content, typically < 10 tokens) by suppressing the emit inside `chunk_content()` when a heading boundary would produce below-threshold content, rather than running a separate post-chunking merge pass.
+
+**The problem**: a heading immediately followed by another heading (no prose between them) produces a stub chunk whose content is just the heading markdown line. These stubs:
+- Contribute nothing to BM25 that `heading_path` doesn't already carry.
+- Inflate result counts with near-zero-information entries.
+- Cannot be surfaced usefully by `fetch` — the content is the heading.
+
+The MCP pack had 249 such stubs across 2,089 chunks.
+
+**Mechanism**: when `heading_open` is encountered, the would-be chunk content (`source_lines[chunk_start_line:heading_line]`) is evaluated against `min_chunk_tokens`. If it is below the threshold, `_emit()` is not called and `chunk_start_line` is not advanced. The `ancestor_stack` is still updated so the heading becomes part of the ancestry. At the next emit, `chunk_start_line` still points to the stub's heading line, so its content is prepended to the absorbing section's content naturally.
+
+**Why internal rather than post-process**: the stub never exists as an intermediate object. The chunker makes the merge decision at the same point it decides where to split — heading boundary detection — which is the semantically correct place. A post-processing pass would need to re-evaluate content that the chunker already visited, and it would require all callers to know to run the pass.
+
+**`heading_path` after absorption**: the absorbing section's (deeper) heading path is used. The stub's heading text appears in the merged chunk's content, so BM25 sees it via content scoring. The ancestor node is also present in the absorbing chunk's `heading_path` as an ancestry entry, so the 2.5× heading weight is preserved.
+
+**Threshold**: `_DEFAULT_MIN_CHUNK_TOKENS = 20`. Pure stubs are almost always < 10 tokens; legitimate one-sentence intros before a code block are 15–30 tokens. 20 absorbs all stubs without risk of merging real introductory content. Configurable via `min_chunk_tokens` parameter on `chunk_content()`.
+
+**Disabling**: pass `min_chunk_tokens=0` to get the original behaviour (all chunks emitted including stubs).
+
+**Alternatives considered**:
+- **Post-chunking merge pass (S10 original proposal)**: separate `merge_stubs()` function applied after `chunk_content()` returns. Rejected because: the merge decision belongs at the split point; it adds an external pass that callers must invoke; stubs exist as intermediate `RawChunk` objects even if briefly.
+- **Merge backward (absorb into previous chunk)**: when a stub is the last chunk on a page, there is no forward absorber. Backward merging produces worse chunks — the previous section's summary gains the stub heading out of context. Forward absorption with natural carry-forward avoids this entirely for all but the all-stubs-on-page edge case, which is handled by the final `_emit(len(source_lines))`.
+
+**Revisit when**: evidence shows that legitimate short introductory sections (e.g. a 3-sentence overview before a subsection) are being absorbed when they shouldn't be. Lowering `_DEFAULT_MIN_CHUNK_TOKENS` to 10 or making it configurable via CLI are both straightforward changes.
+
+---
+
 ## D22: Tab Heading Disambiguation — Title Injection + Heading Depth Shift
 
 **Decision**: when `unwrap_jsx_blocks()` processes a `<Tab title="...">` element, inject the `title` attribute as an ATX heading one level above the shallowest heading in the Tab body, and shift all body headings one level deeper (capped at H6). Tags other than `<Tab>` (i.e. `<Tabs>`, `<Note>`, `<Warning>`, `<Frame>`, etc.) are unaffected — they still receive plain `textwrap.dedent`.

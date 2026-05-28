@@ -380,7 +380,16 @@ spikes:
 
   - id: S10
     title: Minimum-token merge — absorb stub chunks into neighbours
-    status: open
+    status: done
+    outcome: |
+      Implemented as an internal chunker guard in chunk_content() rather than a
+      post-processing pass. When a heading boundary would produce content below
+      min_chunk_tokens (default 20), the emit is skipped and chunk_start_line is
+      not advanced — the stub content carries forward and is absorbed by the next
+      section at its next emit. heading_path reflects the absorbing (deeper)
+      section; stub heading text appears in merged content for BM25 scoring.
+      Threshold: 20 tokens (stubs <10t, legit short intros 15-30t). Disableable
+      via min_chunk_tokens=0. See D23 in decisions.md.
     context: |
       The MCP pack analysis (feature/chunker) found 249 stub chunks (<10 tokens)
       across 2,089 total chunks. These arise when a heading in the source is

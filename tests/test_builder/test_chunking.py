@@ -10,6 +10,16 @@ from synd.builder.chunking import (
     generate_summary,
 )
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _chunk(heading_path: str, content: str, page_id: int = 1) -> RawChunk:
+    return RawChunk(
+        heading_path=heading_path, content=content, source_url="x.md", page_id=page_id
+    )
+
 
 def _fixture_path(name: str = "sample_docs") -> Path:
     return Path(__file__).parent.parent / "fixtures" / name
@@ -318,3 +328,91 @@ class TestGenerateSummary:
         result = generate_summary(content, heading_path=heading_path)
         assert result.startswith(f"{expected_prefix}:")
         assert result.count("/") == 0  # full path should not appear in summary
+
+
+class TestMinTokenMerge:
+    """Heading-only stubs are absorbed into the next section inside chunk_content."""
+
+    def test_heading_only_stub_absorbed_into_next(self) -> None:
+        # ## A has no prose — stub should be absorbed forward into ## A / B
+        content = "## A\n\n### B\n\nReal content for B.\n"
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        assert len(chunks) == 1
+        assert chunks[0].heading_path == "doc / A / B"
+
+    def test_stub_heading_text_present_in_merged_content(self) -> None:
+        content = (
+            "## Authorization\n\n### Introduction\n\nOAuth2 requires a client ID.\n"
+        )
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        assert len(chunks) == 1
+        assert "## Authorization" in chunks[0].content
+
+    def test_merged_chunk_heading_path_is_deeper_heading(self) -> None:
+        content = (
+            "## Authorization\n\n### Introduction\n\nOAuth2 requires a client ID.\n"
+        )
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        assert chunks[0].heading_path == "doc / Authorization / Introduction"
+
+    def test_consecutive_stubs_all_absorbed(self) -> None:
+        # Three heading-only sections; all absorbed into the final real section
+        content = "## A\n\n## B\n\n## C\n\nActual content here.\n"
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        assert len(chunks) == 1
+        assert chunks[0].heading_path == "doc / C"
+        assert "## A" in chunks[0].content
+        assert "## B" in chunks[0].content
+
+    def test_non_stub_section_emitted_normally(self) -> None:
+        # Section with enough prose stays as its own chunk
+        prose = "word " * 30  # ~120 chars = 30 tokens
+        content = f"## Section\n\n{prose}\n\n## Next\n\nMore content.\n"
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        assert len(chunks) == 2
+        assert any("Section" in c.heading_path for c in chunks)
+        assert any("Next" in c.heading_path for c in chunks)
+
+    def test_preamble_stub_absorbed_into_first_section(self) -> None:
+        # Short preamble before any heading — below threshold, folds into first section
+        content = "Tiny intro.\n\n## Section\n\nSection content here.\n"
+        # "Tiny intro." = 3 tokens → below 20 → absorbed into ## Section chunk
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        assert len(chunks) == 1
+        assert "Section" in chunks[0].heading_path
+        assert "Tiny intro." in chunks[0].content
+
+    def test_all_stubs_page_emits_one_chunk(self) -> None:
+        # Page consisting entirely of heading-only lines — must not produce empty result
+        content = "# A\n\n## B\n\n### C\n\n#### D\n"
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        assert len(chunks) == 1
+        assert chunks[0].content  # not empty
+
+    def test_min_chunk_tokens_zero_disables_merge(self) -> None:
+        # min_chunk_tokens=0 means every non-empty chunk is emitted, including stubs
+        content = "## A\n\n### B\n\nContent.\n"
+        chunks = chunk_content(
+            content,
+            heading_prefix="doc",
+            source_url="doc.md",
+            page_id=1,
+            min_chunk_tokens=0,
+        )
+        assert len(chunks) == 2
+        stub = next(c for c in chunks if c.heading_path == "doc / A")
+        assert stub.content.strip() == "## A"

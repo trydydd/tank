@@ -72,6 +72,10 @@ python3.12 -m venv .venv
 - SQLite WAL mode enabled on database creation. Busy timeout set to 5000ms.
 - HTML handling: for MVP, `.html` files are converted to text via basic tag removal. Boilerplate stripping (nav, footer, breadcrumbs) is deferred to Phase 2 when the crawler lands. Markdown files are the primary supported format.
 
+## Pull Requests
+
+- Never include Claude session links (e.g. `https://claude.ai/code/session_...`) in PR titles, bodies, or any other artifact pushed to the repository.
+
 ## Known Gotchas
 
 - **Alpine Linux / PEP 668**: `pip install` fails with "externally-managed-environment" unless `--break-system-packages` is passed or a virtualenv is used. Affects any executor in a PEP 668 environment.
