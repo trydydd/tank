@@ -23,6 +23,7 @@ dev = [
 ]
 serve = [
     "mcp",
+    "markdownify>=1.0",
 ]
 all = [
     "synaptic-drift[dev,serve]",

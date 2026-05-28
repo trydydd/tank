@@ -158,7 +158,26 @@ spikes:
 
   - id: S6
     title: HTML-to-markdown library selection for URL fetch
-    status: open
+    status: done
+    outcome: |
+      Selected markdownify (MIT, v1.2.2+) with BeautifulSoup4 for HTML→markdown
+      conversion. Pipeline: decompose boilerplate tags (nav, header, footer, aside,
+      script, style) then extract <main>/<article>/role="main" content, convert with
+      markdownify(heading_style="ATX"), strip pilcrow anchor links (¶), collapse
+      blank lines. BeautifulSoup4 is already a markdownify dependency — no additional
+      transitive dep cost. Implemented in src/synd/builder/fetch.py as html_to_markdown().
+      Added markdownify>=1.0 to pyproject.toml [serve] optional extra.
+
+      Evaluated against ReadTheDocs (requests.readthedocs.io/en/latest/user/quickstart/):
+      - markdownify: clean fenced code, pipe tables, no nav bleed — winner
+      - trafilatura: inline code fragmentation (backtick spans broken by newlines) — rejected
+      - html2text: indented (4-space) code blocks, incompatible with chunker fence detection — rejected
+
+      The existing scripts/llms_full_to_markdown.py handles the MDX/Mintlify path
+      (strip_mdx + MarkdownExtractor). That pipeline is stdlib-only and targets
+      llms-full.txt or .md endpoint content — a different input type than rendered HTML.
+      It is kept as reference; its strip_mdx() and _extract_code_fences() functions are
+      candidates for promotion to src/synd/builder/mdx.py in S8.
     context: |
       tank build --source <url>/llms-full.txt (v0.2.0) needs to fetch HTML doc pages
       and convert them to clean text for chunking. This must work without an LLM —
