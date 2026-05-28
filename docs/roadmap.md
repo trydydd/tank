@@ -87,7 +87,7 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
   - Modify `src/synd/builder/chunking.py` and `src/synd/cli/build.py`
 - [ ] **Minimum-token merge** — post-chunking pass that absorbs stub chunks (heading-only, <20 tokens) into their neighbours. The MCP pack has 280 stubs from headings immediately followed by another heading. See [S10](docs/spikes.yaml).
   - Modify `src/synd/builder/chunking.py`
-- [ ] **Tab heading disambiguation** — chunks produced by expanding Mintlify `<Tabs>` blocks carry identical `heading_path` values across all language tabs. BM25 cannot distinguish "Python / Implementing tool execution" from "TypeScript / Implementing tool execution" because the tab title is discarded during unwrapping.
+- [x] **Tab heading disambiguation** — chunks produced by expanding Mintlify `<Tabs>` blocks carry identical `heading_path` values across all language tabs. BM25 cannot distinguish "Python / Implementing tool execution" from "TypeScript / Implementing tool execution" because the tab title is discarded during unwrapping.
 
   **Reproduction** (requires a built MCP pack):
   ```bash
@@ -134,6 +134,9 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
 
   Modify: `src/synd/builder/mdx.py` (`unwrap_jsx_blocks`); add tests in `tests/test_builder/test_mdx.py` covering single Tab, multi-Tab, and nested Tab > Note.
 
+  - Implemented in `src/synd/builder/mdx.py`: `_unwrap_tab_block()` replaces the inline lambda in `_JSX_UNWRAP_RE.sub()`. Extracts `title` via `_TAB_TITLE_RE`, detects shallowest heading level, shifts all body headings one deeper (capped at H6), injects title as heading at `shallowest - 1` level. No-title falls back to plain dedent. See D22.
+  - Result: `build-server` 45 → 112 unique `heading_path` values (111 chunks); `build-client` 105/105 unique paths (perfect).
+
 ### URL fetch stream — S6 → llms-full.txt → (S8 in parallel) → llms.txt → packs
 
 - [x] **`synd build --source <url>/llms-full.txt`** — fetch a `llms-full.txt` URL, preprocess it into per-page documents, chunk and build a `.ctx` pack.
@@ -151,6 +154,10 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
   - **Mintlify behaviour**: `llms.txt` on Mintlify sites already contains `.md` URLs (no URL manipulation needed). Fetching them returns MDX directly — no HTML-to-markdown conversion required. JSX components (`<Frame>`, `<Note>`, `<Tabs>`, `<Warning>`, etc.) must still be stripped; inner text kept, wrappers discarded. Images inside `<Frame>` are discarded.
   - For non-Mintlify sites (ReadTheDocs, Docusaurus, etc.): HTML fetch → `html_to_markdown()` via markdownify + BeautifulSoup4
   - Use the page URL as `source_url`; derive title from first `#` heading
+- [x] **URL noise filtering** — exclude changelog/release/news pages from `synd build --source <url>` builds. Segment-level path matching avoids false positives (e.g. `/configuration-updates.md`).
+  - `src/synd/builder/url_filter.py`: `DEFAULT_NOISE_URL_PATTERNS`, `is_noise_url()`, `filter_page_urls()`
+  - `build_pack_from_url()` in `build.py` gains `excluded_url_patterns` param (defaults to `DEFAULT_NOISE_URL_PATTERNS`)
+  - CLI: `--exclude-url-pattern` (repeatable, appends to defaults) and `--no-url-filter` (disables all filtering)
 - [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
 
 ### FTS5 tuning — parallel, no blockers
