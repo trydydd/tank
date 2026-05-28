@@ -148,6 +148,52 @@ def test_split_llms_full_txt_no_source_boundaries_returns_empty() -> None:
     assert pages == []
 
 
+def test_split_llms_full_txt_deduplicates_url_with_empty_first_occurrence() -> None:
+    text = (
+        "Source: https://example.com/page.md\n"
+        "\n"
+        "Source: https://example.com/page.md\n"
+        "# Real Content\n\nActual body.\n"
+    )
+    pages = split_llms_full_txt(text)
+    assert len(pages) == 1
+    assert pages[0].url == "https://example.com/page.md"
+    assert "Real Content" in pages[0].content
+
+
+def test_split_llms_full_txt_deduplicates_identical_duplicate_silently(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    text = (
+        "Source: https://example.com/page.md\n"
+        "# Title\n\nSame content.\n"
+        "Source: https://example.com/page.md\n"
+        "# Title\n\nSame content.\n"
+    )
+    import logging
+    with caplog.at_level(logging.WARNING, logger="synd.builder.llms_full"):
+        pages = split_llms_full_txt(text)
+    assert len(pages) == 1
+    assert not caplog.records
+
+
+def test_split_llms_full_txt_warns_on_duplicate_url_with_differing_content(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    text = (
+        "Source: https://example.com/page.md\n"
+        "# First Version\n\nOriginal content.\n"
+        "Source: https://example.com/page.md\n"
+        "# Second Version\n\nDifferent content.\n"
+    )
+    import logging
+    with caplog.at_level(logging.WARNING, logger="synd.builder.llms_full"):
+        pages = split_llms_full_txt(text)
+    assert len(pages) == 1
+    assert "Second Version" in pages[0].content
+    assert any("example.com/page.md" in r.message for r in caplog.records)
+
+
 # --- fetch_llms_full_pages ---
 
 
