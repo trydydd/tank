@@ -1,39 +1,16 @@
 from __future__ import annotations
 
-import logging
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from chunkana import chunk_text as _chunk_text  # type: ignore[import-untyped]
+from markdown_it import MarkdownIt
 
 from synd.builder.normalizer import normalize
 
-
-class _DeduplicateFilter(logging.Filter):
-    """Suppress duplicate log messages from the same logger.
-
-    chunkana's header_processor emits the same warning on every loop
-    iteration when a dangling header cannot be fixed, which produces
-    20 identical lines for a single unfixable chunk. This filter lets
-    the first occurrence through and silently drops repeats.
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._seen: set[str] = set()
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        key = record.getMessage()
-        if key in self._seen:
-            return False
-        self._seen.add(key)
-        return True
-
-
-logging.getLogger("chunkana.header_processor").addFilter(_DeduplicateFilter())
-
+_MD = MarkdownIt()
+_DEFAULT_MAX_CHUNK_TOKENS: int = 500
 _WHITELISTED = {".md", ".html", ".htm"}
 
 
@@ -70,39 +47,93 @@ def chunk_content(
     heading_prefix: str,
     source_url: str,
     page_id: int,
+    max_chunk_tokens: int = _DEFAULT_MAX_CHUNK_TOKENS,
 ) -> list[RawChunk]:
-    """Chunk a text string using chunkana.
+    """Chunk markdown content using a markdown-it-py token walker.
 
-    heading_prefix: the leading component of each chunk's heading_path
-      (e.g. file stem "api/auth" or URL path label "api/auth").
-    source_url: stored verbatim on every chunk (file path or page URL).
+    Splits at all heading levels (#-######). Treats code fences as atomic.
+    Splits oversized sections at paragraph boundaries when content exceeds
+    max_chunk_tokens (measured as len(text) // 4).
     """
-    ana_chunks = _chunk_text(content)
+    tokens = _MD.parse(content)
+    source_lines = content.split("\n")
+
+    # ancestor_stack[0] = heading_prefix (never popped — prefix sentinel)
+    # ancestor_stack[1..] = heading texts from outermost to innermost
+    ancestor_stack: list[str] = [heading_prefix]
+    level_stack: list[int] = [0]  # parallel to ancestor_stack; 0 = prefix sentinel
+
+    chunk_start_line: int = 0
+    current_para_end_line: int = 0
     chunks: list[RawChunk] = []
-    for ana in ana_chunks:
-        section_tags: list[str] = ana.metadata.get("section_tags") or []
-        parts: list[str] = [heading_prefix]
-        if section_tags:
-            parts.append(section_tags[0])
-        heading_path = " / ".join(parts)
-        chunks.append(
-            RawChunk(
-                heading_path=heading_path,
-                content=normalize(ana.content),
-                source_url=source_url,
-                page_id=page_id,
+
+    def _emit(end_line: int) -> None:
+        nonlocal chunk_start_line
+        raw = "\n".join(source_lines[chunk_start_line:end_line]).strip()
+        if raw:
+            chunks.append(
+                RawChunk(
+                    heading_path=" / ".join(ancestor_stack),
+                    content=normalize(raw),
+                    source_url=source_url,
+                    page_id=page_id,
+                )
             )
-        )
+        chunk_start_line = end_line
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+
+        if token.type == "heading_open":
+            heading_level = int(token.tag[1])  # "h1"->1, "h2"->2, …
+            inline_token = tokens[i + 1]
+            heading_text = inline_token.content
+            assert (
+                token.map is not None
+            )  # heading_open tokens always carry a source map
+            heading_line = token.map[0]  # 0-indexed line number
+
+            # Emit content accumulated before this heading
+            _emit(heading_line)
+
+            # Update ancestor stack: pop entries at this level or deeper
+            while len(level_stack) > 1 and level_stack[-1] >= heading_level:
+                ancestor_stack.pop()
+                level_stack.pop()
+            ancestor_stack.append(heading_text)
+            level_stack.append(heading_level)
+
+            # New chunk starts at the heading line (heading is part of chunk content)
+            chunk_start_line = heading_line
+            i += 3  # skip heading_open, inline, heading_close
+            continue
+
+        # Track end of paragraphs for overflow detection
+        if token.type == "paragraph_open" and token.map:
+            current_para_end_line = token.map[1]
+
+        # At paragraph close: split if accumulated content exceeds the token budget
+        if token.type == "paragraph_close":
+            accumulated = "\n".join(
+                source_lines[chunk_start_line:current_para_end_line]
+            )
+            if len(accumulated) // 4 > max_chunk_tokens:
+                _emit(current_para_end_line)
+
+        i += 1
+
+    # Emit the final trailing chunk
+    _emit(len(source_lines))
+
     return chunks
 
 
 def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
-    """Chunk a single documentation file using chunkana.
+    """Chunk a single documentation file.
 
-    heading_path is constructed as: <relative_file_prefix> / <first section_tag>
+    heading_path is constructed as: <relative_file_prefix> / <heading ancestors>
     where relative_file_prefix is the path relative to source, minus extension.
-    section_tags is the chunkana metadata field that holds headers present in
-    the chunk; header_path is always empty and not used.
     """
     relative = Path(os.path.relpath(file_path, source)).as_posix()
     prefix = str(Path(relative).with_suffix(""))  # e.g. "auth/oauth"
@@ -112,29 +143,29 @@ def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
     )
 
 
-def generate_summary(content: str) -> str:
+def generate_summary(content: str, heading_path: str = "") -> str:
     """Generate a one-line summary from chunk content.
 
-    Prose-heavy: first sentence, truncated at 200 chars if needed.
+    If heading_path is provided, prefix the summary with the leaf heading node
+    (S2 heading-aware heuristic). Falls back to first-sentence extraction.
+    Prose-heavy: first prose sentence, truncated at 200 chars.
     Code-heavy (>50% inside fences): first function/class signature.
     """
     lines = content.split("\n")
     in_fence = False
     code_line_count = 0
     prose_lines: list[str] = []
-    first_fence_content: list[str] = []  # content INSIDE the first code block
+    first_fence_content: list[str] = []
     inside_first_fence = False
 
     for line in lines:
         stripped = line.strip()
         if stripped.startswith("```"):
             if not in_fence:
-                # Opening fence — next lines are code block content
                 in_fence = True
                 inside_first_fence = True
                 first_fence_content = []
             else:
-                # Closing fence
                 in_fence = False
                 inside_first_fence = False
             continue
@@ -143,23 +174,44 @@ def generate_summary(content: str) -> str:
             if inside_first_fence:
                 first_fence_content.append(line)
         else:
-            prose_lines.append(line)
+            # Exclude markdown heading lines and list item lines from prose summary
+            if not stripped.startswith("#") and not re.match(
+                r"^[-*+]\s+|^\d+\.\s+", stripped
+            ):
+                prose_lines.append(line)
 
     total = max(len(lines), 1)
     is_code_heavy = (code_line_count / total) > 0.5
 
     if is_code_heavy and first_fence_content:
-        # Look for def/class/function/export inside the first code block
         for fl in first_fence_content:
             s = fl.strip()
             if s.startswith(("def ", "class ", "function ", "export ")):
                 return s
-        # Fall back to first prose sentence
-        return (
+        prose_summary = (
+            _first_sentence(prose_lines) if prose_lines else _heading_fallback(content)
+        )
+    else:
+        prose_summary = (
             _first_sentence(prose_lines) if prose_lines else _heading_fallback(content)
         )
 
-    return _first_sentence(prose_lines) if prose_lines else _heading_fallback(content)
+    # S2: prefix with leaf heading node when available
+    if not heading_path:
+        return prose_summary
+
+    path_parts = heading_path.split(" / ")
+    # path_parts[0] is always the file prefix — only use parts[1:] as heading context
+    heading_parts = path_parts[1:]
+    if not heading_parts:
+        return prose_summary  # preamble chunk: heading_path is just the file prefix
+
+    leaf = heading_parts[-1]
+    if len(leaf) > 60:
+        return leaf
+    if prose_summary.startswith(leaf):
+        return prose_summary  # avoid "Foo: Foo is..." redundancy
+    return f"{leaf}: {prose_summary}"
 
 
 def _first_sentence(parts: list[str]) -> str:

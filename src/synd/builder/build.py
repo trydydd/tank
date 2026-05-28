@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import zipfile
 from collections.abc import Mapping
@@ -16,6 +17,7 @@ from synd.builder.chunking import (
     generate_summary,
 )
 from synd.builder.llms_full import LlmsFullPage, fetch_llms_full_pages, fetch_pages
+from synd.builder.url_filter import DEFAULT_NOISE_URL_PATTERNS, filter_page_urls
 from synd.builder.manifest import (
     build_manifest,
     compute_normalized_content_hash,
@@ -118,6 +120,7 @@ def build_pack_from_url(
     policy_profile: str | None = None,
     source_commit: str | None = None,
     rate_limit_sleep: float = 0.5,
+    excluded_url_patterns: tuple[str, ...] = DEFAULT_NOISE_URL_PATTERNS,
 ) -> Path:
     """Build a .ctx pack from a URL source (llms-full.txt or llms.txt).
 
@@ -145,6 +148,14 @@ def build_pack_from_url(
 
     if not page_pairs:
         raise BuildError(f"No pages found at {source_url}")
+
+    page_pairs, excluded_urls = filter_page_urls(page_pairs, excluded_url_patterns)
+    _logger = logging.getLogger(__name__)
+    for url in excluded_urls:
+        _logger.info("build: excluded noise URL %s", url)
+
+    if not page_pairs:
+        raise BuildError(f"No pages remain after URL filtering at {source_url}")
 
     raw_chunks: list[RawChunk] = []
     pages: list[Page] = []
@@ -225,7 +236,7 @@ def _finalize_pack(
 
     for rc in raw_chunks:
         if not rc.summary:
-            rc.summary = generate_summary(rc.content)
+            rc.summary = generate_summary(rc.content, heading_path=rc.heading_path)
 
     manifest = build_manifest(
         package=package,

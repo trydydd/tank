@@ -55,18 +55,20 @@ Each file becomes exactly one page entry in `pages.json`.
 
 ## 3. Chunking
 
-The builder delegates to `chunkana` for structural chunking. Chunkana splits documents at heading boundaries, preserving:
+The builder uses a custom token-walker built on `markdown-it-py` to split documents at structural boundaries:
 
-- Code blocks (fenced and indented) as atomic units — never split mid-block
-- Tables as atomic units
-- Heading hierarchy as metadata (`heading_path`)
+- Every heading (`#` through `######`) starts a new chunk.
+- Fenced code blocks are atomic — never split mid-fence.
+- `heading_path` is built by construction as an ancestor stack while walking the token stream.
+- When a section exceeds `max_chunk_tokens` (default 500 tokens), the chunker splits at the next paragraph boundary.
 
-**Heading path construction**: the relative file path (minus extension) is used as a prefix, followed by the document's heading hierarchy. The `--source` directory name is stripped from the prefix to avoid redundancy.
+**Heading path construction**: the relative file path (minus extension) is used as a prefix, followed by the full heading ancestry. The `--source` directory name is stripped from the prefix to avoid redundancy.
 
 | Source file | Heading in file | heading_path |
 |---|---|---|
-| `docs/auth/oauth.md` | `# Overview` | `auth/oauth / Overview` |
-| `docs/auth/oauth.md` | `## Client Credentials` | `auth/oauth / Overview / Client Credentials` |
+| `docs/auth/oauth.md` | preamble (no heading) | `auth/oauth` |
+| `docs/auth/oauth.md` | `# OAuth2` | `auth/oauth / OAuth2` |
+| `docs/auth/oauth.md` | `## Client Credentials` (under `# OAuth2`) | `auth/oauth / OAuth2 / Client Credentials` |
 | `docs/getting-started.md` | `# Installation` | `getting-started / Installation` |
 
 The file path prefix ensures that identically-named headings in different files (e.g. every file has `# Overview`) are disambiguated in search results.
@@ -79,9 +81,11 @@ The file path prefix ensures that identically-named headings in different files 
 
 Each chunk receives a one-line summary, generated heuristically at build time.
 
-**For prose-heavy chunks**: extract the first sentence. A sentence boundary is a period, question mark, or exclamation mark followed by whitespace or end-of-string. If the first sentence exceeds 200 characters, truncate at the last word boundary before 200 characters and append `...`.
+**Heading-aware prefix**: the summary is prefixed with the leaf heading node when available. For example, a chunk under `### STDIO Transport (Default)` produces `"STDIO Transport (Default): STDIO is the default transport..."` rather than extracting the first transitional sentence. Preamble chunks (no heading) use first-sentence only. Headings longer than 60 characters are used as the summary on their own.
 
-**For code-heavy chunks** (more than 50% of content is inside code fences): extract the first function or class signature from the leading code block. If no signature is found, fall back to the first sentence of any prose in the chunk. If the chunk is entirely code with no prose, use the `heading_path` as the summary.
+**For prose-heavy chunks**: extract the first prose sentence (heading lines and list items excluded). A sentence boundary is a period, question mark, or exclamation mark followed by whitespace or end-of-string. If the first sentence exceeds 200 characters, truncate at the last word boundary before 200 characters and append `...`.
+
+**For code-heavy chunks** (more than 50% of content is inside code fences): extract the first function or class signature from the leading code block. If no signature is found, fall back to the first sentence of any prose in the chunk.
 
 The summary field is present in the schema and the generation strategy can be upgraded in the future without a format change. No LLM dependency is involved.
 
@@ -105,7 +109,7 @@ The normalization rules are defined in `architecture.md` (Token Efficiency > Con
 Chunk IDs are sequential integers starting at 1, assigned in the order chunks are produced by the pipeline:
 
 1. Files are processed in lexicographic order (from step 1)
-2. Within each file, chunks appear in document order (top to bottom, as produced by chunkana)
+2. Within each file, chunks appear in document order (top to bottom)
 3. Each chunk receives the next available ID
 
 This ordering is deterministic: the same source tree always produces the same chunk ID sequence. The `normalized_content_hash` depends on this ordering (chunks are concatenated in ascending ID order before hashing).

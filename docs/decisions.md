@@ -230,7 +230,7 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 
 **`semchunk` ruled out earlier**: general-purpose recursive delimiter splitter with no markdown heading awareness. Token-counter-driven rather than structure-driven.
 
-**See spike S7** for implementation scope and test approach.
+**Implemented in v0.2.0** (`feature/chunker`). See spike S7 (status: done) for implementation notes. The S2 heading-aware summary heuristic (D13) was implemented in the same pass — `generate_summary()` now accepts `heading_path` and prefixes the summary with the leaf heading node.
 
 ---
 
@@ -378,3 +378,35 @@ No individual user touches all 8. Consumer persona needs ~4 in normal use (`sync
 **`pyproject.toml`**: no change — `urllib.request` is stdlib.
 
 **Revisit when**: the v0.3.0 crawler needs concurrent fetching (add connection pooling / async at that point); or a new site type is encountered where `.md` extension detection misfires (extend routing heuristic or add explicit `Content-Type` check).
+
+---
+
+## D22: Tab Heading Disambiguation — Title Injection + Heading Depth Shift
+
+**Decision**: when `unwrap_jsx_blocks()` processes a `<Tab title="...">` element, inject the `title` attribute as an ATX heading one level above the shallowest heading in the Tab body, and shift all body headings one level deeper (capped at H6). Tags other than `<Tab>` (i.e. `<Tabs>`, `<Note>`, `<Warning>`, `<Frame>`, etc.) are unaffected — they still receive plain `textwrap.dedent`.
+
+**Problem**: Mintlify wraps multi-language tutorials in `<Tabs><Tab title="Python">…</Tab><Tab title="TypeScript">…</Tab></Tabs>`. Before this fix, `unwrap_jsx_blocks` extracted the inner text and discarded the `title` attribute. The downstream chunker received a flat document where all language tabs concatenated their headings without any language label. Every language produced a chunk for `### Implementing tool execution` and all chunks got the same `heading_path`, making BM25 unable to distinguish "Python / Implementing tool execution" from "TypeScript / Implementing tool execution".
+
+**Algorithm**:
+1. Extract `title` from `title="..."` or `title='...'` (via `_TAB_TITLE_RE`). If absent, fall back to plain `textwrap.dedent` — no heading injected.
+2. `textwrap.dedent` the body (strips common leading whitespace from Mintlify's 4-space indented Tab content).
+3. Scan body lines for ATX headings (`#`–`######`); find the minimum `#` count (shallowest level).
+4. Shift every heading one level deeper (`##` → `###`, `#####` → `######`; `######` stays `######`).
+5. Prepend `{'#' * (shallowest - 1)} {title}\n\n` to the shifted body. If no headings exist, prepend `### {title}\n\n`.
+
+**Why depth-shift instead of just prepending?** A plain prepend would put the title at the same level as the first heading inside the tab (`## Python\n\n## Setup\n\n...`). The chunker would immediately pop `Python` from the ancestor stack when it hit `## Setup`, so only the first section would carry the language label in its `heading_path`. Depth-shifting ensures the title stays in scope for the entire tab body.
+
+**Alternative considered**: a plain prepend without shifting. Rejected because it breaks the ancestor-stack invariant: the injected heading is immediately shadowed by the first same-level heading inside the tab.
+
+**Edge cases**:
+- No `title` attribute → plain dedent (backward compat).
+- Body has no headings → inject `### {title}` (default H3).
+- Shallowest heading is H6 → shift is a no-op; inject `##### {title}`.
+- Title contains special markdown characters (e.g. `C#`) → injected literally; no escaping.
+- `<Tabs>` container → plain dedent, no title injection.
+
+**Measured result**: `build-server` page of `mcp@2025-11-25` went from 45 unique `heading_path` values (111 chunks) to 112 unique values. `build-client` achieved 105/105 unique paths.
+
+**Implementation**: `_unwrap_tab_block()` in `src/synd/builder/mdx.py` replaces the inline lambda in `_JSX_UNWRAP_RE.sub()`.
+
+**Revisit when**: a non-Mintlify doc site uses a different multi-tab component name (add to the `_JSX_UNWRAP_RE` tag list and handle in `_unwrap_tab_block` if title injection is appropriate); or heading depth semantics change (unlikely).

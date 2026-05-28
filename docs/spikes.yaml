@@ -42,7 +42,17 @@ spikes:
 
   - id: S2
     title: Heading-aware summary heuristic
-    status: open
+    status: done
+    outcome: |
+      Implemented in v0.2.0 alongside S7 (feature/chunker). generate_summary()
+      now accepts an optional heading_path parameter and prefixes the summary with
+      the leaf heading node: "STDIO Transport (Default): STDIO is the default..."
+      Edge cases implemented: preamble (no heading parts) falls back to
+      first-sentence only; heading over 60 chars returns heading alone; redundant
+      prefix (prose already starts with leaf heading text) is suppressed.
+      Heading lines and list items are excluded from prose extraction so they don't
+      pollute the sentence used as the suffix. No schema changes — summary remains
+      a plain string. 9 new tests in tests/test_builder/test_chunking.py.
     context: |
       generate_summary() picks the first sentence of raw chunk content. Fails when
       a chunk opens with a code block or bridging sentence — the summary describes
@@ -208,7 +218,18 @@ spikes:
 
   - id: S7
     title: Custom markdown chunker implementation (markdown-it-py)
-    status: open
+    status: done
+    outcome: |
+      Implemented in v0.2.0 (feature/chunker). src/synd/builder/chunking.py
+      rewritten as a markdown-it-py token walker. Splits at all heading levels
+      H1-H6; heading_path built by construction via ancestor stack; code fences
+      atomic (fence token is self-contained in markdown-it-py); paragraph overflow
+      splits at next paragraph boundary when section exceeds max_chunk_tokens
+      (default 500). chunkana removed from pyproject.toml; markdown-it-py>=3.0
+      added. _DeduplicateFilter workaround removed. 21 new tests added covering
+      heading ancestry, fence atomicity, overflow, and fastmcp fixture regression
+      (Transport Protocols section now 4 separate ### chunks, no 932-token blob).
+      S2 (heading-aware summary) implemented in the same pass.
     context: |
       chunkana splits only at ## level; all ### subsections stay together. Library
       survey (S1) found no off-the-shelf replacement without heavy dependencies.
@@ -356,3 +377,111 @@ spikes:
       - src/tank/builder/build.py
       - docs/decisions.md
     blocked_by: [S6]
+
+  - id: S10
+    title: Minimum-token merge — absorb stub chunks into neighbours
+    status: open
+    context: |
+      The MCP pack analysis (feature/chunker) found 249 stub chunks (<10 tokens)
+      across 2,089 total chunks. These arise when a heading in the source is
+      immediately followed by another heading (no prose between them) — e.g.:
+        ## Authorization
+        ### Introduction
+      The chunker emits a chunk for "## Authorization" with content = "## Authorization"
+      and token_count = 2–5 tokens. This chunk:
+        - Contributes nothing to BM25 that the heading_path field doesn't already carry.
+        - Inflates result counts in search responses with near-zero-information entries.
+        - Cannot be surfaced usefully by fetch — the content IS the heading.
+      The same pattern produces very small preamble chunks (e.g., a 3-token page
+      intro sentence) that would be better merged with the following section.
+      A min-token threshold (e.g. 20 tokens) with a merge-forward pass would absorb
+      these stubs into the next chunk with the same heading_path ancestry, or
+      failing that into the previous chunk.
+    task: |
+      Design and implement a post-chunking merge pass in chunking.py:
+      1. Threshold: what is the right min_chunk_tokens value? Consider: stub chunks
+         are almost always <10t; legitimate short sections (a one-sentence intro
+         before a code block) are typically 15–30t. Recommend a default and whether
+         it should be a CLI param (--min-chunk-tokens).
+      2. Merge direction: when a stub is found, should it be merged into:
+         a. The NEXT chunk (merge-forward) — preserves heading context but may
+            produce a heading + unrelated intro combo.
+         b. The PREVIOUS chunk (merge-back) — the stub's heading becomes part of
+            the prior section.
+         c. Both, with preference: forward if next chunk shares heading ancestry,
+            otherwise backward.
+         Analyse the MCP stub distribution to determine which direction produces
+         better chunks in practice. Use the charter page (33 stubs) as a test case.
+      3. heading_path after merge: when two chunks are merged, which heading_path
+         wins? Options: keep the parent, keep the child, concatenate. Consider
+         FTS5 impact — heading_path is 2.5× weighted; a merged path that drops
+         a child heading loses search precision.
+      4. Interaction with oversized chunks (S9): a merge pass that runs before the
+         overflow split could push a near-threshold chunk over the limit. Recommend
+         a run order (split first, merge second) and confirm it avoids this.
+      5. Edge cases: a page that consists entirely of stubs (e.g. a pure TOC page);
+         a stub that is the only chunk on a page; two consecutive stubs.
+      Validate against the MCP pack: after the merge pass, stub count (<10t) should
+      drop from 249 to near 0. The charter page (33 stubs, 60 sections) is the
+      primary regression test.
+    success: |
+      A merge algorithm recommendation with direction policy, heading_path handling,
+      and threshold value. A code sketch of the merge pass function. Edge cases
+      covered. Enough detail to implement in chunking.py without further research.
+    files:
+      - src/synd/builder/chunking.py
+      - src/synd/cli/build.py
+      - docs/decisions.md
+    blocked_by: []
+
+  - id: S9
+    title: Chunk size gate — warning threshold and oversized chunk handling
+    status: open
+    context: |
+      The paragraph overflow split in the custom chunker fires when accumulated
+      content exceeds max_chunk_tokens (default 500 tokens, ~2000 chars). However
+      some content structures bypass this check entirely:
+      - Changelog pages formatted as indented code blocks (4-space indent) produce
+        a single `code_block` token instead of `paragraph_open`/`paragraph_close`
+        pairs, so the overflow guard never fires. The fastmcp `updates` page is a
+        confirmed example: 5,707 tokens in one chunk.
+      - Very long fenced code blocks are always kept atomic by design (fence
+        atomicity invariant). A single fence could exceed max_chunk_tokens with
+        no split.
+      - Tables (single `table` token in markdown-it-py) have the same problem as
+        code_block — no paragraph boundary to split at.
+      These oversized chunks degrade BM25 ranking because they contain many
+      unrelated terms, elevating on nearly every query (noise).
+      A size gate — either a build-time warning or an automatic split — is needed
+      to surface or mitigate the issue. The URL noise filter (S8/feature/chunker)
+      addresses the changelog page problem upstream, but the underlying issue
+      remains for any content that legitimately exceeds 500 tokens.
+    task: |
+      Research and recommend a strategy for chunks that exceed a size threshold
+      after the heading-based and paragraph-overflow splits:
+      1. Thresholds: what is the right warning threshold (e.g. 1000 tokens)?
+         What is the right hard cap (if any) before a chunk is split regardless
+         of structure? Should these be configurable CLI params?
+      2. Warning vs. split: should `synd build` emit a warning and continue, or
+         should it attempt a fallback split (e.g. split at blank lines regardless
+         of paragraph token type, or split mid-code-block at line boundaries)?
+         Consider the user experience: a silent 5000-token chunk is worse than a
+         noisy split mid-fence.
+      3. Fence atomicity trade-off: the current invariant is "never split a fence."
+         Is there a safe way to split very long fences (e.g. at top-level function
+         boundaries in code) while preserving the atomicity guarantee for short ones?
+         Or should fence atomicity always hold and only warnings be emitted?
+      4. Metrics: what build output would help pack authors diagnose oversized chunks?
+         E.g. "3 chunks exceed 1000 tokens — run `synd inspect` to review."
+      Validate the recommendation against the fastmcp `updates` page (5,707 tokens)
+      and at least one legitimate long code example (expected: warning only, no split).
+    success: |
+      A recommended strategy (warn vs. split vs. both) with threshold values and
+      rationale. A code sketch of the detection logic in chunking.py. A recommendation
+      on whether fence atomicity should ever be broken. Enough detail to implement
+      without further research.
+    files:
+      - src/synd/builder/chunking.py
+      - src/synd/cli/build.py
+      - docs/decisions.md
+    blocked_by: []
