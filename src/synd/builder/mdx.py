@@ -23,6 +23,9 @@ _FRAME_IMAGE_RE = re.compile(
 # Inline <sup>…</sup> anchor noise appended to heading lines.
 _SUP_RE = re.compile(r"\s*<sup\b[^>]*>.*?</sup>", re.IGNORECASE)
 
+# Extracts the title attribute value from a JSX opening tag.
+_TAB_TITLE_RE = re.compile(r'\btitle=["\']([^"\']*)["\']')
+
 
 def strip_mdx(text: str) -> str:
     """Remove JSX import/export lines, self-closing components, and bare expressions."""
@@ -66,6 +69,51 @@ def _extract_code_fences(text: str) -> tuple[str, list[str]]:
     return masked, fences
 
 
+def _unwrap_tab_block(m: re.Match[str]) -> str:
+    """Replacement for _JSX_UNWRAP_RE: injects Tab title as a heading and shifts body headings.
+
+    For <Tab title="..."> blocks: extracts the title, dedents the body, shifts all
+    ATX headings one level deeper (capped at H6), then prepends the title as a
+    heading one level above the shallowest body heading.
+
+    All other tags (Tabs, Note, Warning, etc.) fall back to plain textwrap.dedent.
+    """
+    tag = m.group(1)
+    body = m.group(2)
+
+    if tag != "Tab":
+        return textwrap.dedent(body)
+
+    title_match = _TAB_TITLE_RE.search(m.group(0))
+    if not title_match:
+        return textwrap.dedent(body)
+
+    title = title_match.group(1)
+    body = textwrap.dedent(body)
+
+    heading_levels: list[int] = []
+    for line in body.splitlines():
+        hm = re.match(r"^(#{1,6})\s", line)
+        if hm:
+            heading_levels.append(len(hm.group(1)))
+
+    if not heading_levels:
+        return f"### {title}\n\n{body}"
+
+    shallowest = min(heading_levels)
+
+    def _shift(line: str) -> str:
+        hm = re.match(r"^(#{1,6})(\s.*)$", line)
+        if hm:
+            new_level = min(len(hm.group(1)) + 1, 6)
+            return "#" * new_level + hm.group(2)
+        return line
+
+    shifted_body = "\n".join(_shift(line) for line in body.splitlines())
+    title_level = max(1, shallowest - 1)
+    return f"{'#' * title_level} {title}\n\n{shifted_body}"
+
+
 def unwrap_jsx_blocks(text: str) -> str:
     """Replace block-level JSX wrappers with their inner text.
 
@@ -76,7 +124,7 @@ def unwrap_jsx_blocks(text: str) -> str:
     """
     text = _FRAME_IMAGE_RE.sub("", text)
     for _ in range(5):
-        new_text = _JSX_UNWRAP_RE.sub(lambda m: textwrap.dedent(m.group(2)), text)
+        new_text = _JSX_UNWRAP_RE.sub(_unwrap_tab_block, text)
         if new_text == text:
             break
         text = new_text
