@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass
@@ -8,6 +9,30 @@ from pathlib import Path
 from chunkana import chunk_text as _chunk_text  # type: ignore[import-untyped]
 
 from synd.builder.normalizer import normalize
+
+
+class _DeduplicateFilter(logging.Filter):
+    """Suppress duplicate log messages from the same logger.
+
+    chunkana's header_processor emits the same warning on every loop
+    iteration when a dangling header cannot be fixed, which produces
+    20 identical lines for a single unfixable chunk. This filter lets
+    the first occurrence through and silently drops repeats.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._seen: set[str] = set()
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        key = record.getMessage()
+        if key in self._seen:
+            return False
+        self._seen.add(key)
+        return True
+
+
+logging.getLogger("chunkana.header_processor").addFilter(_DeduplicateFilter())
 
 _WHITELISTED = {".md", ".html", ".htm"}
 

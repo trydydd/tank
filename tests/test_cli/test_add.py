@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from synd.builder.build import build_pack
 from synd.builder.manifest import compute_pack_digest
 from synd.cli.main import cli
 
@@ -56,14 +55,12 @@ def _make_valid_ctx(
     """Build and return a valid .ctx file."""
     src = source or _fixture_path()
     build_out = tmp_path / "build"
-    build_out.mkdir(parents=True, exist_ok=True)
-    ctx_path = build_pack(
-        package=package,
-        version=version,
-        source=src,
-        output=build_out,
+    result = CliRunner().invoke(
+        cli,
+        ["build", f"{package}@{version}", "--source", str(src), "--output", str(build_out)],
     )
-    return ctx_path
+    assert result.exit_code == 0, f"build setup failed: {result.output}"
+    return build_out / f"{package}@{version}.ctx"
 
 
 def _make_broken_ctx(tmp_path: Path) -> Path:
