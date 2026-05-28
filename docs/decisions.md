@@ -230,7 +230,7 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 
 **`semchunk` ruled out earlier**: general-purpose recursive delimiter splitter with no markdown heading awareness. Token-counter-driven rather than structure-driven.
 
-**See spike S7** for implementation scope and test approach.
+**Implemented in v0.2.0** (`feature/chunker`). See spike S7 (status: done) for implementation notes. The S2 heading-aware summary heuristic (D13) was implemented in the same pass — `generate_summary()` now accepts `heading_path` and prefixes the summary with the leaf heading node.
 
 ---
 

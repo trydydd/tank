@@ -14,7 +14,7 @@ Definitions of Synaptic Drift-specific terminology. Sorted alphabetically.
 
 **chunk ID** — sequential integer assigned during build, starting at 1. Order is determined by lexicographic file sort (then document order within each file). The ID sequence determines `normalized_content_hash` computation.
 
-**chunkana** — third-party Python library (MIT license) currently used for structural Markdown chunking. Splits at `##` heading boundaries while preserving code blocks and tables as atomic units. **Planned for replacement** by a custom `markdown-it-py`-backed chunker (see `docs/spikes.yaml` S7) that splits at all heading levels and builds accurate ancestral `heading_path` values.
+**chunkana** — third-party Python library previously used for structural Markdown chunking. **Replaced in v0.2.0** by a custom `markdown-it-py`-backed chunker (see `docs/spikes.yaml` S7, `docs/decisions.md` D14). Removed from dependencies.
 
 **chunks_fts** — the FTS5 virtual table in `index.db`. Columns: `heading_path` (2.5× BM25 weight), `summary` (1.5×), `content` (1.0×). Populated at import time. `rowid` joins to `chunks.id`. All `search` queries run against this table.
 
@@ -26,7 +26,7 @@ Definitions of Synaptic Drift-specific terminology. Sorted alphabetically.
 
 **FTS5** — SQLite's full-text search extension, version 5. Provides an inverted index with BM25 ranking. Synaptic Drift's primary (and only, for MVP) search mechanism. The virtual table is `chunks_fts`.
 
-**heading_path** — hierarchical path describing where a chunk sits in the document structure. Format: `<relative_file_prefix> / <section_heading>`. The file prefix is the path relative to `--source`, minus extension (e.g. `auth/oauth`); the section heading is the first `##`-level heading chunkana found in the chunk. Example: `auth/oauth / Client Credentials`. The current implementation captures one heading level only. The planned custom chunker (S7) will extend this to a full ancestral hierarchy: `auth/oauth / OAuth2 / Client Credentials`.
+**heading_path** — hierarchical path describing where a chunk sits in the document structure. Format: `<relative_file_prefix> / <h1_text> / <h2_text> / ...`. The file prefix is the path relative to `--source`, minus extension (e.g. `auth/oauth`); subsequent components are the heading texts from outermost to innermost, built by construction as the markdown-it-py token walker maintains an ancestor stack. Example: `auth/oauth / OAuth2 / Client Credentials`. Preamble chunks (before the first heading) have `heading_path` equal to the file prefix only. Indexed in `chunks_fts` at 2.5× BM25 weight.
 
 **index.db** — the SQLite database at `.synd/index.db`. Contains `packages`, `pages`, `chunks`, and `chunks_fts` tables. Source of truth for all imported documentation. One database per project.
 

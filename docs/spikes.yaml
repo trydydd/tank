@@ -42,7 +42,17 @@ spikes:
 
   - id: S2
     title: Heading-aware summary heuristic
-    status: open
+    status: done
+    outcome: |
+      Implemented in v0.2.0 alongside S7 (feature/chunker). generate_summary()
+      now accepts an optional heading_path parameter and prefixes the summary with
+      the leaf heading node: "STDIO Transport (Default): STDIO is the default..."
+      Edge cases implemented: preamble (no heading parts) falls back to
+      first-sentence only; heading over 60 chars returns heading alone; redundant
+      prefix (prose already starts with leaf heading text) is suppressed.
+      Heading lines and list items are excluded from prose extraction so they don't
+      pollute the sentence used as the suffix. No schema changes — summary remains
+      a plain string. 9 new tests in tests/test_builder/test_chunking.py.
     context: |
       generate_summary() picks the first sentence of raw chunk content. Fails when
       a chunk opens with a code block or bridging sentence — the summary describes
@@ -208,7 +218,18 @@ spikes:
 
   - id: S7
     title: Custom markdown chunker implementation (markdown-it-py)
-    status: open
+    status: done
+    outcome: |
+      Implemented in v0.2.0 (feature/chunker). src/synd/builder/chunking.py
+      rewritten as a markdown-it-py token walker. Splits at all heading levels
+      H1-H6; heading_path built by construction via ancestor stack; code fences
+      atomic (fence token is self-contained in markdown-it-py); paragraph overflow
+      splits at next paragraph boundary when section exceeds max_chunk_tokens
+      (default 500). chunkana removed from pyproject.toml; markdown-it-py>=3.0
+      added. _DeduplicateFilter workaround removed. 21 new tests added covering
+      heading ancestry, fence atomicity, overflow, and fastmcp fixture regression
+      (Transport Protocols section now 4 separate ### chunks, no 932-token blob).
+      S2 (heading-aware summary) implemented in the same pass.
     context: |
       chunkana splits only at ## level; all ### subsections stay together. Library
       survey (S1) found no off-the-shelf replacement without heavy dependencies.

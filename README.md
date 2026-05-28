@@ -119,7 +119,7 @@ Works with Claude Code, Claude Desktop, Cursor, VS Code, and any MCP-compatible 
 
 ## Status
 
-Synaptic Drift v0.1.1 is code-complete. Active development is on v0.2.0 (339 tests passing). See [roadmap.md](docs/roadmap.md) for current focus.
+Synaptic Drift v0.1.1 is code-complete. Active development is on v0.2.0 (356 tests passing). See [roadmap.md](docs/roadmap.md) for current focus.
 
 ## License
 
