@@ -21,9 +21,35 @@ The default maximum chunk size is `_DEFAULT_MAX_CHUNK_TOKENS = 500` tokens (esti
 | Bound | Tokens (approx) |
 |---|---|
 | Default `max_chunk_tokens` | 500 |
-| Minimum enforced | none (preamble or tiny sections are kept as-is) |
+| Default `min_chunk_tokens` | 20 |
 
 The 500-token default is intentionally conservative. Real-world documentation sections — a `###` subsection with a few paragraphs and one code example — typically land between 100–400 tokens. Sections that run long (API reference tables, large code examples) are split at paragraph breaks so each piece remains coherent.
+
+### Minimum-token threshold
+
+When a heading boundary would produce a chunk below `min_chunk_tokens` (default 20), the emit is skipped and `chunk_start_line` is left in place. The suppressed content carries forward and is absorbed by the next section at its next emit point. This eliminates stub chunks — heading-only chunks produced when a heading is immediately followed by another heading with no prose between them — without a separate post-processing pass.
+
+The absorbed heading text remains in the merged chunk's content, contributing to BM25 scoring, while `heading_path` reflects the absorbing section's (deeper) heading. For example:
+
+```
+Source:
+  ## Authorization         ← heading only, no prose
+  ### Introduction
+  OAuth2 requires a client ID and secret.
+
+Before (min_chunk_tokens=0):
+  Chunk 1  heading_path: "doc / Authorization"
+           content:      "## Authorization"             ← 2-token stub
+
+  Chunk 2  heading_path: "doc / Authorization / Introduction"
+           content:      "### Introduction\n\nOAuth2 requires..."
+
+After (default min_chunk_tokens=20):
+  Chunk 1  heading_path: "doc / Authorization / Introduction"
+           content:      "## Authorization\n\n### Introduction\n\nOAuth2 requires..."
+```
+
+`Authorization` is still an ancestor in `heading_path` — its BM25 weight is fully preserved. Pass `min_chunk_tokens=0` to disable the guard and restore the original behaviour.
 
 ## Heading path examples
 
@@ -60,7 +86,12 @@ See `docs/ranking.md` for how the greedy budget enforcement works.
 
 ## Configuring chunk size
 
-`max_chunk_tokens` is a parameter on `chunk_content()` in `src/synd/builder/chunking.py`. It defaults to `_DEFAULT_MAX_CHUNK_TOKENS = 500`. Exposing it as a `synd build --max-chunk-tokens` CLI flag is planned for a future release (see `docs/roadmap.md`).
+Two parameters on `chunk_content()` in `src/synd/builder/chunking.py` control chunk size:
+
+- `max_chunk_tokens` (default `500`) — upper bound; sections that exceed this are split at the next paragraph boundary.
+- `min_chunk_tokens` (default `20`) — lower bound guard; heading boundaries that would produce a below-threshold chunk are skipped and the content is absorbed forward into the next section.
+
+Exposing these as `synd build --max-chunk-tokens` / `--min-chunk-tokens` CLI flags is tracked in `docs/roadmap.md`.
 
 ## Summary generation
 

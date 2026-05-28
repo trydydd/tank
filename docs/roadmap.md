@@ -85,8 +85,8 @@ v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
   - Result: `build-server` 22,496t → 111 chunks (max 1,065t); `build-client` 15,172t → 99 chunks (max 651t)
 - [ ] **Chunk size tuning** — `max_chunk_tokens` / `min_chunk_tokens` CLI params on `synd build`. See [S9](docs/spikes.yaml).
   - Modify `src/synd/builder/chunking.py` and `src/synd/cli/build.py`
-- [ ] **Minimum-token merge** — post-chunking pass that absorbs stub chunks (heading-only, <20 tokens) into their neighbours. The MCP pack has 280 stubs from headings immediately followed by another heading. See [S10](docs/spikes.yaml).
-  - Modify `src/synd/builder/chunking.py`
+- [x] **Minimum-token merge** — chunker-internal guard that suppresses stub chunks (heading-only, <20 tokens) by skipping the emit when a heading boundary would produce below-threshold content. The suppressed content carries forward and is absorbed by the next section naturally. Eliminates ~249 stubs from the MCP pack without a separate post-processing pass. See [S10](docs/spikes.yaml), [D23](docs/decisions.md).
+  - Modified `src/synd/builder/chunking.py`: added `_DEFAULT_MIN_CHUNK_TOKENS = 20`, `min_chunk_tokens` param on `chunk_content()`
 - [x] **Tab heading disambiguation** — chunks produced by expanding Mintlify `<Tabs>` blocks carry identical `heading_path` values across all language tabs. BM25 cannot distinguish "Python / Implementing tool execution" from "TypeScript / Implementing tool execution" because the tab title is discarded during unwrapping.
 
   **Reproduction** (requires a built MCP pack):
