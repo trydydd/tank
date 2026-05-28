@@ -23,7 +23,14 @@ class TestInspectCommand:
         build_out = tmp_path / "build"
         result = CliRunner().invoke(
             cli,
-            ["build", "test-pkg@1.0.0", "--source", str(source), "--output", str(build_out)],
+            [
+                "build",
+                "test-pkg@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(build_out),
+            ],
         )
         assert result.exit_code == 0, f"build setup failed: {result.output}"
         ctx_path = build_out / "test-pkg@1.0.0.ctx"
@@ -44,7 +51,14 @@ class TestInspectCommand:
         build_out = tmp_path / "build"
         result = CliRunner().invoke(
             cli,
-            ["build", "test-pkg@1.0.0", "--source", str(source), "--output", str(build_out)],
+            [
+                "build",
+                "test-pkg@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(build_out),
+            ],
         )
         assert result.exit_code == 0, f"build setup failed: {result.output}"
         ctx_path = build_out / "test-pkg@1.0.0.ctx"

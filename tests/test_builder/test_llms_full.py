@@ -171,6 +171,7 @@ def test_split_llms_full_txt_deduplicates_identical_duplicate_silently(
         "# Title\n\nSame content.\n"
     )
     import logging
+
     with caplog.at_level(logging.WARNING, logger="synd.builder.llms_full"):
         pages = split_llms_full_txt(text)
     assert len(pages) == 1
@@ -187,6 +188,7 @@ def test_split_llms_full_txt_warns_on_duplicate_url_with_differing_content(
         "# Second Version\n\nDifferent content.\n"
     )
     import logging
+
     with caplog.at_level(logging.WARNING, logger="synd.builder.llms_full"):
         pages = split_llms_full_txt(text)
     assert len(pages) == 1

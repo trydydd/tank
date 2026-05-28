@@ -57,7 +57,14 @@ def _make_valid_ctx(
     build_out = tmp_path / "build"
     result = CliRunner().invoke(
         cli,
-        ["build", f"{package}@{version}", "--source", str(src), "--output", str(build_out)],
+        [
+            "build",
+            f"{package}@{version}",
+            "--source",
+            str(src),
+            "--output",
+            str(build_out),
+        ],
     )
     assert result.exit_code == 0, f"build setup failed: {result.output}"
     return build_out / f"{package}@{version}.ctx"

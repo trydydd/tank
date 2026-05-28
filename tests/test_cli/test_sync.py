@@ -17,7 +17,14 @@ def _make_ctx(tmp_path: Path, package: str, version: str) -> Path:
     out = tmp_path / "build"
     result = CliRunner().invoke(
         cli,
-        ["build", f"{package}@{version}", "--source", str(_FIXTURE_DOCS), "--output", str(out)],
+        [
+            "build",
+            f"{package}@{version}",
+            "--source",
+            str(_FIXTURE_DOCS),
+            "--output",
+            str(out),
+        ],
     )
     assert result.exit_code == 0, f"build setup failed: {result.output}"
     return out / f"{package}@{version}.ctx"

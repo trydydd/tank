@@ -27,7 +27,14 @@ class TestQueryCommand:
 
         result = CliRunner().invoke(
             cli,
-            ["build", "test-pkg@1.0.0", "--source", str(source), "--output", str(build_out)],
+            [
+                "build",
+                "test-pkg@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(build_out),
+            ],
         )
         assert result.exit_code == 0, f"build failed: {result.output}"
 
@@ -51,7 +58,14 @@ class TestQueryCommand:
 
         result = CliRunner().invoke(
             cli,
-            ["build", "test-pkg@1.0.0", "--source", str(source), "--output", str(build_out)],
+            [
+                "build",
+                "test-pkg@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(build_out),
+            ],
         )
         assert result.exit_code == 0, f"build failed: {result.output}"
 
