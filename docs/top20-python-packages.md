@@ -78,7 +78,19 @@ All 20 sites were checked directly by fetching `<docs-root>/llms.txt` and `<docs
 
 For packages without `llms.txt` or `llms-full.txt`, `synd build` cannot use a URL source directly — `build_pack_from_url` hard-requires a URL ending in one of those two filenames. The workaround is to obtain the documentation as local files and use the directory build path instead.
 
+The script [`scripts/build-pack-html.sh`](../scripts/build-pack-html.sh) automates this process: it mirrors the docs site with wget, removes readthedocs boilerplate directories, builds the pack, and cleans up the mirror.
+
 ### Process used for requests@2.34.2
+
+```bash
+scripts/build-pack-html.sh \
+    https://requests.readthedocs.io/en/latest/ requests@2.34.2 \
+    --exclude-dir community/updates
+```
+
+Output: `packs/requests@2.34.2.ctx`
+
+The script ran the following steps:
 
 **Step 1 — Mirror the live HTML documentation**
 
@@ -89,9 +101,25 @@ wget --mirror -p --html-extension --convert-links \
      https://requests.readthedocs.io/en/latest/
 ```
 
-This downloaded 26 HTML files into `./requests-html/requests.readthedocs.io/en/latest/`. The `--no-parent` flag prevents wget from crawling outside the `/en/latest/` path. `--convert-links` rewrites internal links to point to the local copies.
+Downloaded 26 HTML files. `--no-parent` prevents wget from crawling outside `/en/latest/`.
 
-**Step 2 — Build the pack**
+**Step 2 — Remove noise directories**
+
+The script removes these by default (readthedocs boilerplate, not documentation content):
+
+| Directory | Reason |
+|-----------|--------|
+| `_modules/` | Raw source viewer pages |
+| `genindex/` | Generated symbol index |
+| `search/` | Search UI page |
+
+`community/updates/` was added via `--exclude-dir` for this build:
+
+| Directory | Reason |
+|-----------|--------|
+| `community/updates/` | Full changelog — 15k tokens, noise |
+
+**Step 3 — Build the pack**
 
 ```bash
 synd build requests@2.34.2 \
@@ -99,39 +127,26 @@ synd build requests@2.34.2 \
      --output ./packs
 ```
 
-Output: `packs/requests@2.34.2.ctx`
-
-**Step 3 — Review oversized chunks**
-
-The build reported 7 chunks exceeding 1,600 tokens:
+**Oversized chunks observed on an unfiltered first build** (before exclusions):
 
 | Chunk | Tokens | Cause |
 |-------|--------|-------|
-| community/updates/index | 15,115 | Full changelog — noise |
+| community/updates/index | 15,115 | Full changelog |
 | api/index (×2) | 6,357 / 5,899 | Large API reference pages |
-| _modules/requests/models/index | 3,305 | Raw source viewer page |
-| genindex/index | 2,049 | Generated symbol index — noise |
-
-The `community/updates/`, `genindex/`, `_modules/`, and `search/` subdirectories are readthedocs boilerplate and not useful documentation content. For a cleaner pack, delete these before building:
-
-```bash
-rm -rf ./requests-html/requests.readthedocs.io/en/latest/_modules/
-rm -rf ./requests-html/requests.readthedocs.io/en/latest/community/updates/
-rm -rf ./requests-html/requests.readthedocs.io/en/latest/genindex/
-rm -rf ./requests-html/requests.readthedocs.io/en/latest/search/
-
-synd build requests@2.34.2 \
-     --source ./requests-html/requests.readthedocs.io/en/latest/ \
-     --output ./packs
-```
+| _modules/requests/models/index | 3,305 | Raw source viewer |
+| genindex/index | 2,049 | Generated symbol index |
 
 ### Notes on HTML quality
 
-`synd`'s `html_to_markdown` converter targets `<main>`, `<article>`, or `role="main"` elements and strips `<nav>`, `<header>`, `<footer>`, `<aside>`, `<script>`, and `<style>` tags before converting to markdown. ReadTheDocs HTML generally has a clean `<main>` element, so boilerplate stripping works well. Run `synd inspect packs/requests@2.34.2.ctx` to review chunk content and headings after building.
+`synd`'s `html_to_markdown` converter targets `<main>`, `<article>`, or `role="main"` elements and strips `<nav>`, `<header>`, `<footer>`, `<aside>`, `<script>`, and `<style>` tags before converting. ReadTheDocs HTML generally has a clean `<main>` element, so boilerplate stripping works well. Run `synd inspect packs/requests@2.34.2.ctx` to review chunk content and headings after building.
 
 ### Generalising to other packages
 
-The same wget-mirror approach applies to any package hosted on ReadTheDocs or a similar static HTML documentation site. Adjust the base URL and the version string to match the package being packed.
+`build-pack-html.sh` applies to any package hosted on ReadTheDocs or a similar static HTML site:
+
+```bash
+scripts/build-pack-html.sh <docs-root-url> <name@version> [--exclude-dir <dir> ...]
+```
 
 For packages with source docs in a Git repository (Sphinx `.rst`, MkDocs `.md`, etc.), an alternative is to clone the repo and either:
 - Build the docs to HTML with Sphinx/MkDocs, then point `--source` at the HTML output directory
