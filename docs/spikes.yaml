@@ -574,45 +574,69 @@ spikes:
       - src/synd/builder/chunking.py
       - src/synd/cli/build.py
       - docs/decisions.md
+    blocked_by: []
 
   - id: S12
     title: Search API return type contract — structured response vs bare list
-    status: done
-    outcome: |
-      Industry pattern (Elasticsearch, Algolia, Typesense, MeiliSearch) is unanimous:
-      search functions return a structured response object, never a bare list. The
-      structured response always includes: (1) the result set, (2) a total/count field,
-      (3) the processed query string. Invalid inputs raise exceptions; the response
-      type is only returned for successful queries.
-
-      Key finding: the internal return type and the MCP serialization are separate
-      concerns. A rich internal SearchResponse does not mandate token-heavy MCP output —
-      the server layer controls what is serialized over the wire.
-
-      Resolution (D27): replace list[SearchResult] with SearchResponse(results,
-      query_used). Raise SearchError for all inputs that produce no searchable terms
-      (empty, all-special-chars, all-stopwords). The MCP server omits query_used from
-      the wire format when it equals the raw input query (no preprocessing effect),
-      keeping the common case token-efficient. See decisions.md D27.
+    status: open
+    outcome: null
     context: |
-      search() in src/synd/search/fts.py returns list[SearchResult]. A bare list is
-      ambiguous: the caller cannot distinguish "valid query, nothing in the index",
-      "valid query, nothing matched", "empty input", or "query was all stopwords".
-      The only unambiguous signal would be an exception — but that conflates "no
-      results" with "bad query". The question is whether a structured return type
-      is appropriate and what fields it should carry without adding MCP token cost.
+      search() in src/synd/search/fts.py currently returns list[SearchResult].
+      A bare list is permanently ambiguous: the caller cannot distinguish between
+      "valid query, index is empty", "valid query, nothing matched", "empty input",
+      "all-special-chars input", or "all-stopwords input". Every major search API
+      avoids this by returning a structured response object rather than a bare list.
+
+      The ambiguity matters concretely for the MCP server (src/synd/server.py) and
+      CLI (src/synd/cli/query.py): both receive a list and cannot tell the agent or
+      user WHY they got no results. An agent that sends "the is a" gets [] back —
+      indistinguishable from a valid query against an empty index.
+
+      A secondary constraint: the MCP server serializes search results directly into
+      the tool response payload that reaches the AI agent. Any metadata added to the
+      return type must be evaluated for token cost — fields that appear on every
+      response add overhead to every agent call, not just the edge cases.
+
+      Current callers of search():
+        - src/synd/server.py: search_docs() wraps results in {"results": [...]}
+        - src/synd/cli/query.py: iterates results directly, checks `if not results`
+        - tests/test_search/test_fts.py: unit tests, assert on len and field values
+        - tests/test_integration.py: iterates results in two revoked-pack tests
+
+      Invalid-input cases that currently return [] silently:
+        - "" (empty string)
+        - "..." (all special chars — sanitizes to "")
+        All-stopwords input already raises SearchError (see commit 7c04288).
     task: |
-      Survey how major search APIs (Elasticsearch, Algolia, Typesense, MeiliSearch,
-      Whoosh, Xapian) handle this contract. Determine: (1) bare list vs structured
-      response, (2) how "no results" is communicated, (3) how invalid queries are
-      signalled, (4) what metadata fields are standard, (5) how to keep MCP
-      serialization lean while the internal type is rich.
+      Survey how major search APIs (Elasticsearch, Algolia, Typesense, MeiliSearch)
+      handle this contract. For each, determine:
+        1. Do they return a bare list or a structured response object?
+        2. How is "no results" communicated vs "invalid query"?
+        3. What metadata fields are included and why?
+        4. How do they handle token/bandwidth cost for the metadata fields?
+
+      Then design the return type for search() that:
+        - Makes [] unambiguous (only possible after FTS5 ran successfully)
+        - Raises SearchError for all inputs that cannot reach FTS5
+        - Carries query_used (what was actually sent to FTS5 after preprocessing)
+          so callers can surface it when it differs from the raw input
+        - Keeps MCP wire-format token overhead at zero on the common path
+          (the server layer controls serialization separately from the return type)
+
+      Evaluate whether a total/count field is worth including given that FTS5
+      does not return a pre-LIMIT count without a second query.
+
+      The implementation touches: src/synd/search/fts.py (new return type),
+      src/synd/server.py (consume new type, serialize query_used conditionally),
+      src/synd/cli/query.py (consume new type), all call sites in tests.
     success: |
-      A clear return type contract with rationale, a list of fields with justification
-      for each, and guidance on MCP serialization. Enough to implement without further
-      research.
+      A documented return type contract recorded in decisions.md with: chosen
+      fields with justification, rejected fields with rationale, and guidance
+      on how the server layer serializes selectively. Implementation complete,
+      all existing tests passing.
     files:
       - src/synd/search/fts.py
       - src/synd/server.py
+      - src/synd/cli/query.py
       - docs/decisions.md
     blocked_by: []

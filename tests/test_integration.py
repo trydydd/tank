@@ -490,7 +490,7 @@ def test_revoked_pack_excluded_from_query(
     db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
-        hits = search(db, "oauth").results
+        hits = search(db, "oauth")
         for h in hits:
             assert h.lifecycle_state != "revoked", (
                 f"Revoked pack results excluded, got package={h.package}"
@@ -588,7 +588,7 @@ def test_revoked_pack_not_in_query_results(
     db = Database(tmp_path / ".synd" / "index.db")
     try:
         db.create_schema()
-        hits = search(db, "sample").results
+        hits = search(db, "sample")
         for h in hits:
             assert h.package != "revoked-not", (
                 "Revoked pack should not appear in query results"

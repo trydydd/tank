@@ -12,7 +12,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from synd.search.fts import SearchResponse, SearchResult, get_chunks_by_id, search
+from synd.search.fts import SearchResult, get_chunks_by_id, search
 from synd.storage.db import Database
 
 _DEFAULT_DB_PATH = Path(".synd") / "index.db"
@@ -46,6 +46,9 @@ def search_docs(
     stopped before the estimated token cost (len(summary) // 4) would exceed
     the budget. Whole chunks only — no partial truncation.
     """
+    if not query.strip():
+        return {"results": []}
+
     if packages:
         placeholders = ",".join("?" for _ in packages)
         row = db.conn.execute(
@@ -55,16 +58,13 @@ def search_docs(
         if row["cnt"] < len(packages):
             return {"status": "not_indexed"}
 
-    response: SearchResponse = search(
-        db, query, packages=packages, detail="summary", limit=limit
-    )
-    hits = [_to_dict(r) for r in response.results]
+    hits = [
+        _to_dict(r)
+        for r in search(db, query, packages=packages, detail="summary", limit=limit)
+    ]
     if max_tokens is not None:
         hits = _apply_token_budget(hits, max_tokens, "summary")
-    payload: dict[str, Any] = {"results": hits}
-    if response.query_used != query.strip():
-        payload["query_used"] = response.query_used
-    return payload
+    return {"results": hits}
 
 
 def fetch_docs(

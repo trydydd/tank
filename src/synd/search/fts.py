@@ -94,30 +94,13 @@ class SearchResult:
     lifecycle_warning: str | None  # set when lifecycle_state == 'deprecated'
 
 
-@dataclass
-class SearchResponse:
-    """Structured result of a search() call.
-
-    Contract:
-    - A SearchResponse is only returned when the query successfully reached FTS5.
-      All invalid inputs (empty, all special chars, all stopwords) raise SearchError
-      before a SearchResponse is constructed.
-    - results=[] therefore means exactly one thing: FTS5 ran and nothing matched.
-    - query_used is the string actually issued to FTS5 after preprocessing. It
-      differs from the caller's raw input when stopword filtering removed terms.
-    """
-
-    results: list[SearchResult]
-    query_used: str
-
-
 def search(
     db: "Database",
     query: str,
     packages: list[str] | None = None,
     detail: str = "summary",
     limit: int = 10,
-) -> SearchResponse:
+) -> list[SearchResult]:
     sanitized = _preprocess_query(query)
     if not sanitized:
         if _sanitize_query(query):
@@ -125,7 +108,7 @@ def search(
                 "Query contains only common words with no search value. "
                 "Use more specific terms."
             )
-        raise SearchError("Query cannot be empty.")
+        return []
 
     conn = db.conn
 
@@ -198,7 +181,7 @@ LIMIT ?"""
             )
         )
 
-    return SearchResponse(results=results, query_used=sanitized)
+    return results
 
 
 def get_chunks_by_id(

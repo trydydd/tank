@@ -61,7 +61,7 @@ def query(
             ids = [int(cid.strip()) for cid in chunk_ids.split(",") if cid.strip()]
             results = get_chunks_by_id(db, ids, detail=detail)
         else:
-            results = search(db, query, packages=pkg_list, detail=detail, limit=limit).results
+            results = search(db, query, packages=pkg_list, detail=detail, limit=limit)
     except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(1)
