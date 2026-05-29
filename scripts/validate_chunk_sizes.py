@@ -132,7 +132,11 @@ def main() -> None:
     args = parser.parse_args()
 
     urls = args.urls or _DEFAULT_URLS
-    warn = args.warn_chunk_tokens if args.warn_chunk_tokens is not None else 2 * args.max_chunk_tokens
+    warn = (
+        args.warn_chunk_tokens
+        if args.warn_chunk_tokens is not None
+        else 2 * args.max_chunk_tokens
+    )
 
     results = []
     with tempfile.TemporaryDirectory(prefix="synd-validate-") as tmp:
@@ -154,7 +158,9 @@ def main() -> None:
 
     # Print summary table
     col_w = 36
-    print(f"\n{'Source':<{col_w}} {'Chunks':>7} {'Max':>6} {'P95':>5} {'P99':>5} {f'>warn({warn}t)':>12} {'>2000t':>7}")
+    print(
+        f"\n{'Source':<{col_w}} {'Chunks':>7} {'Max':>6} {'P95':>5} {'P99':>5} {f'>warn({warn}t)':>12} {'>2000t':>7}"
+    )
     print("-" * (col_w + 7 + 6 + 5 + 5 + 13 + 8))
     any_aborted = False
     for r in results:
@@ -169,10 +175,15 @@ def main() -> None:
         if r["aborted"]:
             any_aborted = True
 
-    print(f"\nSettings: max_chunk_tokens={args.max_chunk_tokens}, min_chunk_tokens={args.min_chunk_tokens}, warn_chunk_tokens={warn}")
+    print(
+        f"\nSettings: max_chunk_tokens={args.max_chunk_tokens}, min_chunk_tokens={args.min_chunk_tokens}, warn_chunk_tokens={warn}"
+    )
 
     if any_aborted:
-        print(f"\nABORT: one or more sources produced chunks > {args.abort_above:,} tokens.", file=sys.stderr)
+        print(
+            f"\nABORT: one or more sources produced chunks > {args.abort_above:,} tokens.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
 
