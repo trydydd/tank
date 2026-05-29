@@ -10,6 +10,69 @@ if TYPE_CHECKING:
 
 _FTS5_SPECIAL_RE = re.compile(r"[^\w\s]")
 
+# Conservative set of English function words that carry no search value in
+# technical documentation. Excludes words that can appear in section titles
+# (how, what, where) and FTS5 boolean operators (AND, OR, NOT).
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "of",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "with",
+        "by",
+        "from",
+        "as",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+    }
+)
+
+
+def _sanitize_query(query: str) -> str:
+    """Strip FTS5 special characters and collapse whitespace."""
+    return " ".join(_FTS5_SPECIAL_RE.sub(" ", query).split())
+
+
+def _preprocess_query(query: str) -> str:
+    """Sanitize and filter stopwords from a query.
+
+    Returns the filtered query, or an empty string if all tokens are stopwords
+    or the input contained no word characters.
+    """
+    sanitized = _sanitize_query(query)
+    if not sanitized:
+        return sanitized
+    tokens = sanitized.split()
+    filtered = [t for t in tokens if t.lower() not in _STOPWORDS]
+    return " ".join(filtered)
+
 
 @dataclass
 class SearchResult:
@@ -38,8 +101,13 @@ def search(
     detail: str = "summary",
     limit: int = 10,
 ) -> list[SearchResult]:
-    sanitized = " ".join(_FTS5_SPECIAL_RE.sub(" ", query).split())
+    sanitized = _preprocess_query(query)
     if not sanitized:
+        if _sanitize_query(query):
+            raise SearchError(
+                "Query contains only common words with no search value. "
+                "Use more specific terms."
+            )
         return []
 
     conn = db.conn

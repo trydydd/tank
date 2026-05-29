@@ -38,7 +38,7 @@ def _make_result(
     full_n20_tpr: float = 356.0,
     pd_saving_pct: float = 52.2,
     git_commit: str = "abc123",
-    tank_version: str = "0.1.0",
+    synd_version: str = "0.1.0",
     tool_tokens: dict[str, int] | None = None,
     step1_tokens: int = 2012,
     step2_tokens: int = 1047,
@@ -49,7 +49,7 @@ def _make_result(
         tool_tokens = {"search": 185, "fetch": 75}
     return {
         "git_commit": git_commit,
-        "tank_version": tank_version,
+        "synd_version": synd_version,
         "token_counter": "len_div_4",
         "schema": {
             "total_tokens": schema_total,
@@ -325,8 +325,8 @@ def test_compare_tool_removed_in_candidate() -> None:
 
 
 def test_compare_metadata_passthrough() -> None:
-    b = _make_result(git_commit="base000", tank_version="0.0.9")
-    c = _make_result(git_commit="cand999", tank_version="0.1.0")
+    b = _make_result(git_commit="base000", synd_version="0.0.9")
+    c = _make_result(git_commit="cand999", synd_version="0.1.0")
     result = compare(b, c)
     assert result["baseline_commit"] == "base000"
     assert result["baseline_version"] == "0.0.9"
@@ -339,7 +339,7 @@ def test_compare_missing_git_fields_default_to_unknown() -> None:
     b = _make_result()
     c = _make_result()
     del b["git_commit"]
-    del b["tank_version"]
+    del b["synd_version"]
     result = compare(b, c)
     assert result["baseline_commit"] == "unknown"
     assert result["baseline_version"] == "unknown"
@@ -353,7 +353,7 @@ def test_compare_missing_git_fields_default_to_unknown() -> None:
 def test_format_markdown_starts_with_marker() -> None:
     r = _make_result()
     output = format_markdown(compare(r, r))
-    assert output.startswith("<!-- tank-benchmark -->")
+    assert output.startswith("<!-- synd-benchmark -->")
 
 
 def test_format_markdown_pass_contains_pass() -> None:
@@ -366,7 +366,7 @@ def test_format_markdown_warn_contains_warn() -> None:
     b = _make_result(schema_total=100)
     c = _make_result(schema_total=130)
     output = format_markdown(compare(b, c))
-    assert "<!-- tank-benchmark -->" == output.splitlines()[0]
+    assert "<!-- synd-benchmark -->" == output.splitlines()[0]
     assert "WARN" in output
 
 
@@ -398,8 +398,8 @@ def test_format_text_warn_result() -> None:
 
 
 def test_format_text_contains_version_info() -> None:
-    b = _make_result(git_commit="bbb", tank_version="0.0.9")
-    c = _make_result(git_commit="ccc", tank_version="0.1.0")
+    b = _make_result(git_commit="bbb", synd_version="0.0.9")
+    c = _make_result(git_commit="ccc", synd_version="0.1.0")
     output = format_text(compare(b, c))
     assert "bbb" in output
     assert "ccc" in output

@@ -111,7 +111,7 @@ FTS5 full-text search across indexed documentation. Returns chunk summaries and 
 
 | parameter | type | default | description |
 |---|---|---|---|
-| `query` | string | — | Search terms (required). FTS5 is lexical — use keywords, not natural language sentences. |
+| `query` | string | — | Search terms (required). FTS5 is lexical — use keywords, not natural language sentences. Common function words (articles, auxiliary verbs, prepositions) are filtered automatically; you do not need to avoid them. |
 | `packages` | string[] | all | Scope results to specific package names. Returns `{"status": "not_indexed"}` if a requested package has no indexed pack. |
 | `limit` | integer | `10` | Maximum chunks returned from FTS5 (candidate pool size). |
 | `max_tokens` | integer | none | Accumulate chunks in BM25 rank order; stop before estimated token cost exceeds this budget. |

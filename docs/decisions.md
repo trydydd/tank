@@ -142,13 +142,14 @@ Each entry records: the decision, the alternatives considered, why we chose what
 
 - ✅ **`heading_path` added to `chunks_fts`** — `db.py:48-52` creates the FTS5 table with `heading_path` as the first column; both triggers updated to include it. `section_tags[0]` from chunkana provides the `##`-level heading; `###` depth requires D14 (custom chunker).
 - ✅ **BM25 column weights tuned** — `fts.py:67` uses `bm25(chunks_fts, 2.5, 1.5, 1.0)` (heading 2.5×, summary 1.5×, content 1.0×). Weight only activates when `heading_path` is non-null; FTS5 treats NULL as empty string for fallback-chunked documents.
-- ✅ **Query sanitization (partial)** — `fts.py` strips FTS5 special characters (`.`, `(`, `)`, `"`, `*`, etc.) before passing to `MATCH`, preventing syntax errors on symbol-heavy queries like `mcp.tool`. Stopword filtering and term normalisation remain deferred.
-- ⬜ **Synonym expansion** — `auth` → `authentication`, `JWT` → `JSON Web Token`. Still deferred.
+- ✅ **Query sanitization** — `fts.py` strips FTS5 special characters (`.`, `(`, `)`, `"`, `*`, etc.) before passing to `MATCH`, preventing syntax errors on symbol-heavy queries like `mcp.tool`.
+- ✅ **Stopword filtering and term normalisation** — `_preprocess_query()` in `fts.py` filters common English function words (articles, auxiliary verbs, prepositions) before the query reaches FTS5. Words that appear in section titles (`how`, `what`, `where`) and FTS5 boolean operators (`AND`, `OR`, `NOT`) pass through unchanged. Falls back to original sanitized query if all tokens are stopwords. Tested in `tests/test_search/test_fts.py`.
+- ⬜ **Synonym expansion** — `auth` → `authentication`, `JWT` → `JSON Web Token`. **Intentionally deferred indefinitely.** Synonym dictionaries are a maintenance burden and address vocabulary mismatch — the same problem that hybrid search (v1.1 contingency) would solve via embeddings. Building a synonym table now would be superseded if hybrid search lands, and is low-value if it does not (FTS5 BM25 IDF already down-weights high-frequency generic terms). See `docs/hybrid-search.md`.
 - ⬜ **Custom tokenizer** — porter stemmer or unicode61 with diacritics removal. Still deferred; low-priority for technical docs where exact terms dominate.
 
 **Schema commitment note**: indexing `heading_path` in FTS5 means future chunker changes (D14) that alter how `heading_path` is computed will require rebuilding the FTS5 index (or a migration). This is acceptable — the index can be rebuilt from the `chunks` table on schema version bump.
 
-**Remaining work**: query preprocessing and synonym expansion are the next two improvements, ordered by impact. Measure search quality against the fastmcp benchmark before considering embeddings.
+**Latency benchmark**: measured against a real 100,116-chunk index built from 59 documentation packs (https://directory.llmstxt.cloud/); results in `tests/benchmarks/results/latency.json`. Rare technical terms: P95 <1ms. Common single terms (`install`): P95 ~11ms. Multi-term intersections: P95 ~6ms. High-limit on common term (limit=20): P95 ~23ms.
 
 ---
 
@@ -479,3 +480,59 @@ The URL noise filter (`DEFAULT_NOISE_URL_PATTERNS`) already handles the canonica
 - `scripts/validate_chunk_sizes.py`: live validation against MCP and FastMCP `llms-full.txt`.
 
 **Revisit when**: real user feedback shows that oversized structural-token chunks (tables, code blocks) materially degrade search quality in a way that automatic splitting would fix without worse side effects; or when the warning system generates enough data about which structural bypasses are most common to design a targeted mitigation.
+
+---
+
+## D25: Synonym Expansion — Deferred Indefinitely
+
+**Decision**: do not implement a synonym expansion system (e.g. `auth` → `authentication`, `JWT` → `JSON Web Token`).
+
+**Rationale**: synonym expansion was listed as a pending v0.2.0 FTS5 tuning item but its cost/benefit doesn't justify implementation:
+
+1. **BM25 IDF already handles frequency** — FTS5's inverse document frequency component naturally down-weights tokens that appear in many chunks. High-frequency synonyms (`api`, `auth`) already have low IDF weight, so adding `auth → authentication` would boost exactly the noisy matches BM25 is already trying to suppress.
+2. **Direct overlap with hybrid search** — The vocabulary mismatch problem (a user queries `JWT` but docs say `JSON Web Token`) is precisely what the v1.1 hybrid search contingency addresses via embedding-based semantic similarity. Building a hand-curated synonym dictionary solves a narrow slice of the same problem at higher maintenance cost and without the generalization.
+3. **Maintenance burden** — A synonym dictionary requires ongoing curation as the documentation corpus grows. Different domains need different synonym rules; a single table cannot generalize. This cost compounds forever.
+4. **The contingency design is deliberate** — hybrid search (v1.1) is gated on evidence of real vocabulary-mismatch failures. Until that evidence arrives, FTS5 is sufficient. Building the thing hybrid search would supersede preemptively violates the "no premature optimization" principle.
+
+**Alternatives considered**:
+- **Hand-curated domain dictionary** — highest quality for known terms, but brittle, domain-specific, and immediately superseded if hybrid search lands.
+- **Automatic synonym generation via WordNet or similar** — adds a dependency, produces noisy expansions for technical terms (WordNet knows `token` as a travel pass, not an API credential).
+- **Query rewriting via LLM** — introduces an LLM dependency at query time, breaking the local-first constraint.
+
+**Revisit when**: v1.1 hybrid search contingency is triggered (real evidence of vocabulary-mismatch failures that tuned FTS5 cannot address). If hybrid search lands, this question is permanently closed. If hybrid search doesn't land, revisit synonym expansion only with concrete query failure data as motivation.
+
+---
+
+## D26: FTS5 Latency Benchmark — Real Corpus Required
+
+**Decision**: the FTS5 latency benchmark must use a real documentation corpus, not a synthetic one.
+
+**Background**: the initial implementation used a synthetic corpus with a 70-word vocabulary and uniform random term assignment. This gave P50 latencies of 44–78ms. Replacing it with 100,116 real documentation chunks (59 packs from `directory.llmstxt.cloud`) gave P50 latencies of 0.15–21ms depending on query type.
+
+**Why synthetic corpora mislead for FTS5**: FTS5 BM25 query time is O(posting-list-size) — proportional to how many chunks match the query term(s). A 70-word vocabulary with uniform distribution gives every term a ~44% document frequency, so every query scans ~44,000 matching chunks in a 100K corpus. Real documentation vocabulary has a long-tail distribution: most technical terms (class names, method names, config keys, product-specific jargon) appear in < 1% of chunks. The benchmark's most important case — a specific technical term from a library's API — completes in < 1ms, not 78ms. A synthetic corpus produces worst-case numbers that misrepresent the dominant query pattern.
+
+**Implication**: whenever FTS5 performance is re-measured (e.g. after an FTS5 configuration change, or after a Python/SQLite version upgrade), the benchmark must be run against the real corpus. The 100ms P95 regression guard in `tests/benchmarks/test_query_latency.py` is calibrated for real data; running it against a synthetic corpus would produce false failures.
+
+**Setup**: `python scripts/build_benchmark_packs.py` fetches and builds the 59-pack corpus. Already-built packs are skipped, so re-running after a partial build is safe.
+
+**Revisit when**: never for the core methodology. The corpus list in `scripts/build_benchmark_packs.py` should be refreshed periodically as sites update their `llms-full.txt` content and as new sites are added to `directory.llmstxt.cloud`.
+
+## D27: Search API Return Type — SearchResponse Over Bare List
+
+**Decision**: `search()` returns `SearchResponse(results, query_used)`, not `list[SearchResult]`. All inputs that produce no searchable terms raise `SearchError`. The MCP server omits `query_used` from the wire format when it equals the raw input (no preprocessing effect).
+
+**Background**: returning a bare `list[SearchResult]` is permanently ambiguous. The caller cannot distinguish: valid query with empty index, valid query with no matches, empty input, all-special-chars input, or all-stopwords input. Every major search API (Elasticsearch, Algolia, Typesense, MeiliSearch) uses a structured response type for this reason — the response object communicates what happened, not just what was found. Spike S12 confirmed this pattern is universal.
+
+**Fields chosen**:
+- `results: list[SearchResult]` — the paginated hit set. Empty list unambiguously means FTS5 ran and matched nothing, because all other empty-result paths now raise before returning.
+- `query_used: str` — the query string after preprocessing (sanitization + stopword filtering) that was actually issued to FTS5. Distinct from the caller's raw input when preprocessing removed terms. Enables callers and agents to understand what was searched.
+
+**Fields rejected**:
+- `total: int` — all major APIs include a total count (before pagination). We excluded it because FTS5 does not return a total without a second `COUNT(*)` query, and `len(results) == total` for our use case (no separate pagination from FTS5). Callers use `len(response.results)`.
+- `took_ms: float` — useful for diagnostics but adds tokens to every MCP response. Deferred.
+
+**MCP serialization**: the server layer serializes `query_used` only when it differs from the raw input query. When no preprocessing occurred, the field is omitted, keeping the common-case MCP response identical in size to the previous bare-list format. This is the key design point: internal richness does not require wire-format bloat.
+
+**Contract**: `SearchError` is raised for (1) empty input, (2) input that sanitizes to empty (all special chars), (3) input that filters to empty (all stopwords). `SearchResponse` is returned only for inputs that reach FTS5 — `results=[]` then means exactly one thing.
+
+**Revisit when**: FTS5 is replaced by a hybrid backend, at which point `total` (before-limit count from the underlying engine) becomes cheap to obtain and worth including.

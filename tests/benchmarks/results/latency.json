@@ -1,0 +1,46 @@
+{
+  "pack_count": 59,
+  "reps_per_query": 50,
+  "queries": {
+    "single_common_term": {
+      "query": "install",
+      "limit": 10,
+      "p50_ms": 10.212,
+      "p95_ms": 10.968,
+      "min_ms": 9.709,
+      "max_ms": 11.921
+    },
+    "multi_term": {
+      "query": "authentication token",
+      "limit": 10,
+      "p50_ms": 5.152,
+      "p95_ms": 5.803,
+      "min_ms": 4.861,
+      "max_ms": 6.11
+    },
+    "technical_specific": {
+      "query": "webhook endpoint",
+      "limit": 10,
+      "p50_ms": 2.662,
+      "p95_ms": 2.968,
+      "min_ms": 2.497,
+      "max_ms": 3.45
+    },
+    "rare_term": {
+      "query": "sigstore",
+      "limit": 10,
+      "p50_ms": 0.153,
+      "p95_ms": 0.194,
+      "min_ms": 0.136,
+      "max_ms": 0.257
+    },
+    "high_limit": {
+      "query": "configuration",
+      "limit": 20,
+      "p50_ms": 20.99,
+      "p95_ms": 22.516,
+      "min_ms": 20.139,
+      "max_ms": 32.631
+    }
+  }
+}

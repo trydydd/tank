@@ -3,10 +3,10 @@ name: Benchmark
 on:
   pull_request:
     paths:
-      - "src/tank/server.py"
-      - "src/tank/search/**"
-      - "src/tank/storage/models.py"
-      - "src/tank/storage/db.py"
+      - "src/synd/server.py"
+      - "src/synd/search/**"
+      - "src/synd/storage/models.py"
+      - "src/synd/storage/db.py"
       - "tests/benchmarks/**"
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
       - name: Save PR results
         run: |
           cp pr/tests/benchmarks/results/latest.json /tmp/pr.json
-          cp pr/tests/benchmarks/results/webfetch_vs_tank_latest.json /tmp/pr_webfetch.json
+          cp pr/tests/benchmarks/results/webfetch_vs_synd_latest.json /tmp/pr_webfetch.json
 
       - name: Run benchmark on main
         working-directory: baseline
@@ -65,8 +65,8 @@ jobs:
           if [ -f baseline/tests/benchmarks/results/latest.json ]; then
             cp baseline/tests/benchmarks/results/latest.json /tmp/main.json
           fi
-          if [ -f baseline/tests/benchmarks/results/webfetch_vs_tank_latest.json ]; then
-            cp baseline/tests/benchmarks/results/webfetch_vs_tank_latest.json /tmp/main_webfetch.json
+          if [ -f baseline/tests/benchmarks/results/webfetch_vs_synd_latest.json ]; then
+            cp baseline/tests/benchmarks/results/webfetch_vs_synd_latest.json /tmp/main_webfetch.json
           fi
 
       - name: Generate comparison
@@ -89,7 +89,7 @@ jobs:
           python3 pr/tests/benchmarks/compare.py \
             /tmp/pr.json --standalone > /tmp/comment.md
 
-      - name: Append WebFetch vs Tank section
+      - name: Append WebFetch vs Synd section
         run: |
           if [ -f /tmp/main_webfetch.json ]; then
             python3 pr/tests/benchmarks/compare.py \
@@ -109,7 +109,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            const marker = '<!-- tank-benchmark -->';
+            const marker = '<!-- synd-benchmark -->';
             const existing = comments.data.find(c => c.body.includes(marker));
             return existing ? String(existing.id) : '';
           result-encoding: string

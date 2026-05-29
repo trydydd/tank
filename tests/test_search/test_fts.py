@@ -4,7 +4,7 @@ import tempfile
 import pytest
 
 from synd.errors import SearchError
-from synd.search.fts import search, get_chunks_by_id
+from synd.search.fts import search, get_chunks_by_id, _preprocess_query
 from synd.storage.db import Database
 from synd.storage.models import Chunk, Page, Pack
 
@@ -330,6 +330,19 @@ def test_search_malformed_query_raises_search_error() -> None:
         search(db, "foo AND")  # incomplete binary operator — invalid FTS5 syntax
 
 
+def test_search_stopword_only_query_raises_search_error() -> None:
+    """A query that reduces to nothing after stopword filtering raises SearchError."""
+    db = _make_db()
+    with pytest.raises(SearchError, match="common words"):
+        search(db, "the is a")
+
+
+def test_search_empty_string_returns_empty_list() -> None:
+    """Truly empty input returns [] without raising — caller's responsibility."""
+    db = _make_db()
+    assert search(db, "") == []
+
+
 def test_search_dot_in_query_does_not_raise() -> None:
     """'mcp.tool' must not crash — dot is an FTS5 syntax error without sanitization."""
     db = _make_db()
@@ -416,6 +429,28 @@ def test_search_best_match_first() -> None:
     results = search(db, "python")
     assert len(results) == 2
     assert results[0].chunk_id == 1
+
+
+def test_preprocess_query_filters_stopwords() -> None:
+    """Common function words are stripped, leaving only meaningful terms."""
+    assert _preprocess_query("install the package") == "install package"
+    assert (
+        _preprocess_query("is the authentication configured")
+        == "authentication configured"
+    )
+    assert _preprocess_query("a token for the api") == "token api"
+
+
+def test_preprocess_query_all_stopwords_returns_empty() -> None:
+    """When every token is a stopword an empty string is returned so search() short-circuits."""
+    assert _preprocess_query("the is a") == ""
+    assert _preprocess_query("the") == ""
+
+
+def test_preprocess_query_preserves_fts5_operators() -> None:
+    """Uppercase AND / OR / NOT pass through — they are valid FTS5 operators."""
+    assert _preprocess_query("foo AND bar") == "foo AND bar"
+    assert _preprocess_query("foo OR bar") == "foo OR bar"
 
 
 def test_search_heading_path_weighted_higher() -> None:

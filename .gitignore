@@ -34,6 +34,9 @@ htmlcov/
 # Built packs (release artifacts, not stored in repo)
 packs/
 
+# Benchmark fixture packs (large binaries, built locally via scripts/build_benchmark_packs.py)
+tests/benchmarks/fixtures/packs/
+
 # Build inputs (downloaded source files)
 source/
 *-html/

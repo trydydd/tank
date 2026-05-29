@@ -443,6 +443,79 @@ spikes:
       - docs/decisions.md
     blocked_by: []
 
+  - id: S11
+    title: Non-Mintlify llms-full.txt format support
+    status: open
+    outcome: null
+    context: |
+      synd build --source <url>/llms-full.txt currently only handles the Mintlify
+      format, which delimits pages with "Source: <url>" boundary lines. During
+      benchmark corpus construction (59 packs, 100K chunks from directory.llmstxt.cloud)
+      we discovered that a significant fraction of major documentation sites use
+      incompatible formats and produce "No pages found" errors:
+
+        - Cloudflare (developers.cloudflare.com): YAML frontmatter blocks (--- ... ---)
+          as page separators, no "Source:" lines
+        - Svelte (svelte.dev): single flat file opening with <SYSTEM> tag, no page
+          boundaries
+        - GenAIScript (microsoft.github.io/genaiscript): empty or non-standard format
+        - Mintlify itself (mintlify.com/docs): redirects, non-parseable
+        - BuildWithFern, Codeium, Dynamic, Clerk, Apify, Commerce Layer, Zep: all
+          returned 0 "Source:" lines; formats unconfirmed
+
+      Cloudflare is the highest-value miss — it has extensive developer documentation
+      (Workers, Pages, AI, R2, D1, KV, Queues, etc.) that would be extremely useful
+      to index, and the YAML frontmatter format is clearly structured and parseable.
+      Svelte's <SYSTEM> tag file is a different but also regular format.
+
+      The current llms_full.py preprocessor (src/synd/builder/llms_full.py) has a
+      single parse_llms_full_txt() function that splits on "Source: " lines. It has
+      no format detection or fallback.
+    task: |
+      Survey the incompatible formats encountered and design a format-detection
+      strategy for build_pack_from_url() when given an llms-full.txt URL:
+
+      1. Confirm the exact format of each incompatible site by fetching samples:
+         - Cloudflare: how does each "page" start? Is the separator always "---\ntitle:"?
+           Does the YAML block contain a canonical URL field usable as source_url?
+         - Svelte: is there any page-level boundary at all, or is it one giant flat file?
+           If flat, how should it be chunked? (Single source document with heading-based
+           splitting, analogous to a local .md file.)
+         - At least 2 others from the zero-Source list to characterise the spread.
+
+      2. Recommend a format detection approach:
+         - Auto-detect from content (e.g. "starts with ---\ntitle:" → YAML frontmatter
+           format; "starts with <SYSTEM>" → flat file; "contains Source: lines" →
+           existing Mintlify path)?
+         - Explicit --format flag on synd build?
+         - Or detect automatically with a --format override escape hatch?
+
+      3. Scope the implementation for the Cloudflare YAML frontmatter format:
+         - Extract source_url from each page's frontmatter (likely the "url" or
+           "canonical" key, or derived from the "title" + directory structure)
+         - Extract page title from frontmatter "title" key
+         - Pass page body (after the closing ---) to the existing chunker pipeline
+         - Estimate effort in lines of new code
+
+      4. Consider the flat-file case (Svelte-style): should a flat llms-full.txt
+         with no page boundaries be treated as a single source document chunked by
+         heading? If so, source_url = the llms-full.txt URL itself; heading_path
+         values are relative to the file's structure.
+
+      The spike is complete when: format coverage is characterised, a detection
+      strategy is recommended, and the Cloudflare YAML case has a concrete
+      implementation sketch.
+    success: |
+      A characterisation of each incompatible format with sample content.
+      A recommended format detection strategy (auto vs flag).
+      A concrete implementation sketch for the Cloudflare YAML frontmatter case.
+      An estimate of effort for each format.
+    files:
+      - src/synd/builder/llms_full.py
+      - src/synd/builder/build.py
+      - docs/decisions.md
+    blocked_by: []
+
   - id: S9
     title: Chunk size gate — warning threshold and oversized chunk handling
     status: done
@@ -500,5 +573,70 @@ spikes:
     files:
       - src/synd/builder/chunking.py
       - src/synd/cli/build.py
+      - docs/decisions.md
+    blocked_by: []
+
+  - id: S12
+    title: Search API return type contract — structured response vs bare list
+    status: open
+    outcome: null
+    context: |
+      search() in src/synd/search/fts.py currently returns list[SearchResult].
+      A bare list is permanently ambiguous: the caller cannot distinguish between
+      "valid query, index is empty", "valid query, nothing matched", "empty input",
+      "all-special-chars input", or "all-stopwords input". Every major search API
+      avoids this by returning a structured response object rather than a bare list.
+
+      The ambiguity matters concretely for the MCP server (src/synd/server.py) and
+      CLI (src/synd/cli/query.py): both receive a list and cannot tell the agent or
+      user WHY they got no results. An agent that sends "the is a" gets [] back —
+      indistinguishable from a valid query against an empty index.
+
+      A secondary constraint: the MCP server serializes search results directly into
+      the tool response payload that reaches the AI agent. Any metadata added to the
+      return type must be evaluated for token cost — fields that appear on every
+      response add overhead to every agent call, not just the edge cases.
+
+      Current callers of search():
+        - src/synd/server.py: search_docs() wraps results in {"results": [...]}
+        - src/synd/cli/query.py: iterates results directly, checks `if not results`
+        - tests/test_search/test_fts.py: unit tests, assert on len and field values
+        - tests/test_integration.py: iterates results in two revoked-pack tests
+
+      Invalid-input cases that currently return [] silently:
+        - "" (empty string)
+        - "..." (all special chars — sanitizes to "")
+        All-stopwords input already raises SearchError (see commit 7c04288).
+    task: |
+      Survey how major search APIs (Elasticsearch, Algolia, Typesense, MeiliSearch)
+      handle this contract. For each, determine:
+        1. Do they return a bare list or a structured response object?
+        2. How is "no results" communicated vs "invalid query"?
+        3. What metadata fields are included and why?
+        4. How do they handle token/bandwidth cost for the metadata fields?
+
+      Then design the return type for search() that:
+        - Makes [] unambiguous (only possible after FTS5 ran successfully)
+        - Raises SearchError for all inputs that cannot reach FTS5
+        - Carries query_used (what was actually sent to FTS5 after preprocessing)
+          so callers can surface it when it differs from the raw input
+        - Keeps MCP wire-format token overhead at zero on the common path
+          (the server layer controls serialization separately from the return type)
+
+      Evaluate whether a total/count field is worth including given that FTS5
+      does not return a pre-LIMIT count without a second query.
+
+      The implementation touches: src/synd/search/fts.py (new return type),
+      src/synd/server.py (consume new type, serialize query_used conditionally),
+      src/synd/cli/query.py (consume new type), all call sites in tests.
+    success: |
+      A documented return type contract recorded in decisions.md with: chosen
+      fields with justification, rejected fields with rationale, and guidance
+      on how the server layer serializes selectively. Implementation complete,
+      all existing tests passing.
+    files:
+      - src/synd/search/fts.py
+      - src/synd/server.py
+      - src/synd/cli/query.py
       - docs/decisions.md
     blocked_by: []
