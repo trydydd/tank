@@ -55,14 +55,18 @@ _STOPWORDS = frozenset(
 )
 
 
-def _preprocess_query(query: str) -> str:
-    """Strip FTS5 special chars, collapse whitespace, and filter stopwords.
+def _sanitize_query(query: str) -> str:
+    """Strip FTS5 special characters and collapse whitespace."""
+    return " ".join(_FTS5_SPECIAL_RE.sub(" ", query).split())
 
-    Returns the filtered query, or an empty string if every token is a
-    stopword (so the caller can skip issuing the MATCH rather than scanning
-    the full posting list for a high-frequency function word).
+
+def _preprocess_query(query: str) -> str:
+    """Sanitize and filter stopwords from a query.
+
+    Returns the filtered query, or an empty string if all tokens are stopwords
+    or the input contained no word characters.
     """
-    sanitized = " ".join(_FTS5_SPECIAL_RE.sub(" ", query).split())
+    sanitized = _sanitize_query(query)
     if not sanitized:
         return sanitized
     tokens = sanitized.split()
@@ -99,6 +103,11 @@ def search(
 ) -> list[SearchResult]:
     sanitized = _preprocess_query(query)
     if not sanitized:
+        if _sanitize_query(query):
+            raise SearchError(
+                "Query contains only common words with no search value. "
+                "Use more specific terms."
+            )
         return []
 
     conn = db.conn

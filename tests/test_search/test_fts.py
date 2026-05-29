@@ -330,6 +330,19 @@ def test_search_malformed_query_raises_search_error() -> None:
         search(db, "foo AND")  # incomplete binary operator — invalid FTS5 syntax
 
 
+def test_search_stopword_only_query_raises_search_error() -> None:
+    """A query that reduces to nothing after stopword filtering raises SearchError."""
+    db = _make_db()
+    with pytest.raises(SearchError, match="common words"):
+        search(db, "the is a")
+
+
+def test_search_empty_string_returns_empty_list() -> None:
+    """Truly empty input returns [] without raising — caller's responsibility."""
+    db = _make_db()
+    assert search(db, "") == []
+
+
 def test_search_dot_in_query_does_not_raise() -> None:
     """'mcp.tool' must not crash — dot is an FTS5 syntax error without sanitization."""
     db = _make_db()
