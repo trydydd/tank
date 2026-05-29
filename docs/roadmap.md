@@ -2,15 +2,16 @@
 
 ## Current Focus — v0.2.0
 
-v0.1.1 is complete. Active development is on `feature/mcp` targeting v0.2.0.
+v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 
-**Implementation complete (205/206 tests passing):**
-- MCP two-tool refactor (`search` / `fetch`)
-- `synd serve` CLI command
-- FTS5 `heading_path` column with 2.5× BM25 weight
-- Full docs refresh (MCP.md, ranking.md, architecture.md, roadmap.md)
+**Chunker quality stream complete** — all S1–S10 spikes resolved:
+- Custom `markdown-it-py` chunker (all heading levels, fence atomicity, `heading_path` by construction)
+- Heading-aware summary heuristic; MDX/Tab de-indentation and pipeline order fix; Tab heading disambiguation
+- `synd build --source <url>` (llms-full.txt and llms.txt); URL noise filtering
+- `--max/min/warn-chunk-tokens` CLI params; default max raised 500 → 800; oversized-chunk warnings
+- Minimum-token stub suppression (heading boundaries + trailing sections)
 
-**Next up:** PyPI release (blocked on packaging), `tank init`, URL fetch sources (S6 done; S7, S8 open).
+**Next up:** PyPI release (blocked on `twine upload` step), pre-built packs for top 20 libraries, FTS5 query preprocessing.
 
 ---
 
