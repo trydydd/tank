@@ -47,7 +47,7 @@ def test_search_returns_ranked_results() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "Welcome")
+    results = search(db, "Welcome").results
     assert len(results) == 1
     assert results[0].heading_path == "Introduction"
     assert results[0].score > 0
@@ -98,11 +98,11 @@ def test_search_excludes_revoked() -> None:
     _import_pack(db, pack_approved, approved_pages, approved_chunks)
     _import_pack(db, pack_revoked, revoked_pages, revoked_chunks)
 
-    results = search(db, "Welcome")
+    results = search(db, "Welcome").results
     assert len(results) == 1
     assert results[0].package == "docs"
 
-    results_other = search(db, "other")
+    results_other = search(db, "other").results
     assert len(results_other) == 0
 
 
@@ -151,11 +151,11 @@ def test_search_filters_by_package() -> None:
     _import_pack(db, pack_a, pages_a, chunks_a)
     _import_pack(db, pack_b, pages_b, chunks_b)
 
-    results = search(db, "content", packages=["beta"])
+    results = search(db, "content", packages=["beta"]).results
     assert len(results) == 1
     assert results[0].package == "beta"
 
-    results_all = search(db, "content")
+    results_all = search(db, "content").results
     assert len(results_all) == 2
 
 
@@ -183,7 +183,7 @@ def test_search_summary_mode_excludes_content() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "Welcome", detail="summary")
+    results = search(db, "Welcome", detail="summary").results
     assert len(results) == 1
     assert results[0].content is None
 
@@ -212,7 +212,7 @@ def test_search_full_mode_includes_content() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "Welcome", detail="full")
+    results = search(db, "Welcome", detail="full").results
     assert len(results) == 1
     assert results[0].content == "Some long content text"
 
@@ -241,7 +241,7 @@ def test_search_deprecated_has_warning() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "deprecated")
+    results = search(db, "deprecated").results
     assert len(results) == 1
     assert results[0].lifecycle_state == "deprecated"
     assert results[0].lifecycle_warning is not None
@@ -292,7 +292,7 @@ def test_get_chunks_by_id() -> None:
 
 def test_search_empty_index() -> None:
     db = _make_db()
-    results = search(db, "anything")
+    results = search(db, "anything").results
     assert results == []
 
 
@@ -320,7 +320,7 @@ def test_search_no_match() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "zzzznonexistent")
+    results = search(db, "zzzznonexistent").results
     assert results == []
 
 
@@ -337,22 +337,23 @@ def test_search_stopword_only_query_raises_search_error() -> None:
         search(db, "the is a")
 
 
-def test_search_empty_string_returns_empty_list() -> None:
-    """Truly empty input returns [] without raising — caller's responsibility."""
+def test_search_empty_string_raises() -> None:
+    """Empty input raises SearchError — there is no valid empty query."""
     db = _make_db()
-    assert search(db, "") == []
+    with pytest.raises(SearchError, match="empty"):
+        search(db, "")
 
 
 def test_search_dot_in_query_does_not_raise() -> None:
     """'mcp.tool' must not crash — dot is an FTS5 syntax error without sanitization."""
     db = _make_db()
-    results = search(db, "mcp.tool")
+    results = search(db, "mcp.tool").results
     assert results == []
 
 
 def test_search_parens_in_query_do_not_raise() -> None:
     db = _make_db()
-    results = search(db, "foo(bar)")
+    results = search(db, "foo(bar)").results
     assert results == []
 
 
@@ -381,15 +382,15 @@ def test_search_special_chars_stripped_still_matches() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "mcp.tool")
+    results = search(db, "mcp.tool").results
     assert len(results) == 1
     assert results[0].heading_path == "Tools"
 
 
-def test_search_query_of_only_special_chars_returns_empty() -> None:
+def test_search_query_of_only_special_chars_raises() -> None:
     db = _make_db()
-    results = search(db, "...")
-    assert results == []
+    with pytest.raises(SearchError, match="empty"):
+        search(db, "...")
 
 
 def test_search_best_match_first() -> None:
@@ -426,7 +427,7 @@ def test_search_best_match_first() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "python")
+    results = search(db, "python").results
     assert len(results) == 2
     assert results[0].chunk_id == 1
 
@@ -490,7 +491,7 @@ def test_search_heading_path_weighted_higher() -> None:
     ]
     _import_pack(db, pack, pages, chunks)
 
-    results = search(db, "oauth")
+    results = search(db, "oauth").results
     assert len(results) == 2
     # Chunk 2 matches in both heading_path (2.5x weight) and summary (1.5x weight);
     # chunk 1 matches only in summary (1.5x weight). Chunk 2 must rank first.

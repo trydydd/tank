@@ -7,6 +7,7 @@ import pytest
 
 from synd.storage.db import Database
 from synd.storage.models import Chunk, Pack, Page
+from synd.errors import SearchError
 from synd.server import (
     fetch_docs,
     search_docs,
@@ -230,14 +231,12 @@ def test_search_docs_no_content_field(db: Database) -> None:
         assert r.get("content") is None
 
 
-def test_search_docs_empty_query_returns_empty(db: Database) -> None:
+def test_search_docs_empty_query_raises(db: Database) -> None:
     _seed_approved_pack(db)
-
-    result: dict[str, Any] = search_docs(db, query="")
-    assert result == {"results": []}
-
-    result_ws: dict[str, Any] = search_docs(db, query="   ")
-    assert result_ws == {"results": []}
+    with pytest.raises(SearchError, match="empty"):
+        search_docs(db, query="")
+    with pytest.raises(SearchError, match="empty"):
+        search_docs(db, query="   ")
 
 
 def test_search_docs_limit(db: Database) -> None:

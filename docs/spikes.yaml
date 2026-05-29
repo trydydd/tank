@@ -574,4 +574,45 @@ spikes:
       - src/synd/builder/chunking.py
       - src/synd/cli/build.py
       - docs/decisions.md
+
+  - id: S12
+    title: Search API return type contract — structured response vs bare list
+    status: done
+    outcome: |
+      Industry pattern (Elasticsearch, Algolia, Typesense, MeiliSearch) is unanimous:
+      search functions return a structured response object, never a bare list. The
+      structured response always includes: (1) the result set, (2) a total/count field,
+      (3) the processed query string. Invalid inputs raise exceptions; the response
+      type is only returned for successful queries.
+
+      Key finding: the internal return type and the MCP serialization are separate
+      concerns. A rich internal SearchResponse does not mandate token-heavy MCP output —
+      the server layer controls what is serialized over the wire.
+
+      Resolution (D27): replace list[SearchResult] with SearchResponse(results,
+      query_used). Raise SearchError for all inputs that produce no searchable terms
+      (empty, all-special-chars, all-stopwords). The MCP server omits query_used from
+      the wire format when it equals the raw input query (no preprocessing effect),
+      keeping the common case token-efficient. See decisions.md D27.
+    context: |
+      search() in src/synd/search/fts.py returns list[SearchResult]. A bare list is
+      ambiguous: the caller cannot distinguish "valid query, nothing in the index",
+      "valid query, nothing matched", "empty input", or "query was all stopwords".
+      The only unambiguous signal would be an exception — but that conflates "no
+      results" with "bad query". The question is whether a structured return type
+      is appropriate and what fields it should carry without adding MCP token cost.
+    task: |
+      Survey how major search APIs (Elasticsearch, Algolia, Typesense, MeiliSearch,
+      Whoosh, Xapian) handle this contract. Determine: (1) bare list vs structured
+      response, (2) how "no results" is communicated, (3) how invalid queries are
+      signalled, (4) what metadata fields are standard, (5) how to keep MCP
+      serialization lean while the internal type is rich.
+    success: |
+      A clear return type contract with rationale, a list of fields with justification
+      for each, and guidance on MCP serialization. Enough to implement without further
+      research.
+    files:
+      - src/synd/search/fts.py
+      - src/synd/server.py
+      - docs/decisions.md
     blocked_by: []

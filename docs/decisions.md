@@ -516,3 +516,23 @@ The URL noise filter (`DEFAULT_NOISE_URL_PATTERNS`) already handles the canonica
 **Setup**: `python scripts/build_benchmark_packs.py` fetches and builds the 59-pack corpus. Already-built packs are skipped, so re-running after a partial build is safe.
 
 **Revisit when**: never for the core methodology. The corpus list in `scripts/build_benchmark_packs.py` should be refreshed periodically as sites update their `llms-full.txt` content and as new sites are added to `directory.llmstxt.cloud`.
+
+## D27: Search API Return Type — SearchResponse Over Bare List
+
+**Decision**: `search()` returns `SearchResponse(results, query_used)`, not `list[SearchResult]`. All inputs that produce no searchable terms raise `SearchError`. The MCP server omits `query_used` from the wire format when it equals the raw input (no preprocessing effect).
+
+**Background**: returning a bare `list[SearchResult]` is permanently ambiguous. The caller cannot distinguish: valid query with empty index, valid query with no matches, empty input, all-special-chars input, or all-stopwords input. Every major search API (Elasticsearch, Algolia, Typesense, MeiliSearch) uses a structured response type for this reason — the response object communicates what happened, not just what was found. Spike S12 confirmed this pattern is universal.
+
+**Fields chosen**:
+- `results: list[SearchResult]` — the paginated hit set. Empty list unambiguously means FTS5 ran and matched nothing, because all other empty-result paths now raise before returning.
+- `query_used: str` — the query string after preprocessing (sanitization + stopword filtering) that was actually issued to FTS5. Distinct from the caller's raw input when preprocessing removed terms. Enables callers and agents to understand what was searched.
+
+**Fields rejected**:
+- `total: int` — all major APIs include a total count (before pagination). We excluded it because FTS5 does not return a total without a second `COUNT(*)` query, and `len(results) == total` for our use case (no separate pagination from FTS5). Callers use `len(response.results)`.
+- `took_ms: float` — useful for diagnostics but adds tokens to every MCP response. Deferred.
+
+**MCP serialization**: the server layer serializes `query_used` only when it differs from the raw input query. When no preprocessing occurred, the field is omitted, keeping the common-case MCP response identical in size to the previous bare-list format. This is the key design point: internal richness does not require wire-format bloat.
+
+**Contract**: `SearchError` is raised for (1) empty input, (2) input that sanitizes to empty (all special chars), (3) input that filters to empty (all stopwords). `SearchResponse` is returned only for inputs that reach FTS5 — `results=[]` then means exactly one thing.
+
+**Revisit when**: FTS5 is replaced by a hybrid backend, at which point `total` (before-limit count from the underlying engine) becomes cheap to obtain and worth including.
