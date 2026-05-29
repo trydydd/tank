@@ -15,12 +15,13 @@ def _fixture_path(name: str = "sample_docs") -> Path:
 def _build(tmp_path: Path, source: Path | None = None) -> Path:
     src = source or _fixture_path()
     output = tmp_path / "packs"
-    return build_pack(
+    ctx_path, _ = build_pack(
         package="test-lib",
         version="1.0.0",
         source=src,
         output=output,
     )
+    return ctx_path
 
 
 def test_build_produces_valid_ctx(tmp_path: Path) -> None:
@@ -62,12 +63,13 @@ def test_build_deterministic_hash(tmp_path: Path) -> None:
 
 
 def _build_with_output(output: Path) -> Path:
-    return build_pack(
+    ctx_path, _ = build_pack(
         package="test-lib",
         version="1.0.0",
         source=_fixture_path(),
         output=output,
     )
+    return ctx_path
 
 
 def test_build_source_url_relative_paths(tmp_path: Path) -> None:
@@ -83,7 +85,7 @@ def test_build_source_url_relative_paths(tmp_path: Path) -> None:
     old_cwd = os.getcwd()
     os.chdir(tmp_path)
     try:
-        ctx_path = build_pack(
+        ctx_path, _ = build_pack(
             package="test-lib",
             version="1.0.0",
             source=Path("./docs"),
@@ -142,7 +144,7 @@ def test_source_url_does_not_strip_source_dir_name(tmp_path: Path) -> None:
     old_cwd = os.getcwd()
     os.chdir(tmp_path)
     try:
-        ctx_path = build_pack(
+        ctx_path, _ = build_pack(
             package="test-lib",
             version="1.0.0",
             source=Path("./docs"),
@@ -183,7 +185,7 @@ def test_build_doc_version_status_passed_through(tmp_path: Path) -> None:
     source = _fixture_path()
     for status in ("stable", "prerelease", "archived", "unknown"):
         output = tmp_path / f"packs_{status}"
-        ctx_path = build_pack(
+        ctx_path, _ = build_pack(
             package="test-lib",
             version="1.0.0",
             source=source,
@@ -277,7 +279,7 @@ _FAKE_LLMS_FULL_PAGES = [
 
 def test_build_pack_from_url_llms_txt_produces_valid_ctx(tmp_path: Path) -> None:
     with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
-        ctx_path = build_pack_from_url(
+        ctx_path, _ = build_pack_from_url(
             package="test-lib",
             version="1.0.0",
             source_url="https://docs.example.com/llms.txt",
@@ -298,7 +300,7 @@ def test_build_pack_from_url_llms_full_txt_produces_valid_ctx(tmp_path: Path) ->
     with patch(
         "synd.builder.build.fetch_llms_full_pages", return_value=_FAKE_LLMS_FULL_PAGES
     ):
-        ctx_path = build_pack_from_url(
+        ctx_path, _ = build_pack_from_url(
             package="test-lib",
             version="1.0.0",
             source_url="https://docs.example.com/llms-full.txt",
@@ -313,7 +315,7 @@ def test_build_pack_from_url_llms_full_txt_produces_valid_ctx(tmp_path: Path) ->
 
 def test_build_pack_from_url_chunk_source_url_is_page_url(tmp_path: Path) -> None:
     with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
-        ctx_path = build_pack_from_url(
+        ctx_path, _ = build_pack_from_url(
             package="test-lib",
             version="1.0.0",
             source_url="https://docs.example.com/llms.txt",
@@ -332,7 +334,7 @@ def test_build_pack_from_url_chunk_source_url_is_page_url(tmp_path: Path) -> Non
 
 def test_build_pack_from_url_page_url_is_full_url(tmp_path: Path) -> None:
     with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
-        ctx_path = build_pack_from_url(
+        ctx_path, _ = build_pack_from_url(
             package="test-lib",
             version="1.0.0",
             source_url="https://docs.example.com/llms.txt",
@@ -347,7 +349,7 @@ def test_build_pack_from_url_page_url_is_full_url(tmp_path: Path) -> None:
 
 def test_build_pack_from_url_heading_path_uses_url_stem(tmp_path: Path) -> None:
     with patch("synd.builder.build.fetch_pages", return_value=_FAKE_LLMS_TXT_PAGES):
-        ctx_path = build_pack_from_url(
+        ctx_path, _ = build_pack_from_url(
             package="test-lib",
             version="1.0.0",
             source_url="https://docs.example.com/llms.txt",

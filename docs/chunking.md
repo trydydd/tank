@@ -16,18 +16,20 @@ Synaptic Drift uses a custom token-walker built on `markdown-it-py` to split doc
 
 ## Token budget and overflow splitting
 
-The default maximum chunk size is `_DEFAULT_MAX_CHUNK_TOKENS = 500` tokens (estimated as `len(content) // 4`). Headings are the primary split point. When a single heading section exceeds `max_chunk_tokens`, the chunker splits at the next paragraph boundary — never mid-paragraph and never inside a fence.
+The default maximum chunk size is `_DEFAULT_MAX_CHUNK_TOKENS = 800` tokens (estimated as `len(content) // 4`). Headings are the primary split point. When a single heading section exceeds `max_chunk_tokens`, the chunker splits at the next paragraph boundary — never mid-paragraph and never inside a fence.
 
 | Bound | Tokens (approx) |
 |---|---|
-| Default `max_chunk_tokens` | 500 |
+| Default `max_chunk_tokens` | 800 |
 | Default `min_chunk_tokens` | 20 |
 
-The 500-token default is intentionally conservative. Real-world documentation sections — a `###` subsection with a few paragraphs and one code example — typically land between 100–400 tokens. Sections that run long (API reference tables, large code examples) are split at paragraph breaks so each piece remains coherent.
+The 800-token default is calibrated for code-heavy SDK and framework documentation — the primary target corpus. A typical section is a `###` subsection with two to four sentences of explanation followed by one or more fenced code examples. At 800 tokens, the prose budget is large enough to keep an explanation and its code example in the same chunk, preserving retrieval coherence. The P95 section size in the MCP documentation corpus is ~420 tokens; the 800-token cap fires only on the longest prose sections.
 
 ### Minimum-token threshold
 
 When a heading boundary would produce a chunk below `min_chunk_tokens` (default 20), the emit is skipped and `chunk_start_line` is left in place. The suppressed content carries forward and is absorbed by the next section at its next emit point. This eliminates stub chunks — heading-only chunks produced when a heading is immediately followed by another heading with no prose between them — without a separate post-processing pass.
+
+The same guard applies to the trailing emit at the end of a file. A pure heading-only trailing section (e.g. a bare `# Title` at the end of a page in `llms-full.txt` referencing the next page) is suppressed when it falls below the threshold and has no body lines. If the trailing content contains any non-heading lines (prose, code, or tables) it is always emitted regardless of size.
 
 The absorbed heading text remains in the merged chunk's content, contributing to BM25 scoring, while `heading_path` reflects the absorbing section's (deeper) heading. For example:
 
@@ -68,7 +70,7 @@ The file prefix ensures that identically-named headings in different files are a
 With the default `limit=10` and no `max_tokens`:
 
 - **Best case** (10 small single-paragraph sections): ~10 × 50 = ~500 tokens
-- **Worst case** (10 sections at the overflow limit): ~10 × 500 = ~5,000 tokens
+- **Worst case** (10 sections at the overflow limit): ~10 × 800 = ~8,000 tokens
 - **Typical** (mixed real-world docs): ~10 × 150–300 tokens = ~1,500–3,000 tokens
 
 `max_tokens` is the mechanism that gives a hard upper bound regardless of what's in the index. For agents with tight context budgets, the recommended pattern is:
@@ -86,12 +88,11 @@ See `docs/ranking.md` for how the greedy budget enforcement works.
 
 ## Configuring chunk size
 
-Two parameters on `chunk_content()` in `src/synd/builder/chunking.py` control chunk size:
+Three `synd build` flags control chunk size:
 
-- `max_chunk_tokens` (default `500`) — upper bound; sections that exceed this are split at the next paragraph boundary.
-- `min_chunk_tokens` (default `20`) — lower bound guard; heading boundaries that would produce a below-threshold chunk are skipped and the content is absorbed forward into the next section.
-
-Exposing these as `synd build --max-chunk-tokens` / `--min-chunk-tokens` CLI flags is tracked in `docs/roadmap.md`.
+- `--max-chunk-tokens` (default `800`) — upper bound; sections that exceed this are split at the next paragraph boundary.
+- `--min-chunk-tokens` (default `20`) — lower bound guard; heading boundaries that would produce a below-threshold chunk are skipped and the content is absorbed forward into the next section.
+- `--warn-chunk-tokens` (default: `2 × max_chunk_tokens`) — emit a warning after build for any chunk exceeding this threshold. Structural tokens (indented code blocks, tables, long fenced code) can bypass the paragraph-level overflow split; warnings surface these irreducibly large chunks without attempting an automatic structural split (see D24 in `docs/decisions.md`).
 
 ## Summary generation
 

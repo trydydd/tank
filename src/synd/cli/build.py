@@ -9,6 +9,11 @@ import click
 from rich.console import Console
 
 from synd.builder.build import build_pack, build_pack_from_url
+from synd.builder.chunking import (
+    RawChunk,
+    _DEFAULT_MAX_CHUNK_TOKENS,
+    _DEFAULT_MIN_CHUNK_TOKENS,
+)
 from synd.builder.url_filter import DEFAULT_NOISE_URL_PATTERNS
 from synd.errors import BuildError, SyndError
 
@@ -76,6 +81,27 @@ def _parse_package_spec(spec: str) -> tuple[str, str]:
     default=False,
     help="Disable all URL noise filtering. URL builds only.",
 )
+@click.option(
+    "--max-chunk-tokens",
+    default=None,
+    type=int,
+    help="Max tokens per chunk before overflow split. [default: 800]",
+)
+@click.option(
+    "--min-chunk-tokens",
+    default=None,
+    type=int,
+    help="Min tokens to emit a chunk; stubs below this are merged into the next section. [default: 20]",
+)
+@click.option(
+    "--warn-chunk-tokens",
+    default=None,
+    type=int,
+    help=(
+        "Warn when a chunk exceeds this token count after all splits. "
+        "Defaults to 2× --max-chunk-tokens."
+    ),
+)
 def build(
     package_spec: str,
     source: str,
@@ -86,6 +112,9 @@ def build(
     policy_profile: str | None,
     exclude_url_pattern: tuple[str, ...],
     no_url_filter: bool,
+    max_chunk_tokens: int | None,
+    min_chunk_tokens: int | None,
+    warn_chunk_tokens: int | None,
 ) -> None:
     """Build a documentation pack from source files or a URL.
 
@@ -111,10 +140,17 @@ def build(
     else:
         url_patterns = DEFAULT_NOISE_URL_PATTERNS + tuple(exclude_url_pattern)
 
+    resolved_max = (
+        max_chunk_tokens if max_chunk_tokens is not None else _DEFAULT_MAX_CHUNK_TOKENS
+    )
+    resolved_min = (
+        min_chunk_tokens if min_chunk_tokens is not None else _DEFAULT_MIN_CHUNK_TOKENS
+    )
+
     try:
         if source.startswith(("http://", "https://")):
             output_dir.mkdir(parents=True, exist_ok=True)
-            ctx_path = build_pack_from_url(
+            ctx_path, oversized = build_pack_from_url(
                 package=pkg,
                 version=ver,
                 source_url=source,
@@ -124,6 +160,9 @@ def build(
                 owner=owner,
                 policy_profile=policy_profile,
                 excluded_url_patterns=url_patterns,
+                max_chunk_tokens=resolved_max,
+                min_chunk_tokens=resolved_min,
+                warn_chunk_tokens=warn_chunk_tokens,
             )
         else:
             source_path = Path(source)
@@ -133,7 +172,7 @@ def build(
                 )
                 sys.exit(1)
             output_dir.mkdir(parents=True, exist_ok=True)
-            ctx_path = build_pack(
+            ctx_path, oversized = build_pack(
                 package=pkg,
                 version=ver,
                 source=source_path,
@@ -142,8 +181,33 @@ def build(
                 doc_version_status=doc_version_status,
                 owner=owner,
                 policy_profile=policy_profile,
+                max_chunk_tokens=resolved_max,
+                min_chunk_tokens=resolved_min,
+                warn_chunk_tokens=warn_chunk_tokens,
             )
         console.print(f"[green]Pack built: {ctx_path}[/green]")
+        _print_oversized_warnings(oversized, resolved_max, warn_chunk_tokens)
     except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(1)
+
+
+def _print_oversized_warnings(
+    oversized: list[RawChunk],
+    max_chunk_tokens: int,
+    warn_chunk_tokens: int | None,
+) -> None:
+    if not oversized:
+        return
+    effective_warn = (
+        warn_chunk_tokens if warn_chunk_tokens is not None else 2 * max_chunk_tokens
+    )
+    _MAX_LISTED = 5
+    console.print(
+        f"[yellow]  {len(oversized)} chunk(s) exceed {effective_warn:,} tokens "
+        f"— run `synd inspect` on the pack for details.[/yellow]"
+    )
+    for rc in oversized[:_MAX_LISTED]:
+        console.print(f"[yellow]    • {rc.heading_path} ({rc.token_count:,}t)[/yellow]")
+    if len(oversized) > _MAX_LISTED:
+        console.print(f"[yellow]    … and {len(oversized) - _MAX_LISTED} more[/yellow]")

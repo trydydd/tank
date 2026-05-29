@@ -10,7 +10,7 @@ from markdown_it import MarkdownIt
 from synd.builder.normalizer import normalize
 
 _MD = MarkdownIt()
-_DEFAULT_MAX_CHUNK_TOKENS: int = 500
+_DEFAULT_MAX_CHUNK_TOKENS: int = 800
 _DEFAULT_MIN_CHUNK_TOKENS: int = 20
 _WHITELISTED = {".md", ".html", ".htm"}
 
@@ -129,13 +129,31 @@ def chunk_content(
 
         i += 1
 
-    # Emit the final trailing chunk
-    _emit(len(source_lines))
+    # Emit the final trailing chunk.
+    # Apply the min-token guard only for pure-heading-only trailing sections
+    # (e.g. "# SDKs\n" with no body after it). If the trailing content has any
+    # non-heading lines (prose, code, tables), always emit — even if short.
+    final_candidate = "\n".join(source_lines[chunk_start_line:]).strip()
+    if final_candidate:
+        non_heading_lines = [
+            ln
+            for ln in final_candidate.splitlines()
+            if ln.strip() and not ln.strip().startswith("#")
+        ]
+        has_body = bool(non_heading_lines)
+        if has_body or len(final_candidate) // 4 >= min_chunk_tokens:
+            _emit(len(source_lines))
 
     return chunks
 
 
-def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
+def chunk_file(
+    file_path: Path,
+    source: Path,
+    page_id: int,
+    max_chunk_tokens: int = _DEFAULT_MAX_CHUNK_TOKENS,
+    min_chunk_tokens: int = _DEFAULT_MIN_CHUNK_TOKENS,
+) -> list[RawChunk]:
     """Chunk a single documentation file.
 
     heading_path is constructed as: <relative_file_prefix> / <heading ancestors>
@@ -145,7 +163,12 @@ def chunk_file(file_path: Path, source: Path, page_id: int) -> list[RawChunk]:
     prefix = str(Path(relative).with_suffix(""))  # e.g. "auth/oauth"
     raw_content = file_path.read_text(encoding="utf-8")
     return chunk_content(
-        raw_content, heading_prefix=prefix, source_url=relative, page_id=page_id
+        raw_content,
+        heading_prefix=prefix,
+        source_url=relative,
+        page_id=page_id,
+        max_chunk_tokens=max_chunk_tokens,
+        min_chunk_tokens=min_chunk_tokens,
     )
 
 

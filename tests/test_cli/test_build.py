@@ -211,6 +211,147 @@ class TestBuildCommand:
             manifest = json.loads(zf.read("manifest.json"))
             assert manifest["doc_version_status"] == "stable"
 
+    def test_max_chunk_tokens_flag_produces_more_chunks(self, tmp_path: Path) -> None:
+        """--max-chunk-tokens 100 must produce more chunks than the default 800."""
+        source = _fixture_path()
+        output_tight = tmp_path / "tight"
+        output_default = tmp_path / "default"
+        result_tight = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "my-lib@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output_tight),
+                "--max-chunk-tokens",
+                "100",
+            ],
+        )
+        result_default = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "my-lib@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output_default),
+            ],
+        )
+        assert result_tight.exit_code == 0, result_tight.output
+        assert result_default.exit_code == 0, result_default.output
+
+        def _chunk_count(out: Path) -> int:
+            ctx = next(out.glob("*.ctx"))
+            with zipfile.ZipFile(ctx) as zf:
+                return sum(
+                    1
+                    for ln in zf.read("chunks.jsonl").decode().splitlines()
+                    if ln.strip()
+                )
+
+        assert _chunk_count(output_tight) >= _chunk_count(output_default), (
+            "Tighter max_chunk_tokens should produce at least as many chunks"
+        )
+
+    def test_min_chunk_tokens_zero_allows_stub_chunks(self, tmp_path: Path) -> None:
+        """--min-chunk-tokens 0 disables the stub-merge guard."""
+        source = tmp_path / "src"
+        source.mkdir()
+        (source / "stubs.md").write_text("## A\n\n### B\n\nSome content here.\n")
+        output_zero = tmp_path / "zero"
+        output_default = tmp_path / "default"
+        result_zero = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "stubs@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output_zero),
+                "--min-chunk-tokens",
+                "0",
+            ],
+        )
+        result_default = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "stubs@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output_default),
+            ],
+        )
+        assert result_zero.exit_code == 0, result_zero.output
+        assert result_default.exit_code == 0, result_default.output
+
+        def _chunk_count(out: Path) -> int:
+            ctx = next(out.glob("*.ctx"))
+            with zipfile.ZipFile(ctx) as zf:
+                return sum(
+                    1
+                    for ln in zf.read("chunks.jsonl").decode().splitlines()
+                    if ln.strip()
+                )
+
+        assert _chunk_count(output_zero) >= _chunk_count(output_default), (
+            "min_chunk_tokens=0 should allow more chunks (stubs not merged)"
+        )
+
+    def test_warn_chunk_tokens_output_appears_for_oversized_chunk(
+        self, tmp_path: Path
+    ) -> None:
+        """Build a source with an indented code block > warn threshold; output must contain warning."""
+        fixture = (
+            Path(__file__).parent.parent
+            / "benchmarks"
+            / "fixtures"
+            / "oversized-indented-block.md"
+        )
+        source = tmp_path / "src"
+        source.mkdir()
+        import shutil
+
+        shutil.copy(fixture, source / fixture.name)
+        output = tmp_path / "packs"
+        result = CliRunner().invoke(
+            cli,
+            [
+                "build",
+                "oversized@1.0.0",
+                "--source",
+                str(source),
+                "--output",
+                str(output),
+                "--warn-chunk-tokens",
+                "500",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "exceed" in result.output, (
+            f"Expected oversized-chunk warning in output, got: {result.output!r}"
+        )
+
+    def test_no_warn_output_when_all_chunks_within_threshold(
+        self, tmp_path: Path
+    ) -> None:
+        """Normal small docs must not produce any warning lines."""
+        source = _fixture_path()
+        output = tmp_path / "packs"
+        result = CliRunner().invoke(
+            cli,
+            ["build", "my-lib@1.0.0", "--source", str(source), "--output", str(output)],
+        )
+        assert result.exit_code == 0, result.output
+        assert "exceed" not in result.output, (
+            f"Unexpected warning in output: {result.output!r}"
+        )
+
 
 class TestBuildCommandUrlSource:
     """Tests for 'synd build' with a URL --source."""

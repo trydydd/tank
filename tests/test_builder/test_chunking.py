@@ -101,6 +101,30 @@ class TestChunkFile:
         auth_code = next(c for c in chunks if "Authorization Code" in c.heading_path)
         assert "OAuth2" in auth_code.heading_path
 
+    def test_chunk_file_forwards_max_chunk_tokens(self, tmp_path: Path) -> None:
+        """chunk_file() must pass max_chunk_tokens through to chunk_content()."""
+        doc = tmp_path / "big.md"
+        paras = [f"Para {i}: " + ("word " * 40) for i in range(6)]
+        doc.write_text("## Section\n\n" + "\n\n".join(paras) + "\n")
+        chunks_tight = chunk_file(doc, tmp_path, page_id=1, max_chunk_tokens=100)
+        chunks_loose = chunk_file(doc, tmp_path, page_id=1, max_chunk_tokens=2000)
+        assert len(chunks_tight) > len(chunks_loose), (
+            "Tighter max_chunk_tokens must produce more chunks"
+        )
+
+    def test_chunk_file_forwards_min_chunk_tokens(self, tmp_path: Path) -> None:
+        """chunk_file() must pass min_chunk_tokens through to chunk_content()."""
+        doc = tmp_path / "stubs.md"
+        # Two headings with no prose between them — only the second has content
+        doc.write_text("## A\n\n### B\n\nSome actual content here.\n")
+        # With min_chunk_tokens=0 every non-empty heading section emits
+        chunks_zero = chunk_file(doc, tmp_path, page_id=1, min_chunk_tokens=0)
+        # With min_chunk_tokens=100 the stub "## A" is merged into B
+        chunks_merged = chunk_file(doc, tmp_path, page_id=1, min_chunk_tokens=100)
+        assert len(chunks_zero) > len(chunks_merged), (
+            "High min_chunk_tokens must suppress stub chunks"
+        )
+
 
 class TestChunkContent:
     def test_preamble_chunk_uses_prefix_as_heading_path(self) -> None:
@@ -394,14 +418,44 @@ class TestMinTokenMerge:
         assert "Section" in chunks[0].heading_path
         assert "Tiny intro." in chunks[0].content
 
-    def test_all_stubs_page_emits_one_chunk(self) -> None:
-        # Page consisting entirely of heading-only lines — must not produce empty result
+    def test_all_stubs_page_emits_no_chunks(self) -> None:
+        # Page consisting entirely of heading-only lines has no prose to index.
+        # All heading boundaries are below min_chunk_tokens; the trailing emit
+        # has no non-heading lines either — so 0 chunks is correct.
         content = "# A\n\n## B\n\n### C\n\n#### D\n"
         chunks = chunk_content(
             content, heading_prefix="doc", source_url="doc.md", page_id=1
         )
-        assert len(chunks) == 1
-        assert chunks[0].content  # not empty
+        assert len(chunks) == 0
+
+    def test_trailing_heading_stub_suppressed(self) -> None:
+        """A bare heading at the end of a file with no body must not emit a stub chunk."""
+        prose = "word " * 30  # 30 tokens — well above min
+        content = f"## A\n\n{prose}\n\n## B\n"  # B has no body
+        chunks = chunk_content(
+            content, heading_prefix="doc", source_url="doc.md", page_id=1
+        )
+        paths = [c.heading_path for c in chunks]
+        assert not any(p == "doc / B" for p in paths), (
+            "Trailing heading-only stub must be suppressed"
+        )
+        assert any("doc / A" in p for p in paths)
+
+    def test_trailing_stub_with_min_tokens_zero_still_emits(self) -> None:
+        """With min_chunk_tokens=0, a trailing heading stub is still emitted."""
+        prose = "word " * 30
+        content = f"## A\n\n{prose}\n\n## B\n"  # B has no body
+        chunks = chunk_content(
+            content,
+            heading_prefix="doc",
+            source_url="doc.md",
+            page_id=1,
+            min_chunk_tokens=0,
+        )
+        paths = [c.heading_path for c in chunks]
+        assert any(p == "doc / B" for p in paths), (
+            "With min_chunk_tokens=0, trailing stub must still be emitted"
+        )
 
     def test_min_chunk_tokens_zero_disables_merge(self) -> None:
         # min_chunk_tokens=0 means every non-empty chunk is emitted, including stubs
