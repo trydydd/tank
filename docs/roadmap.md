@@ -11,7 +11,7 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 - `--max/min/warn-chunk-tokens` CLI params; default max raised 500 → 800; oversized-chunk warnings
 - Minimum-token stub suppression (heading boundaries + trailing sections)
 
-**Next up:** PyPI release (blocked on `twine upload` step), pre-built packs for top 20 libraries, FTS5 query preprocessing.
+**Next up:** PyPI release (blocked on `twine upload` step), FTS5 query preprocessing.
 
 ---
 
@@ -160,8 +160,6 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
   - `src/synd/builder/url_filter.py`: `DEFAULT_NOISE_URL_PATTERNS`, `is_noise_url()`, `filter_page_urls()`
   - `build_pack_from_url()` in `build.py` gains `excluded_url_patterns` param (defaults to `DEFAULT_NOISE_URL_PATTERNS`)
   - CLI: `--exclude-url-pattern` (repeatable, appends to defaults) and `--no-url-filter` (disables all filtering)
-- [ ] **Pre-built packs for top 20 libraries** — built in CI from `llms-full.txt`, published as GitHub Releases (FastAPI, Django, Flask, SQLAlchemy, Pydantic, React, Next.js, Express, Prisma, etc.)
-
 ### FTS5 tuning — parallel, no blockers
 
 - [ ] **FTS5 search quality** — two remaining improvements:
@@ -193,6 +191,7 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 - [ ] **`synd build --source <url>`** — general web crawler: follow links from a docs site root, fetch and chunk all reachable pages. For sites without `llms.txt` or `llms-full.txt`. Rate limiting, `robots.txt` compliance, configurable `User-Agent`. No embeddings or JS rendering — static HTML only.
   - New module: `src/tank/builder/crawler.py`
   - Extend `src/tank/builder/fetch.py` with link extraction and crawl frontier logic
+- [ ] **Pre-built packs for top 20 libraries** — of the top 20 most intentionally installed Python packages, only pydantic has `llms.txt`/`llms-full.txt`; the rest require the crawler to build cleanly. See `docs/top20-python-packages.md` for coverage research and the requests@2.34.2 manual build as a reference. Publish as GitHub Releases once the crawler is in place.
 - [ ] **Pack registry (static hosting)** — `synd add fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
   - New module: `src/tank/registry/` (client only; server is a static file host)
   - `synd add` accepts `package@version` in addition to file paths

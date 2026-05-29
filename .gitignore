@@ -36,6 +36,7 @@ packs/
 
 # Build inputs (downloaded source files)
 source/
+*-html/
 
 # Python venvs (non-standard names)
 .venv312/

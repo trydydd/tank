@@ -18,6 +18,7 @@ from synd.builder.chunking import (
     discover_files,
     generate_summary,
 )
+from synd.builder.fetch import html_to_markdown
 from synd.builder.llms_full import LlmsFullPage, fetch_llms_full_pages, fetch_pages
 from synd.builder.url_filter import DEFAULT_NOISE_URL_PATTERNS, filter_page_urls
 from synd.builder.manifest import (
@@ -69,15 +70,21 @@ def build_pack(
         if file_source_url.startswith("./"):
             file_source_url = file_source_url[2:]
 
-        # Read and normalize the full file content for page hash
+        # Read and normalize the full file content for page hash.
+        # HTML files are converted to markdown so that the hash and title
+        # reflect the rendered content, consistent with what the chunker sees.
         raw_content = file_path.read_text(encoding="utf-8")
-        normalized_content = normalize(raw_content)
+        content = (
+            html_to_markdown(raw_content)
+            if file_path.suffix.lower() in {".html", ".htm"}
+            else raw_content
+        )
+        normalized_content = normalize(content)
         content_hash = (
             "sha256:" + hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
         )
 
-        # Extract title from first heading
-        title = _extract_title(raw_content) or Path(file_path).stem
+        title = _extract_title(content) or Path(file_path).stem
 
         pages.append(
             Page(

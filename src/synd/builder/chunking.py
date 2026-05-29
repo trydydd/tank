@@ -7,6 +7,7 @@ from pathlib import Path
 
 from markdown_it import MarkdownIt
 
+from synd.builder.fetch import html_to_markdown
 from synd.builder.normalizer import normalize
 
 _MD = MarkdownIt()
@@ -162,8 +163,13 @@ def chunk_file(
     relative = Path(os.path.relpath(file_path, source)).as_posix()
     prefix = str(Path(relative).with_suffix(""))  # e.g. "auth/oauth"
     raw_content = file_path.read_text(encoding="utf-8")
+    content = (
+        html_to_markdown(raw_content)
+        if file_path.suffix.lower() in {".html", ".htm"}
+        else raw_content
+    )
     return chunk_content(
-        raw_content,
+        content,
         heading_prefix=prefix,
         source_url=relative,
         page_id=page_id,

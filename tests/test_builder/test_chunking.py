@@ -126,6 +126,50 @@ class TestChunkFile:
         )
 
 
+class TestChunkFileHTML:
+    def test_html_tags_absent_from_chunk_content(self, tmp_path: Path) -> None:
+        """chunk_file() must convert .html via html_to_markdown — no raw tags in output."""
+        html = tmp_path / "guide.html"
+        html.write_text(
+            "<html><body><h1>Guide</h1><h2>Installation</h2>"
+            "<p>Run pip install requests.</p></body></html>"
+        )
+        chunks = chunk_file(html, tmp_path, page_id=1)
+        assert chunks, "Expected at least one chunk"
+        all_content = " ".join(c.content for c in chunks)
+        assert "<h1>" not in all_content
+        assert "<h2>" not in all_content
+        assert "<p>" not in all_content
+
+    def test_html_entities_decoded_in_chunk_content(self, tmp_path: Path) -> None:
+        html = tmp_path / "api.html"
+        html.write_text(
+            "<html><body><h1>API &amp; Reference</h1>"
+            "<p>Use &quot;bearer&quot; tokens.</p></body></html>"
+        )
+        chunks = chunk_file(html, tmp_path, page_id=1)
+        all_content = " ".join(c.content for c in chunks)
+        assert "&amp;" not in all_content
+        assert "&quot;" not in all_content
+
+    def test_html_heading_path_uses_heading_text(self, tmp_path: Path) -> None:
+        html = tmp_path / "api.html"
+        html.write_text(
+            "<html><body><h1>API Reference</h1>"
+            "<h2>Authentication</h2><p>Use a bearer token.</p></body></html>"
+        )
+        chunks = chunk_file(html, tmp_path, page_id=1)
+        paths = [c.heading_path for c in chunks]
+        assert any("Authentication" in p for p in paths)
+
+    def test_htm_extension_also_converted(self, tmp_path: Path) -> None:
+        htm = tmp_path / "page.htm"
+        htm.write_text("<html><body><h1>Title</h1><p>Content here.</p></body></html>")
+        chunks = chunk_file(htm, tmp_path, page_id=1)
+        assert chunks
+        assert "<h1>" not in chunks[0].content
+
+
 class TestChunkContent:
     def test_preamble_chunk_uses_prefix_as_heading_path(self) -> None:
         content = "Intro text before any heading.\n"

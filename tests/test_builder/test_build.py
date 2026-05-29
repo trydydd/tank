@@ -380,6 +380,51 @@ def test_build_pack_from_url_unsupported_url_raises(tmp_path: Path) -> None:
         assert False, "Expected BuildError"
 
 
+def test_build_html_source_chunks_contain_no_raw_tags(tmp_path: Path) -> None:
+    """build_pack() from a directory of .html files must convert HTML before chunking."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "quickstart.html").write_text(
+        "<html><body><h1>Quickstart</h1>"
+        "<h2>Installation</h2><p>Run pip install.</p>"
+        "</body></html>"
+    )
+    ctx_path, _ = build_pack(
+        package="test-lib",
+        version="1.0.0",
+        source=docs,
+        output=tmp_path / "packs",
+    )
+    with zipfile.ZipFile(ctx_path) as zf:
+        chunks = [
+            json.loads(ln)
+            for ln in zf.read("chunks.jsonl").decode().strip().split("\n")
+        ]
+    all_content = " ".join(c["content"] for c in chunks)
+    assert "<h1>" not in all_content
+    assert "<h2>" not in all_content
+    assert "<p>" not in all_content
+    assert "&quot;" not in all_content
+
+
+def test_build_html_source_page_title_from_h1(tmp_path: Path) -> None:
+    """build_pack() must extract the page title from the HTML <h1>, not raw markup."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "guide.html").write_text(
+        "<html><body><h1>User Guide</h1><p>Content.</p></body></html>"
+    )
+    ctx_path, _ = build_pack(
+        package="test-lib",
+        version="1.0.0",
+        source=docs,
+        output=tmp_path / "packs",
+    )
+    with zipfile.ZipFile(ctx_path) as zf:
+        pages = json.loads(zf.read("pages.json"))
+    assert pages[0]["title"] == "User Guide"
+
+
 def test_build_pack_from_url_no_pages_raises(tmp_path: Path) -> None:
     with patch("synd.builder.build.fetch_pages", return_value=[]):
         try:
