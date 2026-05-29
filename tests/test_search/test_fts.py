@@ -428,10 +428,10 @@ def test_preprocess_query_filters_stopwords() -> None:
     assert _preprocess_query("a token for the api") == "token api"
 
 
-def test_preprocess_query_all_stopwords_returns_original() -> None:
-    """When every token is a stopword the original sanitized text is preserved."""
-    result = _preprocess_query("the is a")
-    assert result == "the is a"
+def test_preprocess_query_all_stopwords_returns_empty() -> None:
+    """When every token is a stopword an empty string is returned so search() short-circuits."""
+    assert _preprocess_query("the is a") == ""
+    assert _preprocess_query("the") == ""
 
 
 def test_preprocess_query_preserves_fts5_operators() -> None:

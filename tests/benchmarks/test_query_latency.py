@@ -19,6 +19,7 @@ specific technical terms; common high-frequency terms approach ~10 ms.
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 import time
 import zipfile
@@ -132,7 +133,7 @@ def _measure(db: Database, query: str, limit: int) -> dict[str, float]:
         search(db, query, limit=limit)
         times_ms.append((time.perf_counter() - t0) * 1000)
     times_ms.sort()
-    p95_idx = max(0, int(len(times_ms) * 0.95) - 1)
+    p95_idx = max(0, math.ceil(len(times_ms) * 0.95) - 1)
     return {
         "p50_ms": round(times_ms[len(times_ms) // 2], 3),
         "p95_ms": round(times_ms[p95_idx], 3),

@@ -2,7 +2,7 @@
 
 ## Summary
 
-FTS5 queries against a 100,116-chunk real documentation index complete in under 10ms P95 for the query shapes an AI coding agent typically issues. The most common case — a two-or-three-term technical query — runs in 3–6ms. Rare or highly specific terms complete in under 1ms.
+FTS5 queries against a 100,116-chunk real documentation index complete in under 25ms P95 across all tested query shapes. The most common agent query — a two-or-three-term technical intersection — runs in 3–6ms P95. Rare or highly specific terms complete in under 1ms. The slow end (~23ms P95) only appears when fetching a large result set for a very common word (`configuration`, limit=20).
 
 ---
 

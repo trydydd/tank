@@ -58,17 +58,16 @@ _STOPWORDS = frozenset(
 def _preprocess_query(query: str) -> str:
     """Strip FTS5 special chars, collapse whitespace, and filter stopwords.
 
-    Falls back to the stopword-filtered-but-not-empty result: if every token
-    is a stopword the original sanitized query is returned unchanged so that
-    the caller can still distinguish a non-empty-input query from a truly
-    empty one.
+    Returns the filtered query, or an empty string if every token is a
+    stopword (so the caller can skip issuing the MATCH rather than scanning
+    the full posting list for a high-frequency function word).
     """
     sanitized = " ".join(_FTS5_SPECIAL_RE.sub(" ", query).split())
     if not sanitized:
         return sanitized
     tokens = sanitized.split()
     filtered = [t for t in tokens if t.lower() not in _STOPWORDS]
-    return " ".join(filtered) if filtered else sanitized
+    return " ".join(filtered)
 
 
 @dataclass
