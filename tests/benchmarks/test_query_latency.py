@@ -1,23 +1,28 @@
-"""FTS5 query latency benchmark.
+"""FTS5 query latency benchmark against a real documentation index.
 
-Generates a synthetic index of ~100,000 chunks and measures search() latency
-across representative query types. Writes results to
-tests/benchmarks/results/latency.json.
+Uses 59 packs (100,116 chunks) built from real llms-full.txt sources via
+https://directory.llmstxt.cloud/. This gives a realistic vocabulary distribution
+and document frequency profile, unlike a synthetic corpus.
+
+Pre-built packs live in tests/benchmarks/fixtures/packs/ and are loaded into
+a fresh in-memory-equivalent temp DB at fixture setup time. If the packs
+directory is empty or missing, the test is skipped with setup instructions.
 
 Run:
     pytest tests/benchmarks/test_query_latency.py -v -s
 
-The P95 assertion (< 100 ms) is a safety-net regression guard with generous
-headroom — actual observed latency on commodity hardware is in the low single
-digits of milliseconds.
+The P95 assertion (< 100 ms) is a safety-net regression guard. Actual observed
+latency on commodity hardware is in the low single digits of milliseconds for
+specific technical terms; common high-frequency terms approach ~10 ms.
 """
 
 from __future__ import annotations
 
 import json
-import random
 import tempfile
 import time
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -27,146 +32,97 @@ from synd.storage.db import Database
 from synd.storage.models import Chunk, Pack, Page
 
 RESULTS_DIR = Path(__file__).parent / "results"
-CHUNK_COUNT = 100_000
-PAGES_PER_PACK = 1_000  # 100 chunks per page
+PACKS_DIR = Path(__file__).parent / "fixtures" / "packs"
 REPS = 50
 
-_VOCAB = [
-    "install",
-    "configure",
-    "authentication",
-    "token",
-    "oauth",
-    "jwt",
-    "endpoint",
-    "middleware",
-    "plugin",
-    "async",
-    "await",
-    "callback",
-    "error",
-    "exception",
-    "handler",
-    "router",
-    "schema",
-    "model",
-    "database",
-    "migration",
-    "query",
-    "index",
-    "cache",
-    "redis",
-    "docker",
-    "kubernetes",
-    "deploy",
-    "build",
-    "release",
-    "version",
-    "python",
-    "typescript",
-    "javascript",
-    "rust",
-    "golang",
-    "java",
-    "api",
-    "rest",
-    "graphql",
-    "grpc",
-    "websocket",
-    "http",
-    "https",
-    "request",
-    "response",
-    "header",
-    "body",
-    "status",
-    "code",
-    "class",
-    "function",
-    "method",
-    "property",
-    "interface",
-    "type",
-    "import",
-    "export",
-    "module",
-    "package",
-    "dependency",
-    "lock",
-    "test",
-    "mock",
-    "fixture",
-    "assertion",
-    "coverage",
-    "lint",
-    "config",
-    "environment",
-    "variable",
-    "secret",
-    "key",
-    "certificate",
-    "sigstore",
-    "ed25519",
-    "sha256",
-    "digest",
-    "manifest",
-    "archive",
-]
-
-# Query types: (label, query_string, limit)
+# Representative query types spanning different term frequencies and domains
 _QUERIES = [
     ("single_common_term", "install", 10),
-    ("multi_term", "install package", 10),
+    ("multi_term", "authentication token", 10),
+    ("technical_specific", "webhook endpoint", 10),
     ("rare_term", "sigstore", 10),
-    ("high_limit_common", "configuration", 20),
-    ("mixed_terms", "authentication token", 10),
+    ("high_limit", "configuration", 20),
 ]
 
 
-def _build_large_db(tmp_dir: Path) -> Database:
-    rng = random.Random(42)
-    db = Database(tmp_dir / "bench.db")
-    db.create_schema()
+def _load_pack_into_db(ctx_path: Path, db: Database) -> int:
+    """Import a .ctx pack into db. Returns number of chunks imported."""
+    from synd.builder.manifest import load_manifest
 
+    manifest = load_manifest(ctx_path)
     pack = Pack(
-        name="benchmark",
-        version="1.0.0",
-        lifecycle_state="approved",
-        doc_version_status="stable",
-        indexed_at="2026-01-01T00:00:00Z",
+        name=str(manifest["package"]),
+        version=str(manifest["version"]),
+        lifecycle_state=str(manifest["lifecycle_state"]),
+        doc_version_status=str(manifest.get("doc_version_status", "unknown")),
+        indexed_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        policy_profile=str(manifest.get("policy_profile", "")),
+        pack_digest=str(manifest["pack_digest"]),
+        normalized_content_hash=str(manifest["normalized_content_hash"]),
+        source_url=str(manifest.get("source_url", "")),
+        source_commit=str(manifest.get("source_commit", "")),
+        owner=str(manifest.get("owner", "")),
+        pack_source=str(ctx_path),
     )
 
-    chunks_per_page = CHUNK_COUNT // PAGES_PER_PACK
+    with zipfile.ZipFile(ctx_path, "r") as zf:
+        pages_data = json.loads(zf.read("pages.json"))
+        chunks_data = zf.read("chunks.jsonl").decode("utf-8")
+
     pages = [
-        Page(id=i, package="benchmark", version="1.0.0", url=f"docs/page{i}.md")
-        for i in range(1, PAGES_PER_PACK + 1)
+        Page(
+            id=p["id"],
+            package=p["package"],
+            version=p["version"],
+            url=p["url"],
+            title=p.get("title"),
+            content_hash=p.get("content_hash"),
+        )
+        for p in pages_data
     ]
 
     chunks = []
-    for chunk_id in range(1, CHUNK_COUNT + 1):
-        page_id = ((chunk_id - 1) // chunks_per_page) + 1
-        w = rng.choices(_VOCAB, k=4)
+    for line in chunks_data.strip().split("\n"):
+        if not line:
+            continue
+        c = json.loads(line)
         chunks.append(
             Chunk(
-                id=chunk_id,
-                package="benchmark",
-                version="1.0.0",
-                page_id=page_id,
-                heading_path=f"{w[0].capitalize()} / {w[1].capitalize()}",
-                summary=f"{w[0].capitalize()} {w[1]} for {w[2]}",
-                content=" ".join(rng.choices(_VOCAB, k=40)),
-                source_url=f"docs/{w[0]}.md",
+                id=c["id"],
+                package=pack.name,
+                version=pack.version,
+                content=c["content"],
+                page_id=c.get("page_id"),
+                heading_path=c.get("heading_path"),
+                summary=c.get("summary"),
+                token_count=c.get("token_count"),
+                source_url=c.get("source_url"),
+                source_commit=c.get("source_commit"),
+                content_hash=c.get("content_hash"),
             )
         )
 
     db.import_pack(pack, pages, chunks)
-    return db
+    return len(chunks)
 
 
 @pytest.fixture(scope="module")
-def large_db() -> Database:
+def real_index_db() -> Database:
+    packs = sorted(PACKS_DIR.glob("*.ctx")) if PACKS_DIR.exists() else []
+    if not packs:
+        pytest.skip(
+            f"No .ctx packs found in {PACKS_DIR}. "
+            "Run scripts/build_benchmark_packs.py to fetch real documentation data."
+        )
+
     with tempfile.TemporaryDirectory() as tmp:
-        yield _build_large_db(Path(tmp))
+        db = Database(Path(tmp) / "bench.db")
+        db.create_schema()
+        total = 0
+        for pack_path in packs:
+            total += _load_pack_into_db(pack_path, db)
+        print(f"\nLoaded {total:,} chunks from {len(packs)} packs into benchmark index")
+        yield db
 
 
 def _measure(db: Database, query: str, limit: int) -> dict[str, float]:
@@ -185,9 +141,9 @@ def _measure(db: Database, query: str, limit: int) -> dict[str, float]:
     }
 
 
-def test_query_latency(large_db: Database) -> None:
+def test_query_latency(real_index_db: Database) -> None:
     results: dict[str, object] = {
-        "chunk_count": CHUNK_COUNT,
+        "pack_count": len(sorted(PACKS_DIR.glob("*.ctx"))),
         "reps_per_query": REPS,
         "queries": {},
     }
@@ -196,7 +152,7 @@ def test_query_latency(large_db: Database) -> None:
     print("-" * 70)
 
     for label, query, limit in _QUERIES:
-        stats = _measure(large_db, query, limit)
+        stats = _measure(real_index_db, query, limit)
         results["queries"][label] = {"query": query, "limit": limit, **stats}  # type: ignore[index]
         print(
             f"{label:<30} {stats['p50_ms']:>8.3f} {stats['p95_ms']:>8.3f}"

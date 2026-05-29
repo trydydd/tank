@@ -149,7 +149,7 @@ Each entry records: the decision, the alternatives considered, why we chose what
 
 **Schema commitment note**: indexing `heading_path` in FTS5 means future chunker changes (D14) that alter how `heading_path` is computed will require rebuilding the FTS5 index (or a migration). This is acceptable — the index can be rebuilt from the `chunks` table on schema version bump.
 
-**Latency benchmark**: measured P95 ≤80ms against a 100,000-chunk synthetic index; results in `tests/benchmarks/results/latency.json`. Worst-case synthetic corpus (70-word vocabulary, ~44% per-term document frequency); real documentation indices with larger vocabularies achieve sub-10ms for specific technical terms.
+**Latency benchmark**: measured against a real 100,116-chunk index built from 59 documentation packs (https://directory.llmstxt.cloud/); results in `tests/benchmarks/results/latency.json`. Rare technical terms: P95 <1ms. Common single terms (`install`): P95 ~11ms. Multi-term intersections: P95 ~6ms. High-limit on common term (limit=20): P95 ~23ms.
 
 ---
 

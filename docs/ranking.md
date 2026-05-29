@@ -11,7 +11,7 @@ All queries use SQLite FTS5's built-in BM25 implementation. BM25 is a lexical ra
 **What it does well:**
 
 - Exact and near-exact keyword matches against both `summary` and `content` fields.
-- Fast — FTS5's inverted index makes BM25 sub-100ms (measured P95 ≤80ms) for up to 100,000 chunks. Specific technical terms with low document frequency typically achieve sub-10ms.
+- Fast — FTS5's inverted index makes BM25 O(posting-list-size). Measured against 100,116 real documentation chunks: rare technical terms <1ms P95; common single terms ~11ms P95; multi-term intersections ~6ms P95.
 - Deterministic — the same query against the same index always returns the same ranking.
 
 **What it does not do:**
