@@ -1,4 +1,4 @@
-"""Token overhead benchmark for Tank's MCP tools.
+"""Token overhead benchmark for Synd's MCP tools.
 
 Measures the token cost of:
   1. Tool schema injection — what every MCP session pays upfront
@@ -6,7 +6,7 @@ Measures the token cost of:
   3. The two-step progressive disclosure pattern vs. naive full fetch
 
 Token counting uses len(str) // 4 throughout, consistent with the project
-convention in tank/storage/models.py. This is an approximation (~±15%
+convention in synd/storage/models.py. This is an approximation (~±15%
 for English prose). For exact cl100k counts install tiktoken and replace
 _count_tokens below.
 
@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 
-import synd as tank
+import synd
 from synd.server import create_server
 from synd.server import fetch_docs as _fetch_docs
 from synd.server import search_docs as _search_docs
@@ -744,7 +744,7 @@ def test_token_overhead(bench_db: Database) -> None:
     results_payload: dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "git_commit": _git_commit(),
-        "tank_version": tank.__version__,
+        "synd_version": synd.__version__,
         "token_counter": "len_div_4",
         "corpus": {
             "chunks": len(corpus_chunks),
@@ -767,9 +767,9 @@ def test_token_overhead(bench_db: Database) -> None:
     out_path.write_text(json.dumps(results_payload, indent=2))
 
     # Print summary for -s output
-    print("\n── Tank MCP Token Overhead Benchmark ──────────────────────────")
+    print("\n── Synd MCP Token Overhead Benchmark ──────────────────────────")
     print(f"  git commit     : {results_payload['git_commit']}")
-    print(f"  tank version   : {results_payload['tank_version']}")
+    print(f"  synd version   : {results_payload['synd_version']}")
     print(f"  token counter  : {results_payload['token_counter']} (approx ±15%)")
     print(
         f"\n  Corpus: {len(corpus_chunks)} chunks, "

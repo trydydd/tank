@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare two Tank benchmark result files and report deltas.
+"""Compare two Synd benchmark result files and report deltas.
 
 Usage:
     # Plain text (terminal)
@@ -146,9 +146,9 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any]) -> dict[str, An
 
     return {
         "baseline_commit": baseline.get("git_commit", "unknown"),
-        "baseline_version": baseline.get("tank_version", "unknown"),
+        "baseline_version": baseline.get("synd_version", "unknown"),
         "candidate_commit": candidate.get("git_commit", "unknown"),
-        "candidate_version": candidate.get("tank_version", "unknown"),
+        "candidate_version": candidate.get("synd_version", "unknown"),
         "token_counter": candidate.get("token_counter", "len_div_4"),
         "schema": {
             "before": b_schema,
@@ -212,7 +212,7 @@ def _status(warn: bool, has_delta: bool = True) -> str:
 def format_text(c: dict[str, Any]) -> str:
     lines: list[str] = []
 
-    lines.append("── Tank benchmark comparison ────────────────────────────────────")
+    lines.append("── Synd benchmark comparison ────────────────────────────────────")
     lines.append(f"  baseline : {c['baseline_version']} @ {c['baseline_commit']}")
     lines.append(f"  candidate: {c['candidate_version']} @ {c['candidate_commit']}")
     lines.append(f"  counter  : {c['token_counter']} (approx ±15%)")
@@ -344,8 +344,8 @@ def format_markdown(c: dict[str, Any]) -> str:
     lines: list[str] = []
 
     result_badge = "✅ PASS" if c["passed"] else "⚠️ WARN"
-    lines.append("<!-- tank-benchmark -->")
-    lines.append(f"## 📊 Tank benchmark — {result_badge}")
+    lines.append("<!-- synd-benchmark -->")
+    lines.append(f"## 📊 Synd benchmark — {result_badge}")
     lines.append("")
     lines.append(
         f"`{c['baseline_commit']}` (v{c['baseline_version']}) → "
@@ -395,7 +395,7 @@ def format_markdown(c: dict[str, Any]) -> str:
 
     # Schema per-tool
     lines.append(
-        "**Schema** — tokens added to every request by Tank's tool definitions"
+        "**Schema** — tokens added to every request by Synd's tool definitions"
     )
     lines.append("")
     lines.append("| Tool | baseline | PR | Δ |")
@@ -488,11 +488,11 @@ def format_markdown_standalone(data: dict[str, Any]) -> str:
     pd_saving = pd["saving_pct"]
     pd_warn = pd_saving < _PD_SAVING_WARN_FLOOR
 
-    lines.append("<!-- tank-benchmark -->")
-    lines.append("## 📊 Tank benchmark — first run (no baseline on `main`)")
+    lines.append("<!-- synd-benchmark -->")
+    lines.append("## 📊 Synd benchmark — first run (no baseline on `main`)")
     lines.append("")
     lines.append(
-        f"`{data.get('git_commit', 'unknown')}` (v{data.get('tank_version', '?')}) "
+        f"`{data.get('git_commit', 'unknown')}` (v{data.get('synd_version', '?')}) "
         f"· `{data.get('token_counter', 'len_div_4')}` counter (±15%)"
     )
     lines.append("")
@@ -517,7 +517,7 @@ def format_markdown_standalone(data: dict[str, Any]) -> str:
     lines.append("")
 
     lines.append(
-        "**Schema** — tokens added to every request by Tank's tool definitions"
+        "**Schema** — tokens added to every request by Synd's tool definitions"
     )
     lines.append("")
     lines.append("| Tool | tokens |")
@@ -577,17 +577,17 @@ def format_markdown_webfetch(
     """Append-only webfetch section for a PR comment that has a baseline."""
     lines: list[str] = []
 
-    b_single = baseline["tank_single_step_full"]
-    c_single = candidate["tank_single_step_full"]
-    b_two = baseline["tank_two_step_agentless"]
-    c_two = candidate["tank_two_step_agentless"]
+    b_single = baseline["synd_single_step_full"]
+    c_single = candidate["synd_single_step_full"]
+    b_two = baseline["synd_two_step_agentless"]
+    c_two = candidate["synd_two_step_agentless"]
 
     single_delta = _pp_delta(b_single["pct_saved"], c_single["pct_saved"])
     two_delta = _pp_delta(b_two["pct_saved"], c_two["pct_saved"])
 
     lines.append("---")
     lines.append("")
-    lines.append("### 🔍 WebFetch vs Tank")
+    lines.append("### 🔍 WebFetch vs Synd")
     lines.append("")
     lines.append(
         f"Query: `{candidate['fts5_query']}` "
@@ -622,11 +622,11 @@ def format_markdown_webfetch(
         f"| {_md_delta_pct(_pct_delta(b_wf, c_wf))} |"
     )
     lines.append(
-        f"| Tank single-step | {b_single['tokens']} tok | {c_single['tokens']} tok "
+        f"| Synd single-step | {b_single['tokens']} tok | {c_single['tokens']} tok "
         f"| {_md_delta_pct(_pct_delta(b_single['tokens'], c_single['tokens']))} |"
     )
     lines.append(
-        f"| Tank two-step (agentless) | {b_two['total_tokens']} tok "
+        f"| Synd two-step (agentless) | {b_two['total_tokens']} tok "
         f"| {c_two['total_tokens']} tok "
         f"| {_md_delta_pct(_pct_delta(b_two['total_tokens'], c_two['total_tokens']))} |"
     )
@@ -643,13 +643,13 @@ def format_markdown_webfetch_standalone(data: dict[str, Any]) -> str:
     """Append-only webfetch section for a PR comment with no baseline."""
     lines: list[str] = []
 
-    single = data["tank_single_step_full"]
-    two = data["tank_two_step_agentless"]
+    single = data["synd_single_step_full"]
+    two = data["synd_two_step_agentless"]
     wf_tokens = data["webfetch"]["tokens"]
 
     lines.append("---")
     lines.append("")
-    lines.append("### 🔍 WebFetch vs Tank")
+    lines.append("### 🔍 WebFetch vs Synd")
     lines.append("")
     lines.append(
         f"Query: `{data['fts5_query']}` "
@@ -660,11 +660,11 @@ def format_markdown_webfetch_standalone(data: dict[str, Any]) -> str:
     lines.append("|---|---:|---:|")
     lines.append(f"| WebFetch (full page) | {wf_tokens} | — |")
     lines.append(
-        f"| Tank single-step | {single['tokens']} "
+        f"| Synd single-step | {single['tokens']} "
         f"| {single['tokens_saved']} ({single['pct_saved']}%) |"
     )
     lines.append(
-        f"| Tank two-step (agentless) | {two['total_tokens']} "
+        f"| Synd two-step (agentless) | {two['total_tokens']} "
         f"| {two['tokens_saved']} ({two['pct_saved']}%) |"
     )
 
@@ -694,7 +694,7 @@ def _safe_cell(text: str, max_len: int = 60) -> str:
 
 
 def _md_webfetch_chunk_breakdown(data: dict[str, Any]) -> str:
-    breakdown = data["tank_two_step_agentless"].get("chunk_breakdown", [])
+    breakdown = data["synd_two_step_agentless"].get("chunk_breakdown", [])
     if not breakdown:
         return ""
     lines = [

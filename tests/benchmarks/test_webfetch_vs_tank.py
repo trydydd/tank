@@ -1,10 +1,10 @@
-"""WebFetch vs Tank token comparison benchmark.
+"""WebFetch vs Synd token comparison benchmark.
 
 Simulates two documentation retrieval strategies for the same query:
 
   1. WebFetch   — the full source page lands in context as-is
-  2. Tank full  — fetch all matched chunks without a prior summary step (agentless)
-  3. Tank 2-step — search (summaries) first, then fetch for ALL matched chunks
+  2. Synd full  — fetch all matched chunks without a prior summary step (agentless)
+  3. Synd 2-step — search (summaries) first, then fetch for ALL matched chunks
 
 ⚠️  The two-step approach here is AGENTLESS: all matched chunk IDs are
     fetched unconditionally after the summary scan. A real agent would read
@@ -36,7 +36,7 @@ WebFetch baseline: the raw fixture file content, with comment-metadata lines
 Run:
     pytest tests/benchmarks/test_webfetch_vs_tank.py --benchmark -v -s
 
-Results are written to tests/benchmarks/results/webfetch_vs_tank_latest.json.
+Results are written to tests/benchmarks/results/webfetch_vs_synd_latest.json.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from typing import Any
 
 import pytest
 
-import synd as tank
+import synd
 from synd.builder.build import build_pack
 from synd.storage.db import Database
 from synd.storage.models import Pack
@@ -98,7 +98,7 @@ def _strip_comment_lines(text: str) -> str:
 
 @pytest.fixture(scope="module")
 def bench_db(tmp_path_factory: pytest.TempPathFactory) -> Database:
-    """Build a Tank pack from the fixture file and pull it into a temp DB."""
+    """Build a Synd pack from the fixture file and pull it into a temp DB."""
     tmp = tmp_path_factory.mktemp("webfetch_bench")
     source_dir = tmp / "source"
     source_dir.mkdir()
@@ -284,7 +284,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     results_payload: dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "git_commit": _git_commit(),
-        "tank_version": tank.__version__,
+        "synd_version": synd.__version__,
         "token_counter": "len_div_4",
         "source_url": SOURCE_URL,
         "natural_language_query": NATURAL_LANGUAGE_QUERY,
@@ -303,7 +303,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
             "tokens": webfetch_tokens,
             "note": "HTML comment lines stripped (benchmark bookkeeping, not real page content).",
         },
-        "tank_single_step_full": {
+        "synd_single_step_full": {
             "chunks_returned": full_chunks_returned,
             "tokens": full_tokens,
             "pct_of_webfetch": round(100 * full_tokens / webfetch_tokens)
@@ -314,7 +314,7 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
             if webfetch_tokens
             else 0,
         },
-        "tank_two_step_agentless": {
+        "synd_two_step_agentless": {
             "step1_summary_tokens": summary_tokens,
             "step2_full_tokens": fetch_tokens,
             "total_tokens": two_step_total,
@@ -352,15 +352,15 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
         )
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = RESULTS_DIR / "webfetch_vs_tank_latest.json"
+    out_path = RESULTS_DIR / "webfetch_vs_synd_latest.json"
     out_path.write_text(json.dumps(results_payload, indent=2))
 
     # ------------------------------------------------------------------
     # Console output
     # ------------------------------------------------------------------
-    print("\n── WebFetch vs Tank Token Comparison ──────────────────────────")
+    print("\n── WebFetch vs Synd Token Comparison ──────────────────────────")
     print(f"  git commit   : {results_payload['git_commit']}")
-    print(f"  tank version : {results_payload['tank_version']}")
+    print(f"  synd version : {results_payload['synd_version']}")
     print(f"  source       : {SOURCE_URL}")
     print(f"  query (NL)   : {NATURAL_LANGUAGE_QUERY}")
     print(f"  query (FTS5) : {FTS5_QUERY}")
@@ -377,16 +377,16 @@ def test_webfetch_vs_tank(bench_db: Database) -> None:
     print(
         f"  {'WebFetch (full page, comments stripped)':<40} {webfetch_tokens:>7}  {'100%':>11}  {'—':>7}"
     )
-    pct = results_payload["tank_single_step_full"]["pct_of_webfetch"]
-    saved = results_payload["tank_single_step_full"]["pct_saved"]
+    pct = results_payload["synd_single_step_full"]["pct_of_webfetch"]
+    saved = results_payload["synd_single_step_full"]["pct_saved"]
     print(
-        f"  {'Tank single-step full (agentless)':<40} {full_tokens:>7}"
+        f"  {'Synd single-step full (agentless)':<40} {full_tokens:>7}"
         f"  {pct:>10}%  {saved:>6}%"
     )
-    pct2 = results_payload["tank_two_step_agentless"]["pct_of_webfetch"]
-    saved2 = results_payload["tank_two_step_agentless"]["pct_saved"]
+    pct2 = results_payload["synd_two_step_agentless"]["pct_of_webfetch"]
+    saved2 = results_payload["synd_two_step_agentless"]["pct_saved"]
     print(
-        f"  {'Tank two-step (agentless)':<40} {two_step_total:>7}"
+        f"  {'Synd two-step (agentless)':<40} {two_step_total:>7}"
         f"  {pct2:>10}%  {saved2:>6}%"
     )
     print(f"    ↳ step 1 summary scan                {summary_tokens:>7}")
