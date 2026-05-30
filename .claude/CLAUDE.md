@@ -48,7 +48,7 @@ python3.12 -m venv .venv
 
 ## Integrity
 
-- `pack_digest` computation: set `"pack_digest": ""` in manifest.json, assemble the zip, hash the archive bytes, then rewrite the manifest with the real digest. Verification reverses this: replace the value with `""`, hash, compare. The empty-string convention avoids JSON key ordering issues. All ZIP entries use a pinned `date_time` of `(2021, 8, 8, 0, 0, 0)` — the build writes the archive twice and both writes must produce identical ZipInfo metadata for the verifier to reproduce the hash. This date must never change.
+- `pack_digest` computation: open the ZIP, iterate entries sorted by filename, and feed each into a single SHA-256 context using a length-prefixed wire format: `4-byte-big-endian(len(name)) | name-bytes | 4-byte-big-endian(len(content)) | content-bytes`. For `manifest.json`, zero the `pack_digest` field (set to `""`) before hashing its content — this breaks the circular dependency. Return `"sha256:" + h.hexdigest()`. The builder calls this after writing the archive with `pack_digest=""`, stores the result, then rewrites the archive with the real digest. The verifier calls the same shared function (`synd.builder.manifest.compute_pack_digest`) to recompute and compare. No ZIP reconstruction occurs — each entry's decompressed bytes are hashed once, directly. All ZIP entries use a pinned `date_time` of `(2021, 8, 8, 0, 0, 0)` for build reproducibility (so two builds from identical source produce identical archive bytes on disk); this date must never change.
 - `token_count` is a rough estimate computed as `len(content) // 4`. Document clearly that it is approximate, for budget planning only. No tokenizer dependency.
 
 ## Testing
@@ -90,7 +90,7 @@ python3.12 -m venv .venv
 
 - **CliRunner and working directory**: `CliRunner.invoke()` does not accept a `cwd=` parameter. CLI commands that use relative `.synd/` paths need the process cwd set. Pattern used in the test suite: `os.chdir(tmp_path)` with a `try/finally` to restore the original cwd. See `_cli_in_cwd()` in `tests/test_integration.py`.
 
-- **Tamper tests must recompute `pack_digest`**: Re-zipping a modified archive changes its binary representation even with identical `manifest.json` bytes, so `pack_digest` verification fails at step 6 before reaching the intended step 7 content hash check. After tampering with chunk content, zero the digest in the manifest, re-zip, hash the result, and write the real digest back before asserting on the verification step.
+- **Tamper tests must recompute `pack_digest`**: Modifying any entry changes the digest, so `pack_digest` verification fails at step 6 before reaching the intended step 7 content hash check. After tampering with chunk content, write the modified archive with `pack_digest=""` in the manifest, call `compute_pack_digest()` on that file, then rewrite the archive with the real digest before asserting on the verification step. Use `_rewrite_archive_with_modified_chunks` in the test helpers — it handles this correctly.
 
 - **FTS5 query sanitization**: `search()` in `fts.py` strips all non-word, non-whitespace characters before passing the query to `MATCH`. This prevents crashes on symbol-heavy queries (`mcp.tool` → `mcp tool`) but silently drops the characters. FTS5 boolean operators typed in uppercase (`AND`, `OR`, `NOT`) are passed through; an incomplete operator like `"foo AND"` still raises `SearchError`.
 

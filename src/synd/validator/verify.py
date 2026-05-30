@@ -5,7 +5,6 @@ Runs the verification sequence on a .ctx pack before allowing it into the index.
 
 from __future__ import annotations
 
-import io
 import json
 import re
 import zipfile
@@ -13,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from synd.builder.manifest import compute_pack_digest
 from synd.builder.normalizer import normalize
 from synd.errors import SchemaValidationError
 from synd.policy.engine import Policy, PolicyResult
@@ -177,8 +177,7 @@ def verify(
             )
 
         # --- Step 6: Recompute pack_digest ---
-        archive_buf = _read_archive_bytes(ctx_path, manifest)
-        computed_digest = _compute_pack_digest_from_bytes(archive_buf)
+        computed_digest = compute_pack_digest(ctx_path)
         if computed_digest != manifest["pack_digest"]:
             return VerifyResult(
                 passed=False,
@@ -243,36 +242,6 @@ def verify(
             reason="",
             manifest=manifest,
         )
-
-
-def _read_archive_bytes(ctx_path: Path, manifest: dict[str, Any]) -> bytes:
-    """Read all archive bytes, zeroing pack_digest in the manifest."""
-    with zipfile.ZipFile(ctx_path, "r") as zf:
-        info_list = zf.infolist()
-
-    zeroed_manifest = dict(manifest)
-    zeroed_manifest["pack_digest"] = ""
-    zeroed_manifest_json = json.dumps(zeroed_manifest, indent=2, sort_keys=True).encode(
-        "utf-8"
-    )
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(ctx_path, "r") as zf:
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
-            for item in info_list:
-                content = zf.read(item.filename)
-                if item.filename == "manifest.json":
-                    content = zeroed_manifest_json
-                out.writestr(item, content)
-
-    return buf.getvalue()
-
-
-def _compute_pack_digest_from_bytes(data: bytes) -> str:
-    """SHA-256 hex digest of archive bytes with pack_digest zeroed."""
-    import hashlib
-
-    return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
 def _validate_pack_artifacts(zf: zipfile.ZipFile) -> None:

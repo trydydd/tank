@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
+import struct
 import time
 import zipfile
 from pathlib import Path
@@ -62,29 +62,26 @@ def build_manifest(
 
 
 def compute_pack_digest(archive_path: Path) -> str:
-    """Compute pack_digest over the archive bytes.
+    """Compute pack_digest by hashing each entry's content in filename-sorted order.
 
-    Reads the archive, extracts manifest.json, zeroes out the pack_digest
-    field, rebuilds the zip with the zeroed manifest, then hashes the
-    resulting bytes.
+    Wire format per entry: 4-byte big-endian name length, name bytes,
+    4-byte big-endian content length, content bytes. manifest.json is hashed
+    with its pack_digest field zeroed to avoid the circular-dependency problem.
     """
+    h = hashlib.sha256()
     with zipfile.ZipFile(archive_path, "r") as zf:
-        manifest_json = zf.read("manifest.json")
-
-    manifest = json.loads(manifest_json)
-    manifest["pack_digest"] = ""
-    zeroed_manifest = json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8")
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(archive_path, "r") as zf:
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
-            for item in zf.infolist():
-                content = zf.read(item.filename)
-                if item.filename == "manifest.json":
-                    content = zeroed_manifest
-                out.writestr(item, content)
-
-    return _sha256hex(buf.getvalue())
+        for info in sorted(zf.infolist(), key=lambda i: i.filename):
+            name_bytes = info.filename.encode("utf-8")
+            content = zf.read(info.filename)
+            if info.filename == "manifest.json":
+                manifest = json.loads(content)
+                manifest["pack_digest"] = ""
+                content = json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8")
+            h.update(struct.pack(">I", len(name_bytes)))
+            h.update(name_bytes)
+            h.update(struct.pack(">I", len(content)))
+            h.update(content)
+    return "sha256:" + h.hexdigest()
 
 
 def load_manifest(ctx_path: Path) -> dict[str, str | int | float | None]:
