@@ -59,14 +59,19 @@ class TestVerifyCommand:
             cli,
             ["verify", str(ctx_path)],
         )
-        assert result.exit_code == 1, f"verify should fail: {result.output}"
+        # Corrupt manifest fails at verify step 1 → verification exit code 4.
+        assert result.exit_code == 4, f"verify should fail: {result.output}"
         assert "error" in result.output.lower() or "failed" in result.output.lower()
 
     def test_verify_missing_file(self) -> None:
-        """Verifying a nonexistent file must exit 1."""
+        """Verifying a nonexistent file is a usage error (exit code 2)."""
         result = CliRunner().invoke(
             cli,
             ["verify", "/nonexistent/file.ctx"],
         )
-        assert result.exit_code == 1
-        assert "error" in result.output.lower() or "not found" in result.output.lower()
+        assert result.exit_code == 2
+        assert (
+            "error" in result.output.lower()
+            or "not found" in result.output.lower()
+            or "does not exist" in result.output.lower()
+        )

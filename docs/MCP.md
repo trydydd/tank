@@ -4,7 +4,7 @@ How to wire the Synaptic Drift MCP server into Claude Code, Cursor, or VS Code s
 
 ## Current state
 
-The MCP server is functional via stdio transport with two tools: `search` and `fetch`.
+The MCP server is functional via stdio transport with two tools: `search` and `fetch`. The response shape both tools return is the `tool-response.v1` contract — published as each tool's `outputSchema` (discoverable via `tools/list`) and validated at the boundary. See [`docs/api-contracts.md`](api-contracts.md).
 
 **Known gaps (pre-v0.2.0):**
 

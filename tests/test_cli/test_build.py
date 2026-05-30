@@ -75,12 +75,12 @@ class TestBuildCommand:
             assert manifest["pack_digest"].startswith("sha256:")
 
     def test_build_command_missing_source(self, tmp_path: Path) -> None:
-        """Building with a nonexistent --source must exit 1 with user-friendly error."""
+        """A nonexistent --source path is a usage error (exit code 2)."""
         result = CliRunner().invoke(
             cli,
             ["build", "my-lib@1.0.0", "--source", "/nonexistent/path"],
         )
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert (
             "error" in result.output.lower()
             or "does not exist" in result.output.lower()
@@ -95,7 +95,7 @@ class TestBuildCommand:
             cli,
             ["build", "my-lib", "--source", str(source)],
         )
-        assert result.exit_code == 1
+        assert result.exit_code == 2  # malformed argument → usage error
         assert (
             "error" in result.output.lower()
             or "missing" in result.output.lower()
@@ -109,7 +109,7 @@ class TestBuildCommand:
             cli,
             ["build", "my@lib@1.0.0", "--source", str(source)],
         )
-        assert result.exit_code == 1
+        assert result.exit_code == 2  # malformed argument → usage error
         assert (
             "error" in result.output.lower()
             or "invalid" in result.output.lower()
@@ -413,7 +413,7 @@ class TestBuildCommandUrlSource:
                 "https://docs.example.com/README.md",
             ],
         )
-        assert result.exit_code == 1
+        assert result.exit_code == 6  # unsupported URL → build failure
         assert "error" in result.output.lower()
 
     def test_local_path_still_works_after_refactor(self, tmp_path: Path) -> None:

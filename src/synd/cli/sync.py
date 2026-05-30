@@ -12,6 +12,7 @@ from rich.console import Console
 
 from synd.cli._lockfile import LOCK_FILE, read_lockfile, write_lockfile
 from synd.cli.add import _import_pack
+from synd.cli.exit_codes import exit_code_for
 from synd.errors import FetchError, LockfileError, SyndError
 from synd.policy.engine import Policy
 from synd.storage.db import Database
@@ -89,7 +90,7 @@ def sync(policy: Path | None, frozen: bool) -> None:
         entries = read_lockfile(LOCK_FILE)
     except LockfileError as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))
 
     if not entries:
         console.print("[dim]synd.lock contains no packs — nothing to sync[/dim]")

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synapticdrift.dev/schemas/tool-response.v1.schema.json",
+  "title": "Synaptic Drift MCP tool response (schema version 1)",
+  "description": "Response payload returned by the MCP search and fetch tools (and the search_docs/fetch_docs functions). Either a results envelope or a status signal.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["results"],
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/result_item"}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "not_indexed",
+          "description": "Returned when a requested package is not present in the local index."
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "result_item": {
+      "type": "object",
+      "required": [
+        "chunk_id",
+        "package",
+        "version",
+        "lifecycle_state",
+        "doc_version_status",
+        "heading_path",
+        "summary",
+        "content",
+        "source_url",
+        "source_commit",
+        "content_hash",
+        "indexed_at",
+        "score"
+      ],
+      "properties": {
+        "chunk_id": {"type": "integer", "minimum": 1},
+        "package": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "lifecycle_state": {
+          "type": "string",
+          "enum": ["draft", "approved", "deprecated", "revoked"]
+        },
+        "doc_version_status": {
+          "type": ["string", "null"],
+          "description": "stable | prerelease | archived | unknown, or null if unrecorded."
+        },
+        "heading_path": {"type": ["string", "null"]},
+        "summary": {"type": ["string", "null"]},
+        "content": {
+          "type": ["string", "null"],
+          "description": "Full chunk text; null for summary-only responses (search)."
+        },
+        "source_url": {"type": ["string", "null"], "format": "uri-reference"},
+        "source_commit": {"type": ["string", "null"]},
+        "content_hash": {
+          "type": ["string", "null"],
+          "description": "Provenance pass-through from the index; integrity of this value is enforced at build/verify time, not re-checked here."
+        },
+        "indexed_at": {"type": "string"},
+        "score": {"type": "number"},
+        "lifecycle_warning": {
+          "type": "string",
+          "description": "Present only when lifecycle_state is 'deprecated'."
+        }
+      }
+    }
+  }
+}

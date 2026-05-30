@@ -146,6 +146,8 @@ This two-step pattern typically costs 28–84% fewer tokens than fetching a full
 
 A `.ctx` pack is a zip-format archive containing documentation in structured, hash-verifiable form.
 
+> The machine-checkable contracts for these artifacts (canonical JSON Schemas + validators) are documented in [`docs/api-contracts.md`](api-contracts.md). The prose below describes intent; the schema files in `src/synd/schemas/` are the source of truth.
+
 ### MVP archive contents (text-only packs)
 
 ```

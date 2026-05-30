@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, cast
 
 from synd.builder.chunking import RawChunk
+from synd.schemas.types import ManifestDict
 
 
 def _sha256hex(data: str | bytes) -> str:
@@ -29,9 +30,14 @@ def build_manifest(
     policy_profile: str | None,
     source_url: str,
     source_commit: str | None,
-) -> dict[str, str | int | float | None]:
-    """Build the manifest dictionary from build parameters."""
-    manifest: dict[str, str | int | float | None] = {
+) -> ManifestDict:
+    """Build the manifest dictionary from build parameters.
+
+    The returned dict matches the manifest.v2 schema structurally; enum values
+    are validated at the boundary (see synd.schemas.validate_manifest), which
+    the builder calls before writing the final archive.
+    """
+    manifest: ManifestDict = {
         "schema_version": 2,
         "pack_format": "synd-text-v1",
         "package": package,

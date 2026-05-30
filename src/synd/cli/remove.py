@@ -9,6 +9,7 @@ import click
 from rich.console import Console
 
 from synd.cli._lockfile import LOCK_FILE, write_lockfile
+from synd.cli.exit_codes import EXIT_USAGE, exit_code_for
 from synd.errors import PackNotFoundError, SyndError
 from synd.storage.db import Database
 
@@ -32,7 +33,7 @@ def remove(pkg_spec: str) -> None:
             f"[red]error: invalid pack spec {pkg_spec!r} — "
             "expected 'package@version'[/red]"
         )
-        sys.exit(1)
+        sys.exit(EXIT_USAGE)
 
     name, version = pkg_spec.rsplit("@", 1)
 
@@ -57,4 +58,4 @@ def remove(pkg_spec: str) -> None:
 
     except (SyndError, OSError) as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))

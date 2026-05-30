@@ -32,12 +32,14 @@
     "package": {
       "type": "string",
       "minLength": 1,
-      "description": "Package name."
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Package name; must not contain '@' or whitespace."
     },
     "version": {
       "type": "string",
       "minLength": 1,
-      "description": "Package version."
+      "pattern": "^[^@\\s/]+$",
+      "description": "Package version; must not contain '@', whitespace, or '/'."
     },
     "pack_digest": {
       "type": "string",
@@ -89,6 +91,7 @@
     },
     "source_url": {
       "type": "string",
+      "format": "uri-reference",
       "description": "Path or URL of the documentation source."
     },
     "source_commit": {

@@ -27,7 +27,9 @@ from synd.builder.manifest import (
     compute_pack_digest,
 )
 from synd.builder.normalizer import normalize
-from synd.errors import BuildError, FetchError
+from synd.errors import BuildError, FetchError, SchemaValidationError
+from synd.schemas import validate_chunk, validate_manifest, validate_pages
+from synd.schemas.types import ChunkRecord, PageRecord
 from synd.storage.models import Page
 
 
@@ -282,14 +284,31 @@ def _finalize_pack(
         source_commit=source_commit,
     )
 
+    # Build the on-disk records once and validate them against their schemas
+    # before writing anything. A build must never emit a pack that its own
+    # verifier would reject — surface contract violations here as BuildError.
+    chunk_records = [_chunk_record(rc) for rc in raw_chunks]
+    page_records = [_page_record(p) for p in pages]
+    _validate_records_or_raise(chunk_records, page_records)
+
     # Write with zeroed digest, compute real digest, rewrite.
     _write_archive(
-        path=pack_path, manifest=manifest, raw_chunks=raw_chunks, pages=pages
+        path=pack_path,
+        manifest=manifest,
+        chunk_records=chunk_records,
+        page_records=page_records,
     )
     real_digest = compute_pack_digest(pack_path)
     manifest["pack_digest"] = real_digest
+    try:
+        validate_manifest(dict(manifest))
+    except SchemaValidationError as exc:
+        raise BuildError(f"built manifest failed schema validation: {exc}") from exc
     _write_archive(
-        path=pack_path, manifest=manifest, raw_chunks=raw_chunks, pages=pages
+        path=pack_path,
+        manifest=manifest,
+        chunk_records=chunk_records,
+        page_records=page_records,
     )
 
     # Detect chunks that exceed the warning threshold after all splits.
@@ -318,45 +337,61 @@ def _url_path_label(url: str) -> str:
     return label or url
 
 
+def _chunk_record(rc: RawChunk) -> ChunkRecord:
+    """Build the chunks.jsonl record for a raw chunk (the emitted contract shape)."""
+    record: ChunkRecord = {
+        "id": rc.id,
+        "page_id": rc.page_id,
+        "heading_path": rc.heading_path,
+        "summary": rc.summary,
+        "content": rc.content,
+        "token_count": rc.token_count,
+        "source_url": rc.source_url,
+        "content_hash": _content_hash(rc.content),
+    }
+    # Only include source_commit if set
+    if rc.source_commit is not None:
+        record["source_commit"] = rc.source_commit
+    return record
+
+
+def _page_record(p: Page) -> PageRecord:
+    """Build the pages.json record for a page (the emitted contract shape)."""
+    return {
+        "id": p.id,
+        "package": p.package,
+        "version": p.version,
+        "url": p.url,
+        "title": p.title,
+        "content_hash": p.content_hash,
+    }
+
+
+def _validate_records_or_raise(
+    chunk_records: list[ChunkRecord],
+    page_records: list[PageRecord],
+) -> None:
+    """Validate chunk and page records against their schemas, raising BuildError."""
+    try:
+        for record in chunk_records:
+            validate_chunk(dict(record))
+        validate_pages([dict(p) for p in page_records])
+    except SchemaValidationError as exc:
+        raise BuildError(f"built pack failed schema validation: {exc}") from exc
+
+
 def _write_archive(
     path: Path,
     manifest: Mapping[str, object],
-    raw_chunks: list[RawChunk],
-    pages: list[Page],
+    chunk_records: list[ChunkRecord],
+    page_records: list[PageRecord],
 ) -> None:
-    """Write a .ctx archive at the given path."""
+    """Write a .ctx archive at the given path from pre-built artifact records."""
     chunks_lines = ""
-    for rc in raw_chunks:
-        record = {
-            "id": rc.id,
-            "page_id": rc.page_id,
-            "heading_path": rc.heading_path,
-            "summary": getattr(rc, "summary", None),
-            "content": rc.content,
-            "token_count": getattr(rc, "token_count", None),
-            "source_url": rc.source_url,
-            "content_hash": _content_hash(rc.content),
-        }
-        # Only include source_commit if set
-        if hasattr(rc, "source_commit") and rc.source_commit is not None:
-            record["source_commit"] = rc.source_commit
+    for record in chunk_records:
         chunks_lines += json.dumps(record, sort_keys=True) + "\n"
 
-    pages_json = json.dumps(
-        [
-            {
-                "id": p.id,
-                "package": p.package,
-                "version": p.version,
-                "url": p.url,
-                "title": p.title,
-                "content_hash": p.content_hash,
-            }
-            for p in pages
-        ],
-        indent=2,
-        sort_keys=True,
-    )
+    pages_json = json.dumps(page_records, indent=2, sort_keys=True)
 
     # _ZIP_EPOCH pins every entry's timestamp so both archive writes during
     # build produce identical ZipInfo metadata, making pack_digest reproducible

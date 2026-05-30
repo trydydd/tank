@@ -8,6 +8,10 @@ Definitions of Synaptic Drift-specific terminology. Sorted alphabetically.
 
 **`.synd/` directory** — per-project directory storing Synaptic Drift's local runtime state: `index.db` (the SQLite database) and optionally `policy.toml`. Not committed to version control.
 
+**API contract** — a machine-checkable definition of a boundary shape: the `.ctx` pack artifacts (`manifest.json`, `chunks.jsonl`, `pages.json`), the MCP tool response, and the CLI exit codes. Each has a canonical JSON Schema in `src/synd/schemas/` and an in-code validator. See `docs/api-contracts.md`.
+
+**pack artifact schema** — the JSON Schema for one file inside a `.ctx` pack: `manifest.v2.schema.json`, `chunk.v1.schema.json`, or `pages.v1.schema.json`. Enforced by the builder on emit (`BuildError` on failure) and by the verifier on import. The schema is canonical; `synd.schemas.types` mirrors it for static typing.
+
 **BM25** — the ranking algorithm used by SQLite FTS5 for full-text search. Produces a relevance score based on term frequency and inverse document frequency. Used by `synd query` and the `search` MCP tool. Column weights: `heading_path` 2.5×, `summary` 1.5×, `content` 1.0×.
 
 **chunk** — a unit of documentation content produced by structural chunking. Each chunk has an ID, belongs to a page, carries a `heading_path`, `summary`, `content`, `token_count`, `source_url`, and `content_hash`. Stored as one line in `chunks.jsonl` and one row in the `chunks` SQLite table.

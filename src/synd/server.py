@@ -1,6 +1,13 @@
 """MCP server with search and fetch tools.
 
-Invokable as: python -m tank.server
+Invokable as: python -m synd.server
+
+The search/fetch response shape is the ``tool-response.v1`` contract
+(``synd/schemas/tool-response.v1.schema.json``). It is enforced two ways:
+``search_docs``/``fetch_docs`` validate every payload against the schema before
+returning (boundary validation), and the registered MCP tools publish that same
+schema as their ``outputSchema`` so clients can discover the shape via
+``tools/list``.
 """
 
 from __future__ import annotations
@@ -8,10 +15,11 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from synd.schemas import tool_response_schema, validate_tool_response
+from synd.schemas.types import ToolResponse, ToolResultItem
 from synd.search.fts import SearchResult, get_chunks_by_id, search
 from synd.storage.db import Database
 
@@ -32,7 +40,7 @@ def search_docs(
     packages: list[str] | None = None,
     limit: int = 10,
     max_tokens: int | None = None,
-) -> dict[str, Any]:
+) -> ToolResponse:
     """FTS5 search returning chunk summaries only.
 
     Returns heading_path, summary, chunk_id, and provenance fields for each
@@ -45,9 +53,11 @@ def search_docs(
     When max_tokens is set, results are accumulated in BM25 rank order and
     stopped before the estimated token cost (len(summary) // 4) would exceed
     the budget. Whole chunks only — no partial truncation.
+
+    The returned payload always satisfies the tool-response.v1 contract.
     """
     if not query.strip():
-        return {"results": []}
+        return _validated({"results": []})
 
     if packages:
         placeholders = ",".join("?" for _ in packages)
@@ -56,7 +66,7 @@ def search_docs(
             packages,
         ).fetchone()
         if row["cnt"] < len(packages):
-            return {"status": "not_indexed"}
+            return _validated({"status": "not_indexed"})
 
     hits = [
         _to_dict(r)
@@ -64,14 +74,14 @@ def search_docs(
     ]
     if max_tokens is not None:
         hits = _apply_token_budget(hits, max_tokens, "summary")
-    return {"results": hits}
+    return _validated({"results": hits})
 
 
 def fetch_docs(
     db: Database,
     chunk_ids: list[int],
     max_tokens: int | None = None,
-) -> dict[str, Any]:
+) -> ToolResponse:
     """Fetch full content for specific chunks by ID.
 
     Returns complete content, heading_path, summary, and provenance fields for
@@ -81,17 +91,29 @@ def fetch_docs(
     When max_tokens is set, chunks are returned in ID order and stopped before
     the estimated token cost (len(content) // 4) would exceed the budget.
     Whole chunks only — no partial truncation.
+
+    The returned payload always satisfies the tool-response.v1 contract.
     """
     results = get_chunks_by_id(db, chunk_ids, detail="full")
     hits = [_to_dict(r) for r in results]
     if max_tokens is not None:
         hits = _apply_token_budget(hits, max_tokens, "full")
-    return {"results": hits}
+    return _validated({"results": hits})
+
+
+def _validated(response: ToolResponse) -> ToolResponse:
+    """Validate an outgoing response against the tool-response.v1 contract.
+
+    A failure here means the server produced an off-contract payload — a bug —
+    so it raises rather than emitting bad data.
+    """
+    validate_tool_response(dict(response))
+    return response
 
 
 def _apply_token_budget(
-    hits: list[dict[str, Any]], max_tokens: int, detail: str
-) -> list[dict[str, Any]]:
+    hits: list[ToolResultItem], max_tokens: int, detail: str
+) -> list[ToolResultItem]:
     """Return the longest prefix of hits that fits within max_tokens.
 
     Token cost per chunk: len(content) // 4 for full detail,
@@ -99,7 +121,7 @@ def _apply_token_budget(
     used at build time. Whole chunks only — no partial truncation.
     """
     budget = 0
-    kept: list[dict[str, Any]] = []
+    kept: list[ToolResultItem] = []
     for hit in hits:
         if detail == "full":
             cost = len(hit.get("content") or "") // 4
@@ -112,9 +134,9 @@ def _apply_token_budget(
     return kept
 
 
-def _to_dict(r: SearchResult) -> dict[str, Any]:
-    """Convert a SearchResult to a dict for JSON serialisation."""
-    out: dict[str, Any] = {
+def _to_dict(r: SearchResult) -> ToolResultItem:
+    """Convert a SearchResult to a tool-response result item."""
+    out: ToolResultItem = {
         "chunk_id": r.chunk_id,
         "package": r.package,
         "version": r.version,
@@ -174,6 +196,22 @@ def _register_tools(mcp: FastMCP) -> None:
             return json.dumps(result)
         finally:
             db.close()
+
+    _publish_output_schema(mcp)
+
+
+def _publish_output_schema(mcp: FastMCP) -> None:
+    """Advertise the tool-response.v1 schema as each tool's outputSchema.
+
+    The decorator does not accept a hand-written output schema, so attach the
+    canonical schema document to the registered tools. This makes the response
+    contract discoverable via tools/list, sourced from the same file the
+    boundary validator uses (one source of truth).
+    """
+    schema = tool_response_schema()
+    for tool in mcp._tool_manager.list_tools():
+        tool.fn_metadata.output_schema = schema
+        tool.__dict__.pop("output_schema", None)  # reset the cached_property
 
 
 def create_server() -> FastMCP:

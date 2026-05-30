@@ -84,7 +84,7 @@ class TestRemoveCommand:
         CliRunner().invoke(cli, ["remove", "my-lib@1.0.0"])  # remove it first
 
         result = CliRunner().invoke(cli, ["remove", "my-lib@1.0.0"])
-        assert result.exit_code == 1
+        assert result.exit_code == 5  # PackNotFoundError → not found
         assert (
             "not in the index" in result.output.lower()
             or "not found" in result.output.lower()
@@ -93,10 +93,10 @@ class TestRemoveCommand:
     def test_remove_no_index_exits_1(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Remove exits 1 with a clear error when no index.db exists yet."""
+        """Remove with no index.db yet → not found (exit code 5)."""
         monkeypatch.chdir(tmp_path)
         result = CliRunner().invoke(cli, ["remove", "some-lib@1.0.0"])
-        assert result.exit_code == 1
+        assert result.exit_code == 5  # PackNotFoundError → not found
         assert (
             "not in the index" in result.output.lower()
             or "error" in result.output.lower()
@@ -105,10 +105,10 @@ class TestRemoveCommand:
     def test_remove_malformed_spec_exits_1(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """A PKG_SPEC without '@' exits 1 with a helpful error."""
+        """A PKG_SPEC without '@' is a usage error (exit code 2)."""
         monkeypatch.chdir(tmp_path)
         result = CliRunner().invoke(cli, ["remove", "no-version-here"])
-        assert result.exit_code == 1
+        assert result.exit_code == 2  # malformed argument → usage error
         assert (
             "package@version" in result.output.lower()
             or "invalid" in result.output.lower()

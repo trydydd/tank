@@ -12,6 +12,7 @@ import click
 from rich.console import Console
 
 from synd.cli._lockfile import LOCK_FILE, write_lockfile
+from synd.cli.exit_codes import EXIT_ERROR, exit_code_for, verify_failure_code
 from synd.errors import SyndError
 from synd.policy.engine import Policy
 from synd.storage.db import Database
@@ -104,16 +105,20 @@ def _import_pack(ctx_path: Path, policy: Policy, db: Database) -> Path:
 )
 def add(ctx_path: Path, policy: Path | None, force: bool) -> None:
     """Verify and import a .ctx documentation pack into the local index."""
-    policy_obj = Policy.load(policy_path=policy)
+    try:
+        policy_obj = Policy.load(policy_path=policy)
+        # Step 1: Verify the pack
+        result = verify(ctx_path=ctx_path, policy=policy_obj)
+    except SyndError as exc:
+        console.print(f"[red]error: {exc}[/red]")
+        sys.exit(exit_code_for(exc))
 
-    # Step 1: Verify the pack
-    result = verify(ctx_path=ctx_path, policy=policy_obj)
     if not result.passed:
         step_label = f"step {result.step}" if result.step is not None else "unknown"
         console.print(
             f"[red]Verification failed at {step_label}: {result.reason}[/red]"
         )
-        sys.exit(1)
+        sys.exit(verify_failure_code(result.step))
 
     # Step 2: Import
     try:
@@ -132,7 +137,7 @@ def add(ctx_path: Path, policy: Path | None, force: bool) -> None:
                 "Use --force to reimport.[/red]"
             )
             db.close()
-            sys.exit(1)
+            sys.exit(EXIT_ERROR)
 
         # When --force, delete the existing pack so import_pack succeeds
         if force and db.pack_exists(pack_name, pack_version):
@@ -147,7 +152,7 @@ def add(ctx_path: Path, policy: Path | None, force: bool) -> None:
         )
     except (SyndError, zipfile.BadZipFile, json.JSONDecodeError, OSError) as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))
 
 
 @click.command(hidden=True)

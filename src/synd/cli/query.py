@@ -9,6 +9,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from synd.cli.exit_codes import exit_code_for
 from synd.errors import SyndError
 from synd.search.fts import get_chunks_by_id, search
 from synd.storage.db import Database
@@ -64,7 +65,7 @@ def query(
             results = search(db, query, packages=pkg_list, detail=detail, limit=limit)
     except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))
 
     if not results:
         console.print("[yellow]No results found.[/yellow]")

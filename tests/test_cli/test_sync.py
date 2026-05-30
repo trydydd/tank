@@ -218,10 +218,10 @@ class TestSyncCommand:
     def test_sync_missing_lockfile_exits_1(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """sync exits 1 with a helpful error when synd.lock does not exist."""
+        """A missing synd.lock is a LockfileError → build/IO exit code 6."""
         monkeypatch.chdir(tmp_path)
         result = CliRunner().invoke(cli, ["sync"])
-        assert result.exit_code == 1
+        assert result.exit_code == 6
         assert "synd.lock" in result.output or "tank add" in result.output
 
     def test_sync_empty_lockfile_is_noop(
