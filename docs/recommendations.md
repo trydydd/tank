@@ -24,7 +24,7 @@ The `.ctx` pack format and chunking pipeline are entirely text-oriented. Documen
 
 There is no documented strategy for backing up or recovering `index.db`. A corrupted or accidentally deleted database means re-pulling all packs. The lockfile (`index.lock`) partially mitigates this by recording what was imported, but it doesn't carry the chunk data needed to rebuild without the original `.ctx` files.
 
-**Recommendation**: Document a recovery workflow: `tank rebuild --from-lockfile` that re-pulls all packs listed in `index.lock` from a local `.ctx` cache directory. Recommend users keep `.ctx` files in a known location or version-control the lockfile.
+**Recommendation**: Document a recovery workflow: `synd rebuild --from-lockfile` that re-pulls all packs listed in `index.lock` from a local `.ctx` cache directory. Recommend users keep `.ctx` files in a known location or version-control the lockfile.
 
 ### 5. Observability and Error Reporting
 
@@ -54,7 +54,7 @@ Every `search` call executes a fresh FTS5 query against SQLite. For MCP server s
 
 The build-verify-pull pipeline maps naturally to CI but the architecture doesn't document how. Questions like "should CI build with `--lifecycle draft` and a human promote later?" and "how do you verify a .ctx artifact in a PR gate?" are left open.
 
-**Recommendation**: Add a CI/CD section documenting: (a) build `.ctx` in CI with `--lifecycle draft`, (b) run `synd verify` as a PR check, (c) promote to `approved` post-merge via Phase 2's `tank promote`, (d) publish to registry. This also resolves the first open question about policy inheritance in CI.
+**Recommendation**: Add a CI/CD section documenting: (a) build `.ctx` in CI with `--lifecycle draft`, (b) run `synd verify` as a PR check, (c) promote to `approved` post-merge via Phase 2's `synd promote`, (d) publish to registry. This also resolves the first open question about policy inheritance in CI.
 
 ### 10. Multi-Directory Source Tree Handling
 
@@ -115,8 +115,8 @@ Split the system: write the MCP server in TypeScript (using the official TypeScr
 
 **Cons**:
 - **Two-language codebase**: developers must context-switch between Python and TypeScript. Shared logic (normalization, manifest parsing, policy evaluation) must be implemented twice or extracted into a shared format (e.g. JSON schema for validation, WASM module for normalization). This is the biggest ongoing maintenance cost.
-- **Normalization divergence risk**: the architecture explicitly requires that `tank.builder.normalizer` is the single code path for normalization at both build and verify time. A TypeScript MCP server that also verifies at query time (e.g. checking `content_hash` on cached results) would need a second normalization implementation, creating a hash stability risk.
-- **Two package ecosystems**: publishing to both PyPI (`synaptic-drift[build]`) and npm (`@tank/mcp-server`) doubles the release pipeline, versioning discipline, and user documentation. Enterprise users managing both `pip` and `npm` in locked-down environments may find this burdensome.
+- **Normalization divergence risk**: the architecture explicitly requires that `synd.builder.normalizer` is the single code path for normalization at both build and verify time. A TypeScript MCP server that also verifies at query time (e.g. checking `content_hash` on cached results) would need a second normalization implementation, creating a hash stability risk.
+- **Two package ecosystems**: publishing to both PyPI (`synaptic-drift[build]`) and npm (`@synd/mcp-server`) doubles the release pipeline, versioning discipline, and user documentation. Enterprise users managing both `pip` and `npm` in locked-down environments may find this burdensome.
 - **SQLite write contention**: `better-sqlite3` is synchronous. If the TypeScript server ever needs to write (Phase 2's `index-deps` tool), it will block the event loop during transactions. This constrains future server-side mutations.
 - **Type safety gaps**: TypeScript's type system is structural and unsound in places (e.g. `any` escape hatch, no exhaustive enum matching without extra patterns). The policy engine and lifecycle state machine would be more robustly modeled in Python's `dataclasses` + `enum` or Rust's enums.
 
@@ -139,7 +139,7 @@ Write both the CLI and MCP server in Go. Use `modernc.org/sqlite` (pure-Go SQLit
 - **Error handling verbosity**: Go's explicit `if err != nil` pattern adds significant boilerplate to the 8-step validation sequence and the manifest parsing logic. The verify pipeline alone would be substantially more code than the Python equivalent.
 - **MCP SDK maturity**: the Go MCP SDK is community-maintained and less complete than the official Python and TypeScript SDKs. Missing features (e.g. streamable HTTP transport, tool annotations) may require upstream contributions.
 - **Weaker type expressiveness**: Go lacks sum types, pattern matching, and generics maturity. The lifecycle state machine (`draft → approved → deprecated → revoked`) cannot be modeled as a compile-time-exhaustive enum the way it can in Rust. Invalid state transitions would be caught at runtime, not compile time.
-- **Module/package overhead**: Go's module system requires explicit package boundaries that may feel heavy for a project of this size. The `src/tank/` Python package structure with its `__init__.py` files is more compact.
+- **Module/package overhead**: Go's module system requires explicit package boundaries that may feel heavy for a project of this size. The `src/synd/` Python package structure with its `__init__.py` files is more compact.
 - **FTS5 tokenizer customization**: if you later need custom tokenizers for FTS5 (e.g. code-aware tokenization), Go's CGo boundary makes this harder to implement than Python's C extension or Rust's FFI.
 
 ---
@@ -151,7 +151,7 @@ Keep the entire stack in Python as designed. Address the gaps above within the P
 **Pros**:
 - **Zero rewrite cost**: the architecture is already designed for Python. All dependencies (`chunkana`, `mcp`, `click`, `rich`) are Python-native. Development can start immediately.
 - **Fastest time to MVP**: Python's dynamic typing and REPL-driven development allow rapid iteration on the open questions (summary generation, policy merge semantics, CI promotion workflow) without fighting a compiler.
-- **Unified normalization**: the `tank.builder.normalizer` single-code-path guarantee is trivially maintained when everything is Python. No cross-language hash divergence risk.
+- **Unified normalization**: the `synd.builder.normalizer` single-code-path guarantee is trivially maintained when everything is Python. No cross-language hash divergence risk.
 - **`chunkana` is Python**: the chosen structural chunker is a Python library. No FFI bridge, no subprocess overhead, no rewrite.
 - **PyPI distribution is sufficient**: `pip install synaptic-drift` and `pip install synaptic-drift[build]` cover the two deployment profiles. Enterprise Python environments (conda, poetry, uv) handle this well.
 

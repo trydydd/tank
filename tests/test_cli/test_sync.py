@@ -1,4 +1,4 @@
-"""Tests for the tank sync CLI command."""
+"""Tests for the synd sync CLI command."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def _write_lockfile(tmp_path: Path, entries: dict[str, dict[str, str]]) -> None:
 
 
 class TestSyncCommand:
-    """Tests for 'tank sync'."""
+    """Tests for 'synd sync'."""
 
     def test_sync_imports_packs_from_lockfile(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -222,7 +222,7 @@ class TestSyncCommand:
         monkeypatch.chdir(tmp_path)
         result = CliRunner().invoke(cli, ["sync"])
         assert result.exit_code == 6
-        assert "synd.lock" in result.output or "tank add" in result.output
+        assert "synd.lock" in result.output or "synd add" in result.output
 
     def test_sync_empty_lockfile_is_noop(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

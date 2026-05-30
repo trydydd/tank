@@ -91,7 +91,7 @@ The summary field is present in the schema and the generation strategy can be up
 
 ## 5. Content Normalization
 
-Normalization is applied to chunk content before hashing. The same normalization function (`tank.builder.normalizer`) is used at both build time and verify time — this is the hash stability guarantee.
+Normalization is applied to chunk content before hashing. The same normalization function (`synd.builder.normalizer`) is used at both build time and verify time — this is the hash stability guarantee.
 
 The normalization rules are defined in `architecture.md` (Token Efficiency > Content normalization):
 
@@ -146,7 +146,7 @@ The manifest is built from CLI arguments and computed values:
 | `doc_version_status` | Default: `stable` for local builds |
 | `source_url` | The `--source` path as provided (normalized: `./` stripped) |
 | `created_at` | UTC timestamp at build time |
-| `created_by` | `"tank/<version>"` |
+| `created_by` | `"synd/<version>"` |
 
 Fields not provided via CLI flags are omitted from the manifest (not set to null).
 

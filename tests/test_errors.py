@@ -9,11 +9,11 @@ from synd.errors import (
 )
 
 
-def test_tank_error_is_exception() -> None:
+def test_synd_error_is_exception() -> None:
     assert issubclass(SyndError, Exception)
 
 
-def test_subclasses_inherit_tank_error() -> None:
+def test_subclasses_inherit_synd_error() -> None:
     for cls in (
         ManifestError,
         PolicyError,

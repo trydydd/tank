@@ -68,5 +68,5 @@ git push origin HEAD
 git push origin "v$NEW"
 ok "Pushed. GitHub Actions will run the release workflow."
 echo ""
-echo "  https://github.com/trydydd/tank/actions"
-echo "  https://github.com/trydydd/tank/releases/tag/v$NEW"
+echo "  https://github.com/trydydd/synaptic-drift/actions"
+echo "  https://github.com/trydydd/synaptic-drift/releases/tag/v$NEW"

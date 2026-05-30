@@ -1,4 +1,4 @@
-"""tank verify command."""
+"""synd verify command."""
 
 from __future__ import annotations
 

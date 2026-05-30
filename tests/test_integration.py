@@ -552,7 +552,7 @@ def test_revoked_pack_not_in_query_results(
     tmp_path: Path, sample_docs: Path, runner: CliRunner
 ) -> None:
     """Import a pack, update its lifecycle_state to revoked in the DB,
-    run tank query -- zero results for that pack's content."""
+    run synd query -- zero results for that pack's content."""
     output_dir = tmp_path / "output"
     ctx_path = output_dir / "revoked-not@1.0.0.ctx"
 

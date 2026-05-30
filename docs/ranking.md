@@ -1,8 +1,8 @@
-# Tank — Ranking Strategy
+# Synaptic Drift — Ranking Strategy
 
 ## Overview
 
-Tank's query pipeline has two stages: **ranking** (which chunks match, and in what order) and **budget enforcement** (how many of those chunks fit within a token limit). Both stages run locally with no network or LLM dependency.
+Synaptic Drift's query pipeline has two stages: **ranking** (which chunks match, and in what order) and **budget enforcement** (how many of those chunks fit within a token limit). Both stages run locally with no network or LLM dependency.
 
 ## Stage 1 — BM25 Ranking via SQLite FTS5
 
@@ -68,6 +68,6 @@ The three ranked lists are fused with **Reciprocal Rank Fusion (RRF)** before th
 
 ### Future: LLM Reranking
 
-LLM-based reranking selects the semantically best subset within a budget rather than relying on a fixed ranking order. This is qualitatively different from the greedy approach: instead of keeping the top-N prefix that fits, an LLM reranker can pick any subset of candidates. Tank defers this because it introduces latency and a model dependency that conflicts with the local-first, no-LLM-at-query-time constraint for MVP.
+LLM-based reranking selects the semantically best subset within a budget rather than relying on a fixed ranking order. This is qualitatively different from the greedy approach: instead of keeping the top-N prefix that fits, an LLM reranker can pick any subset of candidates. Synaptic Drift defers this because it introduces latency and a model dependency that conflicts with the local-first, no-LLM-at-query-time constraint for MVP.
 
 The `max_tokens` API parameter is forward-compatible: adding LLM reranking in a later phase does not require callers to change anything.

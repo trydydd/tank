@@ -1,4 +1,4 @@
-"""tank add command — verify and import a .ctx documentation pack."""
+"""synd add command — verify and import a .ctx documentation pack."""
 
 from __future__ import annotations
 

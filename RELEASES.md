@@ -25,10 +25,9 @@ Review `docs/todo.md` and confirm every v{N} item is resolved or explicitly defe
 
 The following bugs were open when v0.1.0 was tagged and are deferred to v0.1.1:
 
-- [ ] `src/tank/storage/db.py:121-126` — page ID foreign key integrity on import
-- [ ] `src/tank/search/fts.py:76` — silent exception swallowing on search failure
-- [ ] `src/tank/cli/pull.py:39` — hardcoded `doc_version_status="imported"`
-- [ ] `src/tank/server.py` — `max_tokens` parameter accepted but not implemented
+- [ ] `src/synd/storage/db.py:121-126` — page ID foreign key integrity on import
+- [ ] `src/synd/search/fts.py:76` — silent exception swallowing on search failure
+- [ ] `src/synd/server.py` — `max_tokens` parameter accepted but not implemented
 
 ### 2. Tests pass cleanly
 
@@ -57,7 +56,7 @@ git commit -m "chore: capture v{VERSION} benchmark baseline"
 Update the version string in two places and confirm they match:
 
 - `pyproject.toml` → `[project] version`
-- `src/tank/__init__.py` → `__version__`
+- `src/synd/__init__.py` → `__version__`
 
 ### 5. README reflects reality
 
@@ -83,10 +82,10 @@ ruff check . && mypy src/
 # 2. Capture performance baseline (see above)
 
 # 3. Bump version
-#    Edit pyproject.toml and src/tank/__init__.py
+#    Edit pyproject.toml and src/synd/__init__.py
 
 # 4. Commit the version bump and baseline together
-git add pyproject.toml src/tank/__init__.py tests/benchmarks/results/v{VERSION}.json
+git add pyproject.toml src/synd/__init__.py tests/benchmarks/results/v{VERSION}.json
 git commit -m "Release v{VERSION}"
 
 # 5. Tag
@@ -104,7 +103,7 @@ git push origin v{VERSION}
 # 8. Publish to PyPI (currently manual — no twine step in CI yet)
 pip install build twine
 python -m build
-twine upload dist/tank-{VERSION}*
+twine upload dist/synaptic_drift-{VERSION}*
 ```
 
 ---
@@ -116,8 +115,8 @@ Each GitHub Release contains the following files, attached automatically by
 
 | Artifact | Description |
 |---|---|
-| `tank-{VERSION}-py3-none-any.whl` | Installable wheel. `pip install synaptic-drift` or direct URL install. |
-| `tank-{VERSION}.tar.gz` | Source distribution. Required for downstream repackaging (Debian, Homebrew, etc.). |
+| `synaptic_drift-{VERSION}-py3-none-any.whl` | Installable wheel. `pip install synaptic-drift` or direct URL install. |
+| `synaptic_drift-{VERSION}.tar.gz` | Source distribution. Required for downstream repackaging (Debian, Homebrew, etc.). |
 | `fastmcp@{VERSION}.ctx` | Pre-built documentation pack for FastMCP, built from `llms-full.txt` in CI. |
 
 ### Adding packs to a release
@@ -196,7 +195,7 @@ Compare `v{N}.json` against `v{N-1}.json` before tagging. Expected behaviour:
 {
   "timestamp": "2026-05-20T12:00:00+00:00",
   "git_commit": "abc1234",
-  "tank_version": "0.1.0",
+  "synd_version": "0.1.0",
   "token_counter": "len_div_4",
   "corpus": {
     "chunks": 20,
@@ -235,7 +234,7 @@ Compare `v{N}.json` against `v{N-1}.json` before tagging. Expected behaviour:
 ## Post-Release Steps
 
 1. **Verify PyPI**: `pip install synaptic-drift=={VERSION}` in a clean virtualenv. Run
-   `tank --version` and confirm it prints the correct version.
+   `synd --version` and confirm it prints the correct version.
 
 2. **Verify GitHub Release**: Check that all expected artifacts are attached —
    wheel, sdist, and all `.ctx` packs.

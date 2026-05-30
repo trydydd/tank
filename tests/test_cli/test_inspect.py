@@ -1,4 +1,4 @@
-"""Tests for the tank inspect CLI command."""
+"""Tests for the synd inspect CLI command."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _fixture_path(name: str = "sample_docs") -> Path:
 
 
 class TestInspectCommand:
-    """Tests for 'tank inspect' subcommand."""
+    """Tests for 'synd inspect' subcommand."""
 
     def test_inspect_ctx_file(self, tmp_path: Path) -> None:
         """Inspecting a valid .ctx file prints manifest information."""

@@ -1,4 +1,4 @@
-"""Tests for the tank verify CLI command."""
+"""Tests for the synd verify CLI command."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _fixture_path(name: str = "sample_docs") -> Path:
 
 
 class TestVerifyCommand:
-    """Tests for 'tank verify' subcommand."""
+    """Tests for 'synd verify' subcommand."""
 
     def test_verify_command_pass(self, tmp_path: Path) -> None:
         """A valid .ctx must pass verification."""

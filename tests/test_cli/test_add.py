@@ -99,7 +99,7 @@ def _make_tampered_ctx(tmp_path: Path, valid_ctx: Path) -> Path:
 
 
 class TestAddCommand:
-    """Tests for 'tank add' subcommand."""
+    """Tests for 'synd add' subcommand."""
 
     def test_add_command_success(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

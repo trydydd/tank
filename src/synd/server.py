@@ -226,7 +226,7 @@ def create_server() -> FastMCP:
 
 def run_http() -> None:
     """Start the MCP server over Streamable HTTP bound to 127.0.0.1 only."""
-    mcp = FastMCP("tank", host=_HTTP_HOST)
+    mcp = FastMCP("synaptic-drift", host=_HTTP_HOST)
     _register_tools(mcp)
     asyncio.run(mcp.run_streamable_http_async())
 

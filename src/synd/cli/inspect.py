@@ -1,4 +1,4 @@
-"""tank inspect command."""
+"""synd inspect command."""
 
 from __future__ import annotations
 

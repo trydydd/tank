@@ -10,7 +10,7 @@ spikes:
     status: done
     outcome: |
       No off-the-shelf library is a clean drop-in. chunknorris 1.2.2 meets all
-      requirements but carries PyMuPDF, pandas, and matplotlib for parsers Tank
+      requirements but carries PyMuPDF, pandas, and matplotlib for parsers Synaptic Drift
       will never use (~30MB). langchain-text-splitters 1.1.2 is lighter but heading_path
       returns as a flat dict and has no paragraph overflow splitting. Decision (D14):
       build a custom chunker using markdown-it-py 3.0.0+ as the parsing backend.
@@ -35,8 +35,8 @@ spikes:
       A library recommendation with benchmark results against the fastmcp fixture,
       or a scoped custom implementation plan with line count estimate and test approach.
     files:
-      - src/tank/builder/chunking.py
-      - tests/benchmarks/test_webfetch_vs_tank.py
+      - src/synd/builder/chunking.py
+      - tests/benchmarks/test_webfetch_vs_synd.py
       - docs/decisions.md
     blocked_by: []
 
@@ -72,7 +72,7 @@ spikes:
       Passing tests covering all edge cases. Chunk 2 gains a heading signal.
       Preamble chunks degrade gracefully.
     files:
-      - src/tank/builder/chunking.py
+      - src/synd/builder/chunking.py
       - tests/test_builder/
       - docs/decisions.md
     blocked_by: []
@@ -83,7 +83,7 @@ spikes:
     outcome: |
       Implemented in v0.2.0 (feature/mcp branch). query-docs replaced with two tools:
       search (summaries + chunk_ids, never full content) and fetch (full content by
-      chunk_ids, no query). tank serve CLI command added. See decisions.md D12 and
+      chunk_ids, no query). synd serve CLI command added. See decisions.md D12 and
       docs/MCP.md for full documentation.
     context: |
       detail="full" on query-docs nudges agents toward expensive single-step queries
@@ -92,7 +92,7 @@ spikes:
       no query). Deferred because it is a breaking change to any existing MCP client
       config. See decisions.md D12.
     task: |
-      Produce a concrete migration plan: what changes in src/tank/server.py to register
+      Produce a concrete migration plan: what changes in src/synd/server.py to register
       two tools; what happens to query-docs (deprecated alias or removed); what MCP
       client config changes consumers need; whether FastMCP supports registering a
       deprecated tool alongside its replacements. Estimate scope in lines changed.
@@ -100,7 +100,7 @@ spikes:
       A migration plan covering server.py changes, client config impact, deprecation
       strategy, and effort estimate. Enough detail to implement without further research.
     files:
-      - src/tank/server.py
+      - src/synd/server.py
       - docs/MCP.md
       - docs/decisions.md
     blocked_by: []
@@ -109,28 +109,28 @@ spikes:
     title: "Pack #2 — dependency selection for v0.1.1 release artifact"
     status: done
     outcome: |
-      mcp@2025-11-25 (Model Context Protocol spec). Chosen because Tank depends on
+      mcp@2025-11-25 (Model Context Protocol spec). Chosen because Synaptic Drift depends on
       mcp directly, the MCP layer refactor (D12/S3) is the largest v0.2.0 work item,
       and modelcontextprotocol.io publishes llms-full.txt — no crawler or HTML
       extraction needed. Build command (download locally until v0.2.0 URL fetch lands):
         mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt
-        tank build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
+        synd build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs
       See decisions.md D15.
     context: |
       v0.1.0 ships with a fastmcp .ctx pack as its release artifact. v0.1.1 needs
-      pack #2. The pack should demonstrate Tank's value on a widely-used library with
+      pack #2. The pack should demonstrate Synaptic Drift's value on a widely-used library with
       good documentation coverage. Prefer libraries that publish llms-full.txt or
-      have clean Markdown docs buildable with tank build --source <local-path>.
+      have clean Markdown docs buildable with synd build --source <local-path>.
     task: |
       Propose 3-5 candidate libraries with rationale. For each: confirm documentation
       source availability (llms-full.txt URL, official Markdown repo, or crawlable
       site); estimate pack size (pages and likely chunk count); assess documentation
       quality for RAG use (well-structured headings, code examples, conceptual
-      coverage). Recommend one with the exact tank build command needed to produce
+      coverage). Recommend one with the exact synd build command needed to produce
       the pack.
     success: |
       A ranked shortlist with a clear top recommendation, source URL or path confirmed
-      accessible, and the tank build command ready to run.
+      accessible, and the synd build command ready to run.
     files:
       - docs/MCP.md
       - tests/benchmarks/fixtures/
@@ -153,7 +153,7 @@ spikes:
       server, or a refactor of the server layer. See roadmap v0.2.0.
     task: |
       Diagnose the exact conflict: what dependency or structure in pyproject.toml
-      causes the problem; whether the base tank package and tank[build] can be cleanly
+      causes the problem; whether the base synd package and synd[build] can be cleanly
       separated from the server; what a CLI-only release would exclude and what
       consumers would lose; what a server layer refactor would require and at what
       scope. Produce a recommendation with effort estimate for each option.
@@ -162,7 +162,7 @@ spikes:
       with enough detail to implement.
     files:
       - pyproject.toml
-      - src/tank/server.py
+      - src/synd/server.py
       - .github/workflows/
     blocked_by: []
 
@@ -190,12 +190,12 @@ spikes:
       It is kept as reference; its strip_mdx() and _extract_code_fences() functions are
       candidates for promotion to src/synd/builder/mdx.py in S8.
     context: |
-      tank build --source <url>/llms-full.txt (v0.2.0) needs to fetch HTML doc pages
+      synd build --source <url>/llms-full.txt (v0.2.0) needs to fetch HTML doc pages
       and convert them to clean text for chunking. This must work without an LLM —
       the conversion must be deterministic, reproducible, and free of network
       dependencies at build time beyond the initial fetch. WebFetch (Claude's tool)
       uses html_extraction_method: "markdown" but requires a model in the loop and
-      cannot be used in tank build. A Python library is required.
+      cannot be used in synd build. A Python library is required.
       Candidates: html2text, markdownify, trafilatura.
     task: |
       Evaluate html2text, markdownify, and trafilatura against these criteria:
@@ -203,16 +203,16 @@ spikes:
       - Code block preservation: are fenced blocks and inline code intact?
       - Table handling: are markdown tables produced or collapsed to plain text?
       - Maintenance status and dependency weight
-      - License compatibility with Tank (MIT/Apache preferred)
+      - License compatibility with Synaptic Drift (MIT/Apache preferred)
       Test each against a rendered HTML page from requests.readthedocs.io and the
       fastmcp docs site. Compare output quality for a page with mixed prose, code
       blocks, and a navigation sidebar.
     success: |
       A library recommendation with sample output from both test pages. Enough
-      detail to wire it into src/tank/builder/fetch.py without further research.
+      detail to wire it into src/synd/builder/fetch.py without further research.
     files:
-      - src/tank/builder/fetch.py
-      - src/tank/builder/build.py
+      - src/synd/builder/fetch.py
+      - src/synd/builder/build.py
       - docs/decisions.md
     blocked_by: []
 
@@ -239,7 +239,7 @@ spikes:
       mark code block open/close boundaries. This makes correct heading_path
       construction and code-fence atomicity straightforward.
     task: |
-      Implement src/tank/builder/chunking.py replacing the chunkana-based
+      Implement src/synd/builder/chunking.py replacing the chunkana-based
       process_file() with a markdown-it-py-backed implementation:
       - Parse the file with markdown_it.MarkdownIt().parse(text)
       - Walk the token stream: on each heading_open token, emit the current
@@ -257,7 +257,7 @@ spikes:
         if D13 is not implemented yet)
       Remove chunkana from pyproject.toml dependencies once replaced.
       Add markdown-it-py>=3.0 to core dependencies (not build extra — chunking
-      is required for tank build which is already in the build extra, but
+      is required for synd build which is already in the build extra, but
       markdown-it-py is pure Python and lightweight enough for the base install).
     success: |
       All existing tests pass. The fastmcp benchmark chunk 5 (currently 932 tokens,
@@ -265,11 +265,11 @@ spikes:
       section correctly includes the ## and # ancestor headings. Code fence content
       is never split across chunks. chunkana removed from dependencies.
     files:
-      - src/tank/builder/chunking.py
-      - src/tank/builder/build.py
+      - src/synd/builder/chunking.py
+      - src/synd/builder/build.py
       - pyproject.toml
       - tests/test_builder/
-      - tests/benchmarks/test_webfetch_vs_tank.py
+      - tests/benchmarks/test_webfetch_vs_synd.py
       - docs/decisions.md
     blocked_by: []
 
@@ -292,7 +292,7 @@ spikes:
       - 34 new tests in tests/test_builder/test_mdx.py, test_fetch.py, test_llms_full.py.
       Next: wire fetch_pages() into build.py to support synd build --source <url>/llms.txt.
     context: |
-      tank build --source <url>/llms.txt (v0.2.0 roadmap) fetches individual doc
+      synd build --source <url>/llms.txt (v0.2.0 roadmap) fetches individual doc
       pages and must convert them to a clean intermediate format for the chunker.
       S6 covers HTML-to-markdown library selection for the raw conversion step, but
       the full pipeline involves more: HTTP fetch with rate limiting and User-Agent,
@@ -326,7 +326,7 @@ spikes:
       (ReadTheDocs, Docusaurus, etc.) that serve HTML at their page URLs.
     task: |
       Research and recommend a complete fetch-and-convert pipeline for
-      tank build --source <url>/llms.txt:
+      synd build --source <url>/llms.txt:
       1. Output format decision: should pages be normalised to markdown, plain text,
          or another format before chunking? Consider:
          - Markdown preserves heading structure (##, ###) that the chunker (S7) uses
@@ -370,11 +370,11 @@ spikes:
       sample output. A recommended pipeline with library choices justified against
       the test sites. A code sketch of fetch_page(url: str) -> str (returns
       normalised text ready for the chunker). Enough detail to implement
-      src/tank/builder/fetch.py without further research.
+      src/synd/builder/fetch.py without further research.
     files:
-      - src/tank/builder/fetch.py
-      - src/tank/builder/llms_full.py
-      - src/tank/builder/build.py
+      - src/synd/builder/fetch.py
+      - src/synd/builder/llms_full.py
+      - src/synd/builder/build.py
       - docs/decisions.md
     blocked_by: [S6]
 

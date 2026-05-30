@@ -1,4 +1,4 @@
-"""Tests for the tank build CLI command."""
+"""Tests for the synd build CLI command."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ class TestParsePackageSpec:
 
 
 class TestBuildCommand:
-    """Tests for 'tank build' subcommand."""
+    """Tests for 'synd build' subcommand."""
 
     def test_build_command_success(self, tmp_path: Path) -> None:
         """Standard build: exit_code=0 and .ctx file is produced."""

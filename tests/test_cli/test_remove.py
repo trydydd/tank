@@ -1,4 +1,4 @@
-"""Tests for the tank remove CLI command."""
+"""Tests for the synd remove CLI command."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def _add_pack(tmp_path: Path, ctx_path: Path) -> None:
 
 
 class TestRemoveCommand:
-    """Tests for 'tank remove'."""
+    """Tests for 'synd remove'."""
 
     def test_remove_pack_success(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

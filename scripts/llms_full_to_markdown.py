@@ -141,7 +141,7 @@ def read_input(source: str) -> str:
     parsed = urlparse(source)
     if parsed.scheme in {"http", "https"}:
         request = Request(
-            source, headers={"User-Agent": "Mozilla/5.0 tank-llms-full-converter"}
+            source, headers={"User-Agent": "Mozilla/5.0 synd-llms-full-converter"}
         )
         with urlopen(request, timeout=30) as response:  # nosec: B310 (user-supplied URL by design)
             return response.read().decode("utf-8", errors="replace")

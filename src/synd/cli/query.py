@@ -1,4 +1,4 @@
-"""tank query command."""
+"""synd query command."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ DEFAULT_DB = Path(".synd/index.db")
 
 
 def _open_db() -> Database:
-    """Open the default Tank database."""
+    """Open the default Synaptic Drift database."""
     db_path = DEFAULT_DB
     if not db_path.exists():
         db_path.parent.mkdir(parents=True, exist_ok=True)

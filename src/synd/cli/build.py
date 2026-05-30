@@ -1,4 +1,4 @@
-"""tank build command."""
+"""synd build command."""
 
 from __future__ import annotations
 

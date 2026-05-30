@@ -1,4 +1,4 @@
-"""Tank CLI subcommands."""
+"""Synaptic Drift CLI subcommands."""
 
 from __future__ import annotations
 

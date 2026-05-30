@@ -1,4 +1,4 @@
-"""tank remove command — remove a pack from the local index and lockfile."""
+"""synd remove command — remove a pack from the local index and lockfile."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def remove(pkg_spec: str) -> None:
 
     PKG_SPEC must be in the form ``package@version``, e.g.::
 
-        tank remove fastmcp@3.3.0
+        synd remove fastmcp@3.3.0
     """
     if "@" not in pkg_spec:
         console.print(

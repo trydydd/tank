@@ -44,7 +44,7 @@ Definitions of Synaptic Drift-specific terminology. Sorted alphabetically.
 
 **MCP** — Model Context Protocol. An open protocol for connecting AI assistants to external tools and data sources. Synaptic Drift exposes its documentation index as an MCP server with two tools (`search` and `fetch`) over stdio transport. See `docs/MCP.md`.
 
-**normalization** — the text transformation applied to chunk content before hashing. Rules: collapse blank line runs, strip HTML boilerplate (MVP: basic tag removal), normalize Unicode whitespace to ASCII, preserve code blocks and tables verbatim. The same code path (`tank.builder.normalizer`) is used at both build and verify time. This is the hash stability guarantee.
+**normalization** — the text transformation applied to chunk content before hashing. Rules: collapse blank line runs, strip HTML boilerplate (MVP: basic tag removal), normalize Unicode whitespace to ASCII, preserve code blocks and tables verbatim. The same code path (`synd.builder.normalizer`) is used at both build and verify time. This is the hash stability guarantee.
 
 **normalized_content_hash** — SHA-256 of all chunk content strings, each normalized, concatenated in ascending chunk ID order with a `\n` separator. Changes only when text content changes (independent of metadata like heading paths or summaries). Stored in `manifest.json`. Verified at import time.
 

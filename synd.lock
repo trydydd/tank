@@ -6,10 +6,10 @@ generated_at = "2026-05-25T04:01:28Z"
 pack_digest = "sha256:44eb01df1ec8e9fb47067c3cb295931b1370f057b402f463322546057d81b950"
 lifecycle_state = "draft"
 indexed_at = "2026-05-25T04:01:28Z"
-source_url = "https://github.com/trydydd/tank/releases/download/v0.1.1/fastmcp@3.3.0.ctx"
+source_url = "https://github.com/trydydd/synaptic-drift/releases/download/v0.1.1/fastmcp@3.3.0.ctx"
 
 [packs."mcp@2025-11-25"]
 pack_digest = "sha256:8ce67f3fc6e2df637f227d249b169dd8a73e8f7ab95ad7782d3312c6d3d133e7"
 lifecycle_state = "draft"
 indexed_at = "2026-05-25T04:01:28Z"
-source_url = "https://github.com/trydydd/tank/releases/download/v0.1.1/mcp@2025-11-25.ctx"
+source_url = "https://github.com/trydydd/synaptic-drift/releases/download/v0.1.1/mcp@2025-11-25.ctx"

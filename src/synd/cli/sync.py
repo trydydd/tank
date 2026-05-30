@@ -51,7 +51,7 @@ def _resolve_source(source_url: str, frozen: bool) -> Path:
             )
         raise FetchError(
             f"URL fetching is not yet supported — download the pack manually "
-            f"and run 'tank add <path.ctx>' instead.\n"
+            f"and run 'synd add <path.ctx>' instead.\n"
             f"  source_url: {source_url}"
         )
 
@@ -59,7 +59,7 @@ def _resolve_source(source_url: str, frozen: bool) -> Path:
     if not path.exists():
         raise FileNotFoundError(
             f"source_url {source_url!r} is a local path that does not exist. "
-            "Download the pack and re-run 'tank add <path.ctx>'."
+            "Download the pack and re-run 'synd add <path.ctx>'."
         )
     return path
 
@@ -127,7 +127,7 @@ def sync(policy: Path | None, frozen: bool) -> None:
         if not source_url:
             console.print(
                 f"  [red]fail  {spec}: no source_url in lockfile — "
-                "re-add with 'tank add <path.ctx>'[/red]"
+                "re-add with 'synd add <path.ctx>'[/red]"
             )
             failed += 1
             continue
@@ -151,7 +151,7 @@ def sync(policy: Path | None, frozen: bool) -> None:
                     f"    expected: {expected_digest}\n"
                     f"    actual:   {actual_digest}\n"
                     "    The pack file does not match the lockfile. "
-                    "Re-download and run 'tank add' again."
+                    "Re-download and run 'synd add' again."
                 )
                 failed += 1
                 continue

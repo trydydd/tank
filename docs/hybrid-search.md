@@ -2,7 +2,7 @@
 
 ## Why
 
-Tank's current FTS5/BM25 search is keyword-based. Queries must share vocabulary with the
+Synaptic Drift's current FTS5/BM25 search is keyword-based. Queries must share vocabulary with the
 indexed document or return nothing. The natural language query
 `"how do I configure a stdio implementation in fastmcp"` returns 0 results from FTS5
 because "configure" and "implementation" do not appear in the source document. An LLM
@@ -28,7 +28,7 @@ query-time SQLite extension.**
 
 This is achieved by moving all model-related work to build time:
 
-1. **Build time** (`tank build`) — the pack publisher generates embeddings for every
+1. **Build time** (`synd build`) — the pack publisher generates embeddings for every
    chunk using a local ONNX model. Embeddings are stored inside the `.ctx` archive
    alongside `chunks.jsonl`. The publisher bears the model dependency and the
    (potentially slow) generation cost. This is a one-time cost per pack version.
@@ -36,7 +36,7 @@ This is achieved by moving all model-related work to build time:
 2. **Pack** (`.ctx`) — the archive bundles pre-computed vectors. No model is required
    to consume the pack. File size increases proportionally to corpus size (see below).
 
-3. **Add time** (`tank add`) — vectors are extracted from the `.ctx` and loaded into
+3. **Add time** (`synd add`) — vectors are extracted from the `.ctx` and loaded into
    a `sqlite-vec` virtual table in `index.db`, alongside the existing FTS5 index.
    No model, no generation.
 
