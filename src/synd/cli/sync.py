@@ -12,7 +12,7 @@ from rich.console import Console
 
 from synd.cli._lockfile import LOCK_FILE, read_lockfile, write_lockfile
 from synd.cli.add import _import_pack
-from synd.cli.exit_codes import exit_code_for
+from synd.cli.exit_codes import EXIT_ERROR, exit_code_for
 from synd.errors import FetchError, LockfileError, SyndError
 from synd.policy.engine import Policy
 from synd.storage.db import Database
@@ -201,4 +201,4 @@ def sync(policy: Path | None, frozen: bool) -> None:
     console.print(f"\nsync complete: {summary}")
 
     if failed:
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)

@@ -7,6 +7,8 @@ import sys
 import click
 from rich.console import Console
 
+from synd.cli.exit_codes import EXIT_ERROR
+
 console = Console()
 
 
@@ -25,5 +27,5 @@ def serve() -> None:
             "[red]error:[/red] The MCP server requires the serve extra.\n"
             "Install with:  pip install 'synaptic-drift[serve]'"
         )
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
     create_server().run()

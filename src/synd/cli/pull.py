@@ -11,6 +11,13 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from synd.cli.exit_codes import (
+    EXIT_BUILD,
+    EXIT_ERROR,
+    EXIT_VERIFICATION,
+    exit_code_for,
+    verify_failure_code,
+)
 from synd.errors import SyndError
 from synd.policy.engine import Policy
 from synd.storage.db import Database
@@ -134,7 +141,7 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
         console.print(
             f"[red]Verification failed at {step_label}: {result.reason}[/red]"
         )
-        sys.exit(1)
+        sys.exit(verify_failure_code(result.step))
 
     # Step 2: Import
     try:
@@ -153,7 +160,7 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
                 "Use --force to reimport.[/red]"
             )
             db.close()
-            sys.exit(1)
+            sys.exit(EXIT_ERROR)
 
         # When --force, delete the existing pack so import_pack succeeds
         if force and db.pack_exists(pack_name, pack_version):
@@ -166,6 +173,12 @@ def pull(ctx_path: Path, policy: Path | None, force: bool) -> None:
         console.print(
             f"[green]Successfully imported {pack_name}@{pack_version}[/green]"
         )
-    except (SyndError, zipfile.BadZipFile, json.JSONDecodeError, OSError) as exc:
+    except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))
+    except (zipfile.BadZipFile, json.JSONDecodeError) as exc:
+        console.print(f"[red]error: invalid .ctx archive: {exc}[/red]")
+        sys.exit(EXIT_VERIFICATION)
+    except OSError as exc:
+        console.print(f"[red]error: {exc}[/red]")
+        sys.exit(EXIT_BUILD)
