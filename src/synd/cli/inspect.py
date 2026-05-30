@@ -10,7 +10,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from synd.cli.exit_codes import exit_code_for
+from synd.cli.exit_codes import EXIT_VERIFICATION, exit_code_for
 from synd.errors import SyndError
 from synd.storage.db import Database
 
@@ -74,7 +74,7 @@ def _inspect_ctx(path: Path) -> None:
 
     except (zipfile.BadZipFile, json.JSONDecodeError) as exc:
         console.print(f"[red]error: invalid .ctx archive: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(EXIT_VERIFICATION)
 
 
 def _inspect_db(path: Path) -> None:

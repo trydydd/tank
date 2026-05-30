@@ -50,7 +50,7 @@
       "description": "Path or URL the chunk's page originated from."
     },
     "source_commit": {
-      "type": ["string", "null"],
+      "type": "string",
       "description": "Git commit hash at build time, when known."
     }
   }

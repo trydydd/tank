@@ -203,15 +203,18 @@ def _register_tools(mcp: FastMCP) -> None:
 def _publish_output_schema(mcp: FastMCP) -> None:
     """Advertise the tool-response.v1 schema as each tool's outputSchema.
 
-    The decorator does not accept a hand-written output schema, so attach the
-    canonical schema document to the registered tools. This makes the response
-    contract discoverable via tools/list, sourced from the same file the
-    boundary validator uses (one source of truth).
+    FastMCP has no public decorator parameter for outputSchema, so we set
+    tool.output_schema directly on the internal Tool objects (accessible via the
+    private _tool_manager). Wrapped in try/except so a future FastMCP version
+    that changes its internals degrades gracefully rather than crashing startup.
+    The boundary validation in _validated() still enforces correctness regardless.
     """
     schema = tool_response_schema()
-    for tool in mcp._tool_manager.list_tools():
-        tool.fn_metadata.output_schema = schema
-        tool.__dict__.pop("output_schema", None)  # reset the cached_property
+    try:
+        for tool in mcp._tool_manager.list_tools():
+            tool.output_schema = schema
+    except AttributeError:
+        pass  # FastMCP internals changed; outputSchema advertisement skipped
 
 
 def create_server() -> FastMCP:
