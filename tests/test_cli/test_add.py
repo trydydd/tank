@@ -1,4 +1,4 @@
-"""Tests for the tank add CLI command (and the deprecated 'pull' alias)."""
+"""Tests for the synd add CLI command."""
 
 from __future__ import annotations
 
@@ -248,34 +248,3 @@ class TestAddCommand:
         content = lock_path.read_text()
         assert "my-lib" in content
         assert "1.0.0" in content
-
-
-class TestPullAlias:
-    """Tests for the deprecated 'tank pull' alias."""
-
-    def test_pull_alias_works(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """'tank pull' still works but prints a deprecation warning."""
-        monkeypatch.chdir(tmp_path)
-        ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
-        result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
-        assert result.exit_code == 0, f"pull alias failed: {result.output}"
-        assert "deprecated" in result.output.lower()
-        assert "tank add" in result.output
-
-    def test_pull_alias_imports_pack(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """'tank pull' alias actually imports the pack."""
-        monkeypatch.chdir(tmp_path)
-        ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
-        result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
-        assert result.exit_code == 0
-
-        db_path = tmp_path / ".synd" / "index.db"
-        assert db_path.exists()
-        conn = sqlite3.connect(str(db_path))
-        count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
-        conn.close()
-        assert count == 1

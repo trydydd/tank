@@ -153,16 +153,3 @@ def add(ctx_path: Path, policy: Path | None, force: bool) -> None:
     except (SyndError, zipfile.BadZipFile, json.JSONDecodeError, OSError) as exc:
         console.print(f"[red]error: {exc}[/red]")
         sys.exit(exit_code_for(exc))
-
-
-@click.command(hidden=True)
-@click.argument("ctx_path", type=click.Path(exists=True, path_type=Path))
-@click.option("--policy", type=click.Path(path_type=Path), default=None)
-@click.option("--force", is_flag=True, default=False)
-@click.pass_context
-def pull(ctx: click.Context, ctx_path: Path, policy: Path | None, force: bool) -> None:
-    """(Deprecated) Use 'tank add' instead."""
-    console.print(
-        "[yellow]warning: 'tank pull' is deprecated — use 'tank add' instead[/yellow]"
-    )
-    ctx.invoke(add, ctx_path=ctx_path, policy=policy, force=force)

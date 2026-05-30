@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import click
 
-from synd.cli.add import add, pull
+from synd.cli.add import add
 from synd.cli.build import build
 from synd.cli.inspect import inspect_cmd
 from synd.cli.query import query
@@ -28,4 +28,3 @@ cli.add_command(remove)
 cli.add_command(query)
 cli.add_command(inspect_cmd)
 cli.add_command(serve)
-cli.add_command(pull)  # deprecated alias, hidden=True set in add.py
