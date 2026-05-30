@@ -1,5 +1,5 @@
 class SyndError(Exception):
-    """Base class for all Tank errors."""
+    """Base class for all Synaptic Drift errors."""
 
 
 class ManifestError(SyndError):

@@ -5,7 +5,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") <url> <name@version> [--output <dir>]
 
-Download an llms-full.txt from a URL and build a Tank .ctx pack.
+Download an llms-full.txt from a URL and build a Synaptic Drift .ctx pack.
 
 Arguments:
   url           URL of the llms-full.txt to fetch

@@ -1,5 +1,5 @@
 <!-- Source: https://gofastmcp.com/deployment/running-server -->
-<!-- Fetched: 2026-05-21 for Tank vs WebFetch benchmark -->
+<!-- Fetched: 2026-05-21 for Synaptic Drift vs WebFetch benchmark -->
 <!-- If this page has changed, re-fetch and update this file and the benchmark results in .work/research_spikes.md -->
 
 # Running Your Server

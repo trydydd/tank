@@ -1,4 +1,4 @@
-"""Tests for the tank query CLI command."""
+"""Tests for the synd query CLI command."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _fixture_path(name: str = "sample_docs") -> Path:
 
 
 class TestQueryCommand:
-    """Tests for 'tank query' subcommand."""
+    """Tests for 'synd query' subcommand."""
 
     def test_query_command_summary(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

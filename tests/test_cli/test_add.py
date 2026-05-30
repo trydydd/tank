@@ -1,4 +1,4 @@
-"""Tests for the tank add CLI command (and the deprecated 'pull' alias)."""
+"""Tests for the synd add CLI command."""
 
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def _make_tampered_ctx(tmp_path: Path, valid_ctx: Path) -> Path:
 
 
 class TestAddCommand:
-    """Tests for 'tank add' subcommand."""
+    """Tests for 'synd add' subcommand."""
 
     def test_add_command_success(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -124,14 +124,14 @@ class TestAddCommand:
     def test_add_command_verify_fails(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Adding a malformed .ctx must exit 1."""
+        """Adding a malformed .ctx must fail with the verification exit code (4)."""
         monkeypatch.chdir(tmp_path)
         broken = _make_broken_ctx(tmp_path)
         result = CliRunner().invoke(
             cli,
             ["add", str(broken)],
         )
-        assert result.exit_code == 1, f"add should fail: {result.output}"
+        assert result.exit_code == 4, f"add should fail: {result.output}"
 
     def test_add_command_duplicate_rejected(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -174,7 +174,7 @@ class TestAddCommand:
         monkeypatch.chdir(tmp_path)
         broken = _make_broken_ctx(tmp_path)
         result = CliRunner().invoke(cli, ["add", str(broken)])
-        assert result.exit_code == 1
+        assert result.exit_code == 4  # verification failure
 
         db_path = tmp_path / ".synd" / "index.db"
         if db_path.exists():
@@ -229,7 +229,8 @@ class TestAddCommand:
 
         tampered = _make_tampered_ctx(tmp_path, ctx_path)
         result2 = CliRunner().invoke(cli, ["add", str(tampered), "--force"])
-        assert result2.exit_code == 1, (
+        # Tamper detected at verify step 6 → verification exit code 4.
+        assert result2.exit_code == 4, (
             f"tampered pack with --force should fail: {result2.output}"
         )
 
@@ -247,34 +248,3 @@ class TestAddCommand:
         content = lock_path.read_text()
         assert "my-lib" in content
         assert "1.0.0" in content
-
-
-class TestPullAlias:
-    """Tests for the deprecated 'tank pull' alias."""
-
-    def test_pull_alias_works(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """'tank pull' still works but prints a deprecation warning."""
-        monkeypatch.chdir(tmp_path)
-        ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
-        result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
-        assert result.exit_code == 0, f"pull alias failed: {result.output}"
-        assert "deprecated" in result.output.lower()
-        assert "tank add" in result.output
-
-    def test_pull_alias_imports_pack(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """'tank pull' alias actually imports the pack."""
-        monkeypatch.chdir(tmp_path)
-        ctx_path = _make_valid_ctx(tmp_path, "my-lib", "1.0.0")
-        result = CliRunner().invoke(cli, ["pull", str(ctx_path)])
-        assert result.exit_code == 0
-
-        db_path = tmp_path / ".synd" / "index.db"
-        assert db_path.exists()
-        conn = sqlite3.connect(str(db_path))
-        count = conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
-        conn.close()
-        assert count == 1

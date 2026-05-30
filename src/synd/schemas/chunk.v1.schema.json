@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synapticdrift.dev/schemas/chunk.v1.schema.json",
+  "title": "Synaptic Drift chunks.jsonl record (schema version 1)",
+  "description": "A single chunk record. chunks.jsonl contains one such JSON object per line, in ascending id order.",
+  "type": "object",
+  "required": [
+    "id",
+    "page_id",
+    "heading_path",
+    "content",
+    "content_hash"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-based chunk id, assigned in deterministic source order."
+    },
+    "page_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Id of the source page this chunk was derived from."
+    },
+    "heading_path": {
+      "type": "string",
+      "description": "Breadcrumb of the chunk's location, e.g. 'docs/auth/oauth / Configure OAuth2'."
+    },
+    "content": {
+      "type": "string",
+      "description": "Chunk body text."
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "SHA-256 of the normalized chunk content."
+    },
+    "summary": {
+      "type": ["string", "null"],
+      "description": "Heuristic one-line summary of the chunk."
+    },
+    "token_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Approximate token count (len(content) // 4); budget planning only."
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "format": "uri-reference",
+      "description": "Path or URL the chunk's page originated from."
+    },
+    "source_commit": {
+      "type": "string",
+      "description": "Git commit hash at build time, when known."
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""tank build command."""
+"""synd build command."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from synd.builder.chunking import (
     _DEFAULT_MIN_CHUNK_TOKENS,
 )
 from synd.builder.url_filter import DEFAULT_NOISE_URL_PATTERNS
+from synd.cli.exit_codes import EXIT_USAGE, exit_code_for
 from synd.errors import BuildError, SyndError
 
 console = Console()
@@ -130,8 +131,9 @@ def build(
     try:
         pkg, ver = _parse_package_spec(package_spec)
     except SyndError as exc:
+        # Malformed package@version is a usage error, not a build failure.
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(EXIT_USAGE)
 
     output_dir = Path(output)
 
@@ -170,7 +172,7 @@ def build(
                 console.print(
                     f"[red]error: source directory does not exist: {source_path}[/red]"
                 )
-                sys.exit(1)
+                sys.exit(EXIT_USAGE)
             output_dir.mkdir(parents=True, exist_ok=True)
             ctx_path, oversized = build_pack(
                 package=pkg,
@@ -189,7 +191,7 @@ def build(
         _print_oversized_warnings(oversized, resolved_max, warn_chunk_tokens)
     except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))
 
 
 def _print_oversized_warnings(

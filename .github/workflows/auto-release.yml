@@ -75,7 +75,7 @@ jobs:
         run: |
           mkdir -p source packs
           curl -sf --max-time 120 -o source/llms-full.md https://gofastmcp.com/llms-full.txt
-          tank build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
+          synd build fastmcp@3.3.0 --source ./source --output ./packs 2>/dev/null
 
       - name: Extract changelog notes
         if: steps.version.outputs.changed == 'true'

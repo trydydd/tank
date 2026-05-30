@@ -166,7 +166,7 @@ search   query, packages, limit, max_tokens  → always returns summaries + chun
 fetch    chunk_ids, max_tokens               → always returns full content by ID
 ```
 
-This enforces the two-step pattern architecturally: `search` cannot return full content; `fetch` cannot do speculative full-content search. Eliminates the footgun without any stateful enforcement. Implemented in `src/tank/server.py`; documented in `docs/MCP.md`.
+This enforces the two-step pattern architecturally: `search` cannot return full content; `fetch` cannot do speculative full-content search. Eliminates the footgun without any stateful enforcement. Implemented in `src/synd/server.py`; documented in `docs/MCP.md`.
 
 **`max_tokens` default rationale**: `max_tokens` defaults to `None` (no budget enforcement) by design. A default of e.g. `4000` would silently trade away recall — with BM25 noise, the most relevant chunk can land at position 8 or 12, and a tight budget would exclude it with no signal to the agent. `limit` is the right knob for controlling result count; `max_tokens` is an explicit opt-in for agents with known token constraints.
 
@@ -197,7 +197,7 @@ For chunk 2 under `### STDIO Transport (Default)`:
 STDIO Transport (Default): STDIO (Standard Input/Output) is the default transport for FastMCP servers.
 ```
 
-`heading_path` is already computed before `_generate_summary()` is called in `src/tank/builder/chunking.py`; it just isn't passed through. The change is additive — `summary` remains a plain string, no schema impact.
+`heading_path` is already computed before `_generate_summary()` is called in `src/synd/builder/chunking.py`; it just isn't passed through. The change is additive — `summary` remains a plain string, no schema impact.
 
 **Edge cases**: preamble chunks (no heading) fall back to first-sentence behaviour; top-level chunks where heading equals the page title skip the prefix to avoid redundancy; headings over ~60 chars use only the leaf node; chunks opening with a list or code block skip to the next prose sentence.
 
@@ -227,7 +227,7 @@ STDIO Transport (Default): STDIO (Standard Input/Output) is the default transpor
 - Treat fenced code blocks as atomic — never split mid-fence
 - Split oversized sections at paragraph boundaries when a section exceeds `max_chunk_tokens`
 - Build `heading_path` accurately by construction as a `/`-joined string of ancestor heading texts
-- Replace `src/tank/builder/chunking.py` — the `process_file()` function and `generate_summary()` call site
+- Replace `src/synd/builder/chunking.py` — the `process_file()` function and `generate_summary()` call site
 
 **`semchunk` ruled out earlier**: general-purpose recursive delimiter splitter with no markdown heading awareness. Token-counter-driven rather than structure-driven.
 
@@ -287,7 +287,7 @@ synd build mcp@2025-11-25 --source https://modelcontextprotocol.io/llms-full.txt
 
 ## D18: Manifest validation — JSON Schema (jsonschema library, draft/2020-12)
 
-**Decision**: `manifest.json` validation in the verifier (step 2) uses a machine-readable JSON Schema file at `src/tank/schemas/manifest.v2.schema.json`, validated via the `jsonschema` Python library. Schema uses draft/2020-12.
+**Decision**: `manifest.json` validation in the verifier (step 2) uses a machine-readable JSON Schema file at `src/synd/schemas/manifest.v2.schema.json`, validated via the `jsonschema` Python library. Schema uses draft/2020-12.
 
 **Rationale**: The previous manual field-presence check (`_REQUIRED_MANIFEST_FIELDS` loop) only caught missing keys — it passed manifests with `chunks: "bad"` or `lifecycle_state: "active"`. JSON Schema validates types, enums, patterns, and numeric constraints in one declaration that is also human-readable and tooling-compatible. The schema file becomes the single source of truth for the manifest contract, referenced in docs and validated in CI.
 
@@ -322,14 +322,14 @@ No individual user touches all 8. Consumer persona needs ~4 in normal use (`sync
 
 **`add` vs `sync` kept separate** (not collapsed à la `npm install [pkg]`): the operations are genuinely different — ad-hoc acquisition of a new pack vs. reproducing the full index from the lockfile. The uv/Cargo discipline of one-verb-one-thing holds here.
 
-**`tank.toml` deferred**: without a registry there is no resolution step that would distinguish a manifest from a lock. The lockfile continues to serve as both declaration and receipt until the Phase 3 static registry introduces real version ranges. At that point, `tank.toml` + `synd.lock` split cleanly along the Cargo/uv model.
+**`synd.toml` deferred**: without a registry there is no resolution step that would distinguish a manifest from a lock. The lockfile continues to serve as both declaration and receipt until the Phase 3 static registry introduces real version ranges. At that point, `synd.toml` + `synd.lock` split cleanly along the Cargo/uv model.
 
 **Alternatives considered**:
-- **`tank install [<ref>]` (npm-style unification)**: `npm install` (no args) = from lock; `npm install <pkg>` = add. Familiar but conflates two distinct operations. Broadly considered a design mistake in npm. Rejected in favour of explicit verbs.
-- **`tank import`**: accurate but unused by any major package manager. Less discoverable. Rejected.
+- **`synd install [<ref>]` (npm-style unification)**: `npm install` (no args) = from lock; `npm install <pkg>` = add. Familiar but conflates two distinct operations. Broadly considered a design mistake in npm. Rejected in favour of explicit verbs.
+- **`synd import`**: accurate but unused by any major package manager. Less discoverable. Rejected.
 - **Drop `synd verify` from the top-level**: too useful for CI pipelines ("verify this .ctx before importing"). Kept as standalone; it is also already implicit in `add` and `sync`.
 
-**Revisit when**: Phase 3 static registry lands and `tank.toml` is introduced — at that point `synd add <pkg@range>` becomes the primary declaration verb and `synd sync` becomes the "ensure lockfile is satisfied" executor, matching the Cargo model exactly.
+**Revisit when**: Phase 3 static registry lands and `synd.toml` is introduced — at that point `synd add <pkg@range>` becomes the primary declaration verb and `synd sync` becomes the "ensure lockfile is satisfied" executor, matching the Cargo model exactly.
 
 ---
 

@@ -45,6 +45,28 @@ def test_build_produces_valid_ctx(tmp_path: Path) -> None:
         assert manifest["pack_format"] == "synd-text-v1"
 
 
+def test_build_emits_schema_valid_artifacts(tmp_path: Path) -> None:
+    """Every artifact a real build writes validates against its JSON Schema.
+
+    Closes the loop with the verifier: what build emits, verify accepts.
+    """
+    from synd.schemas import validate_chunk, validate_manifest, validate_pages
+
+    ctx_path = _build(tmp_path)
+    with zipfile.ZipFile(ctx_path, "r") as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        chunk_lines = zf.read("chunks.jsonl").decode("utf-8").strip().split("\n")
+        pages = json.loads(zf.read("pages.json"))
+
+    validate_manifest(manifest)
+    assert chunk_lines and chunk_lines[0]
+    for line in chunk_lines:
+        validate_chunk(json.loads(line))
+    validate_pages(pages)
+    assert len(pages) == manifest["pages"]
+    assert len(chunk_lines) == manifest["chunks"]
+
+
 def test_build_deterministic_hash(tmp_path: Path) -> None:
     output1 = tmp_path / "out1"
     output1.mkdir()

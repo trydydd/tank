@@ -1,4 +1,4 @@
-"""tank inspect command."""
+"""synd inspect command."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from synd.cli.exit_codes import EXIT_VERIFICATION, exit_code_for
 from synd.errors import SyndError
 from synd.storage.db import Database
 
@@ -36,7 +37,7 @@ def inspect_cmd(path: Path) -> None:
                 _inspect_ctx(path)
     except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))
 
 
 def _inspect_ctx(path: Path) -> None:
@@ -73,7 +74,7 @@ def _inspect_ctx(path: Path) -> None:
 
     except (zipfile.BadZipFile, json.JSONDecodeError) as exc:
         console.print(f"[red]error: invalid .ctx archive: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(EXIT_VERIFICATION)
 
 
 def _inspect_db(path: Path) -> None:
@@ -110,4 +111,4 @@ def _inspect_db(path: Path) -> None:
         db.close()
     except SyndError as exc:
         console.print(f"[red]error: {exc}[/red]")
-        sys.exit(1)
+        sys.exit(exit_code_for(exc))

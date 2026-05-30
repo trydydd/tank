@@ -146,6 +146,8 @@ This two-step pattern typically costs 28–84% fewer tokens than fetching a full
 
 A `.ctx` pack is a zip-format archive containing documentation in structured, hash-verifiable form.
 
+> The machine-checkable contracts for these artifacts (canonical JSON Schemas + validators) are documented in [`docs/api-contracts.md`](api-contracts.md). The prose below describes intent; the schema files in `src/synd/schemas/` are the source of truth.
+
 ### MVP archive contents (text-only packs)
 
 ```
@@ -190,7 +192,7 @@ my-lib@1.0.0.ctx
   "source_tag": "v1.0.0",
 
   "created_at": 1747216200.0,
-  "created_by": "tank/0.1.0"
+  "created_by": "synd/0.1.0"
 }
 ```
 
@@ -403,7 +405,7 @@ The system maintains a hash chain: **pack archive → manifest hashes → chunk 
 - **`normalized_content_hash`**: SHA-256 of all chunk `content` strings, each normalized (whitespace-normalized, Unicode-normalized to NFC), then concatenated in ascending `id` order with a `\n` separator. This hash is independent of metadata changes (heading paths, summaries, page IDs) and only changes when text content changes.
 - **Per-chunk `content_hash`**: SHA-256 of that chunk's normalized content alone. Useful for detecting which specific chunks changed between pack versions.
 
-The normalization function used at `synd build` time and `synd verify` time must be the same code path (`tank.builder.normalizer`). This is the hash stability guarantee.
+The normalization function used at `synd build` time and `synd verify` time must be the same code path (`synd.builder.normalizer`). This is the hash stability guarantee.
 
 ### Pack-level lockfile (synd.lock)
 
@@ -582,7 +584,7 @@ The ranking strategy and the rationale for the greedy approach are documented in
 - Preserve code block formatting exactly (indentation matters)
 - Preserve table formatting
 
-The same normalization is applied at verify time (to recompute `normalized_content_hash`). Both must use the same code path — `tank.builder.normalizer` — not independent implementations.
+The same normalization is applied at verify time (to recompute `normalized_content_hash`). Both must use the same code path — `synd.builder.normalizer` — not independent implementations.
 
 ### What we explicitly do NOT do
 
@@ -641,7 +643,7 @@ synd verify <file.ctx> [--policy ./policy.toml]
 
 synd add <file.ctx> [--policy ./policy.toml] [--force]
     Verify (full 8-step sequence) then import into .synd/index.db.
-    Equivalent to: synd verify <file> && tank import <file>
+    Equivalent to: synd verify <file> && synd import <file>
     Will not import if any verify check fails.
     --force           Re-import even if this package@version is already present
     Updates synd.lock after successful import.
@@ -669,12 +671,12 @@ synd inspect <file.ctx | .synd/index.db>
     Useful for debugging pack contents without adding them to the index.
 ```
 
-Phase 2 will add `tank publish`, `tank registry`, and `tank promote`. Phase 3 will add `tank index-url` for URL crawling.
+Phase 2 will add `synd publish`, `synd registry`, and `synd promote`. Phase 3 will add `synd index-url` for URL crawling.
 
 ### Dependency split
 
 ```
-tank (base):
+synd (base):
   mcp               # Anthropic MCP Python SDK
   sqlite3           # stdlib
   tomllib           # stdlib (Python 3.11+)
@@ -702,8 +704,8 @@ Standard MCP transport over stdin/stdout. Works with all MCP clients (Claude Des
 ```json
 {
   "mcpServers": {
-    "tank": {
-      "command": "tank",
+    "synd": {
+      "command": "synd",
       "args": ["serve"],
       "cwd": "${workspaceFolder}"
     }
@@ -713,7 +715,7 @@ Standard MCP transport over stdin/stdout. Works with all MCP clients (Claude Des
 
 ### HTTP (local network)
 
-Streamable HTTP transport bound to localhost only. The implementation exists (`run_http()` in `src/tank/server.py`) but is not yet wired to a CLI flag — stdio is the only transport available from the command line.
+Streamable HTTP transport bound to localhost only. The implementation exists (`run_http()` in `src/synd/server.py`) but is not yet wired to a CLI flag — stdio is the only transport available from the command line.
 
 **Security constraint** (when implemented): the HTTP transport will bind exclusively to `127.0.0.1`. It will not bind to `0.0.0.0` or any external interface. This is a hard constraint, not a configuration option. For remote access (e.g. a team server), front it with a reverse proxy that handles authentication and TLS.
 
@@ -738,12 +740,12 @@ The project writes custom code only where no good solution exists (archive safet
 ## Project Structure
 
 ```
-tank/
+synaptic-drift/
 ├── pyproject.toml
 ├── README.md
 ├── LICENSE
 │
-├── src/tank/
+├── src/synd/
 │   ├── __init__.py
 │   │
 │   │── # ── BASE PACKAGE (pip install synaptic-drift) ─────────────────────
@@ -778,7 +780,7 @@ tank/
 │   │
 │   ├── cli/
 │   │   ├── __init__.py
-│   │   ├── main.py             # tank root command (click group)
+│   │   ├── main.py             # synd root command (click group)
 │   │   ├── build.py            # synd build
 │   │   ├── verify.py           # synd verify
 │   │   ├── add.py              # synd add (+ deprecated pull alias)
@@ -811,7 +813,7 @@ tank/
 
 ```toml
 [project.scripts]
-tank = "tank.cli.main:cli"
+synd = "synd.cli.main:cli"
 # MCP server launched via: synd serve
 
 [project.optional-dependencies]
@@ -853,8 +855,8 @@ all = ["synaptic-drift[build]", "synaptic-drift[embeddings]", "pytest", "pytest-
 - deps.dev integration for doc URL resolution (`HOMEPAGE` → `SOURCE_REPO` → well-known patterns → manual overrides)
 - `synd build --source <URL>` (URL crawling path, in addition to existing local path)
 - Incremental re-crawl using HTTP ETags (`If-None-Match` / `If-Modified-Since`)
-- Remote registry: `tank publish`, `synd add <package@version>` from registry URL
-- Lifecycle promotion workflow: `tank promote`, `tank revoke`
+- Remote registry: `synd publish`, `synd add <package@version>` from registry URL
+- Lifecycle promotion workflow: `synd promote`, `synd revoke`
 - Staleness detection against project lockfiles (`index-deps` MCP tool scans `requirements.txt`, `package.json`, `Cargo.toml`, etc.)
 - Auto-discovery of dependency files in the project directory
 - Private and internal packages via `--auth` flag in `synd build`
@@ -880,9 +882,9 @@ The following are explicitly out of scope for Synaptic Drift v1. No MVP schema o
 - deps.dev integration for doc URL resolution
 - ReadTheDocs and GitHub version resolution
 - Incremental re-crawl with HTTP ETags
-- Remote registry: `tank publish`, `synd add <pkg@version>` from a registry URL
+- Remote registry: `synd publish`, `synd add <pkg@version>` from a registry URL
 - Community or public registry hosting
-- Lifecycle promotion workflows (`tank promote`, `tank revoke`)
+- Lifecycle promotion workflows (`synd promote`, `synd revoke`)
 - Staleness detection against project lockfiles
 - Auto-discovery from `requirements.txt` / `package.json` / `Cargo.toml`
 - Private/internal package `--auth` flag

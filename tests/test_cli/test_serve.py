@@ -1,4 +1,4 @@
-"""Tests for the `tank serve` CLI command."""
+"""Tests for the `synd serve` CLI command."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from synd.cli.main import cli
 
 
 def test_serve_registered_in_help() -> None:
-    """'tank serve' appears in the top-level help output."""
+    """'synd serve' appears in the top-level help output."""
     runner = CliRunner()
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
@@ -16,7 +16,7 @@ def test_serve_registered_in_help() -> None:
 
 
 def test_serve_help_text() -> None:
-    """'tank serve --help' exits cleanly and describes the command."""
+    """'synd serve --help' exits cleanly and describes the command."""
     runner = CliRunner()
     result = runner.invoke(cli, ["serve", "--help"])
     assert result.exit_code == 0

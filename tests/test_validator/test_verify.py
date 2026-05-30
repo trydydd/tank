@@ -824,3 +824,57 @@ def test_step2_missing_any_required_field(tmp_path: Path, field: str) -> None:
     result = verify(ctx, policy)
     assert result.passed is False
     assert result.step == 2
+
+
+# ---------------------------------------------------------------------------
+# Step 7: artifact schema validation (chunks.jsonl / pages.json)
+# ---------------------------------------------------------------------------
+
+
+def _permissive_policy() -> Policy:
+    return Policy(
+        require_signatures=False,
+        require_attribution=False,
+        allowed_lifecycle_states=["draft", "approved", "deprecated", "revoked"],
+        rejected_doc_version_statuses=[],
+    )
+
+
+def test_step7_malformed_chunk_record_fails(tmp_path: Path) -> None:
+    """A chunk record that violates chunk.v1 fails at step 7 (digest recomputed)."""
+    src = _build_valid_ctx(tmp_path)
+    # Missing required content_hash → schema violation.
+    bad_chunk = b'{"id": 1, "page_id": 1, "heading_path": "h", "content": "x"}\n'
+    tampered = _rewrite_archive_keep_digest(
+        src,
+        remove_entries={"chunks.jsonl"},
+        extra_entries={"chunks.jsonl": bad_chunk},
+    )
+    result = verify(tampered, _permissive_policy())
+    assert result.passed is False
+    assert result.step == 7
+    assert "Invalid pack artifact" in result.reason
+
+
+def test_step7_malformed_pages_fails(tmp_path: Path) -> None:
+    """A pages.json entry that violates pages.v1 fails at step 7."""
+    src = _build_valid_ctx(tmp_path)
+    # Page missing required package/version/url.
+    bad_pages = b'[{"id": 1}]'
+    tampered = _rewrite_archive_keep_digest(
+        src,
+        remove_entries={"pages.json"},
+        extra_entries={"pages.json": bad_pages},
+    )
+    result = verify(tampered, _permissive_policy())
+    assert result.passed is False
+    assert result.step == 7
+    assert "Invalid pack artifact" in result.reason
+
+
+def test_step7_valid_artifacts_pass(tmp_path: Path) -> None:
+    """A freshly built pack passes all steps (artifacts are schema-valid)."""
+    src = _build_valid_ctx(tmp_path)
+    result = verify(src, _permissive_policy())
+    assert result.passed is True
+    assert result.step is None

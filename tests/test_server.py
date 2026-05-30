@@ -417,3 +417,47 @@ def test_http_does_not_bind_external() -> None:
     source = inspect.getsource(srv.run_http)
     assert "_HTTP_HOST" in source, "run_http must use _HTTP_HOST constant"
     assert "0.0.0.0" not in source, "HTTP transport must not bind to 0.0.0.0"
+
+
+# ---------------------------------------------------------------------------
+# Tool response contract (tool-response.v1)
+# ---------------------------------------------------------------------------
+
+
+def test_tools_publish_canonical_output_schema() -> None:
+    """Registered search/fetch tools advertise the tool-response.v1 schema.
+
+    Clients discover the response contract via tools/list; it must be the exact
+    canonical schema document the boundary validator uses (one source).
+    """
+    from synd.schemas import tool_response_schema
+    from synd.server import create_server
+
+    canonical = tool_response_schema()
+    server = create_server()
+    tools = {t.name: t for t in server._tool_manager.list_tools()}
+
+    assert {"search", "fetch"} <= set(tools)
+    for name in ("search", "fetch"):
+        assert tools[name].output_schema == canonical, (
+            f"{name} must advertise the tool-response.v1 schema"
+        )
+
+
+def test_search_docs_output_validates_against_contract(db: Database) -> None:
+    """search_docs payloads satisfy the tool-response.v1 schema."""
+    from synd.schemas import validate_tool_response
+
+    validate_tool_response(dict(search_docs(db, query="OAuth2")))
+    validate_tool_response(dict(search_docs(db, query="")))
+    validate_tool_response(
+        dict(search_docs(db, query="x", packages=["does-not-exist"]))
+    )
+
+
+def test_fetch_docs_output_validates_against_contract(db: Database) -> None:
+    """fetch_docs payloads satisfy the tool-response.v1 schema."""
+    from synd.schemas import validate_tool_response
+
+    validate_tool_response(dict(fetch_docs(db, chunk_ids=[1, 2])))
+    validate_tool_response(dict(fetch_docs(db, chunk_ids=[])))

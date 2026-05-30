@@ -42,10 +42,10 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 - [x] Expose `limit` parameter on `query-docs` MCP tool and `query_docs()`
 - [x] Token overhead benchmark harness — `tests/benchmarks/test_token_overhead.py` with baseline at `tests/benchmarks/results/v0.1.0.json`
 - [x] GitHub Actions benchmark workflow — PR delta comparison via `tests/benchmarks/compare.py`
-- [x] WebFetch vs Synaptic Drift benchmark — `tests/benchmarks/test_webfetch_vs_tank.py` with fastmcp fixture
+- [x] WebFetch vs Synaptic Drift benchmark — `tests/benchmarks/test_webfetch_vs_synd.py` with fastmcp fixture
 - [x] Extend PR comment bot to include WebFetch vs Synaptic Drift results alongside token overhead
 - [x] Benchmark output cleanup — PR comment redesigned with plain-English headline table and collapsed detail; raw JSON dump replaced with formatted standalone output. Console output unchanged (runs under `-s`, not in reviewers' way).
-- [x] Implement or remove unused `max_tokens` parameter in `src/tank/server.py`
+- [x] Implement or remove unused `max_tokens` parameter in `src/synd/server.py`
 - [x] Docs cleanup — consolidate `.work/` artifacts, merge `todo.md` into `roadmap.md`, migrate gotchas to `CLAUDE.md`, absorb `ultraplan` findings into canonical docs
 - [x] Build and ship mcp@2025-11-25 as pack #2 for the v0.1.1 release artifact — `mkdir /tmp/mcp-docs && curl -o /tmp/mcp-docs/mcp.md https://modelcontextprotocol.io/llms-full.txt && synd build mcp@2025-11-25 --source /tmp/mcp-docs --output ./packs`
 
@@ -58,19 +58,19 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 ### Completed
 
 - [x] **MCP two-tool refactor** — replace `query-docs` (single tool with `detail` parameter) with separate `search` (summaries + chunk IDs) and `fetch` (full content by ID) tools. Enforces the two-step agent pattern structurally.
-- [x] **`synd serve` CLI command** — `synd serve` launches the MCP stdio server, discoverable from `tank --help`. Replaces the undiscoverable `python -m tank.server` invocation.
+- [x] **`synd serve` CLI command** — `synd serve` launches the MCP stdio server, discoverable from `synd --help`. Replaces the undiscoverable `python -m synd.server` invocation.
 - [x] **MCP documentation refresh** — `docs/MCP.md` rewritten with accurate `search`/`fetch` API; all config examples updated to `synd serve`; `README.md` MCP snippet updated with `cwd`.
 - [x] **FTS5 heading_path + BM25 weight tuning** — `heading_path` added as first column in `chunks_fts` with 2.5× weight; BM25 tuned to heading 2.5× > summary 1.5× > content 1.0×.
 
 ### Foundation — no blockers, start now
 
 - [x] **`schemas/manifest.v2.schema.json`** — machine-readable JSON Schema as single source of truth for manifest fields; wire verifier to validate against it. Establishes a stable schema contract before PyPI release.
-- [x] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/tank/validator/verify.py`
+- [x] **Cross-platform path handling** — normalize to forward slashes, reject backslashes/UNC in validator. Modify `src/synd/validator/verify.py`
 - [x] **Error message polish** — every error path produces an actionable message. Audit all `SyndError` subclass usage
 - [x] **Lockfile in git** — `synd.lock` at project root, written by `synd add`; commit to version-control documentation dependencies analogous to `Cargo.lock`
 - [x] **`synd add` (renamed from `synd pull`)** — `synd pull` was misleading (implies remote fetch; only imports local files). Renamed to `synd add`, consistent with `cargo add`, `uv add`, `npm install <pkg>`. `synd pull` kept as a hidden deprecated alias. See `decisions.md` D19.
-- [x] **`synd sync`** — reads `synd.lock`, skips already-imported packs (idempotent), verifies digest against lockfile before importing (supply-chain check), imports any missing packs. Enables `git clone && synd sync` workflow. HTTPS `source_url` fetch deferred until URL fetcher module lands (exits with actionable `FetchError`). See `src/tank/cli/sync.py`.
-- [x] **`synd remove`** — removes a pack from `index.db` and rewrites `synd.lock`. Completes the verb set: without it, removing a pack requires hand-editing the lockfile. See `src/tank/cli/remove.py`.
+- [x] **`synd sync`** — reads `synd.lock`, skips already-imported packs (idempotent), verifies digest against lockfile before importing (supply-chain check), imports any missing packs. Enables `git clone && synd sync` workflow. HTTPS `source_url` fetch deferred until URL fetcher module lands (exits with actionable `FetchError`). See `src/synd/cli/sync.py`.
+- [x] **`synd remove`** — removes a pack from `index.db` and rewrites `synd.lock`. Completes the verb set: without it, removing a pack requires hand-editing the lockfile. See `src/synd/cli/remove.py`.
 
 ### Chunker quality stream — S7 → chunker → S2 → summary
 
@@ -176,8 +176,8 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 
 ### Discovery — after PyPI release + pre-built packs
 
-- [ ] **`tank init`** — scan project deps, download pre-built packs, configure MCP server
-  - New module: `src/tank/cli/init.py`
+- [ ] **`synd init`** — scan project deps, download pre-built packs, configure MCP server
+  - New module: `src/synd/cli/init.py`
   - Parse `requirements.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`
   - Map package names to `.ctx` pack URLs (static JSON registry on GitHub)
   - Generate MCP config (`.cursor/mcp.json` or Claude Code equivalent)
@@ -189,11 +189,11 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 **Theme**: Multi-user, multi-project, CI-integrated. Start looking like infrastructure.
 
 - [ ] **`synd build --source <url>`** — general web crawler: follow links from a docs site root, fetch and chunk all reachable pages. For sites without `llms.txt` or `llms-full.txt`. Rate limiting, `robots.txt` compliance, configurable `User-Agent`. No embeddings or JS rendering — static HTML only.
-  - New module: `src/tank/builder/crawler.py`
-  - Extend `src/tank/builder/fetch.py` with link extraction and crawl frontier logic
+  - New module: `src/synd/builder/crawler.py`
+  - Extend `src/synd/builder/fetch.py` with link extraction and crawl frontier logic
 - [ ] **Pre-built packs for top 20 libraries** — of the top 20 most intentionally installed Python packages, only pydantic has `llms.txt`/`llms-full.txt`; the rest require the crawler to build cleanly. See `docs/top20-python-packages.md` for coverage research and the requests@2.34.2 manual build as a reference. Publish as GitHub Releases once the crawler is in place.
 - [ ] **Pack registry (static hosting)** — `synd add fastapi@0.115.0` resolves against a registry index (JSON manifest on CDN or GitHub Pages). No auth. Read-only.
-  - New module: `src/tank/registry/` (client only; server is a static file host)
+  - New module: `src/synd/registry/` (client only; server is a static file host)
   - `synd add` accepts `package@version` in addition to file paths
 - [ ] **CI/CD templates** — GitHub Actions, GitLab CI, CircleCI: build packs on release, verify in PRs, publish to static registry
 - [ ] **Pre-built packs for top 100 libraries** — scale up pack-building CI pipeline
@@ -208,13 +208,13 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
 
 **Theme**: Trust, governance, and operational maturity. The version you'd sell to an enterprise security team.
 
-- [ ] **Schema migrations** — `PRAGMA user_version`-based forward-only migrations. Modify `src/tank/storage/db.py`. Must land before any new column additions.
-- [ ] **Real signature verification** — Step 8 currently only checks file existence. Implement ed25519 or Sigstore. Modify `src/tank/validator/verify.py`, add `src/tank/signing/`
-- [ ] **Observability** — health endpoint for HTTP transport, query latency metrics, import audit trail. Modify `src/tank/server.py`
+- [ ] **Schema migrations** — `PRAGMA user_version`-based forward-only migrations. Modify `src/synd/storage/db.py`. Must land before any new column additions.
+- [ ] **Real signature verification** — Step 8 currently only checks file existence. Implement ed25519 or Sigstore. Modify `src/synd/validator/verify.py`, add `src/synd/signing/`
+- [ ] **Observability** — health endpoint for HTTP transport, query latency metrics, import audit trail. Modify `src/synd/server.py`
 - [ ] **Multi-project support** — configurable `.synd/` location, monorepo workspace support
 - [ ] **Policy profiles** — per-team/per-workspace policy overrides
 - [ ] **Audit logging** — who imported what, when, from where. New `audit_log` table in `index.db`
-- [ ] **Backup and recovery** — `tank rebuild --from-lockfile`
+- [ ] **Backup and recovery** — `synd rebuild --from-lockfile`
 - [ ] **Comprehensive documentation** — man pages, API reference, enterprise deployment guide
 
 ---

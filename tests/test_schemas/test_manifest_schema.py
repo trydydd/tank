@@ -21,7 +21,7 @@ def _valid_manifest() -> dict[str, object]:
         "lifecycle_state": "approved",
         "doc_version_status": "stable",
         "created_at": 1700000000.0,
-        "created_by": "tank/0.1.1",
+        "created_by": "synd/0.1.1",
     }
 
 
@@ -98,9 +98,9 @@ def test_invalid_doc_version_status() -> None:
 
 
 def test_wrong_pack_format() -> None:
-    """pack_format 'tank-binary-v1' raises SchemaValidationError."""
+    """pack_format 'synd-binary-v1' raises SchemaValidationError."""
     manifest = _valid_manifest()
-    manifest["pack_format"] = "tank-binary-v1"
+    manifest["pack_format"] = "synd-binary-v1"
     with pytest.raises(SchemaValidationError):
         validate_manifest(manifest)
 

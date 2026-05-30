@@ -16,7 +16,7 @@ from typing import Any
 from synd.builder.normalizer import normalize
 from synd.errors import SchemaValidationError
 from synd.policy.engine import Policy, PolicyResult
-from synd.schemas import validate_manifest
+from synd.schemas import validate_chunk, validate_manifest, validate_pages
 
 
 @dataclass
@@ -187,7 +187,27 @@ def verify(
                 manifest=manifest,
             )
 
-        # --- Step 7: Recompute normalized_content_hash ---
+        # --- Step 7: Validate artifact structure, recompute content hash ---
+        # chunks.jsonl and pages.json must satisfy their JSON Schemas before we
+        # trust the bytes enough to hash them — a malformed record is a contract
+        # violation, not just a hash mismatch.
+        try:
+            _validate_pack_artifacts(zf)
+        except SchemaValidationError as exc:
+            return VerifyResult(
+                passed=False,
+                step=7,
+                reason=f"Invalid pack artifact: {exc}",
+                manifest=manifest,
+            )
+        except (KeyError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            return VerifyResult(
+                passed=False,
+                step=7,
+                reason=f"Failed to parse pack artifacts: {exc}",
+                manifest=manifest,
+            )
+
         try:
             computed_nch = _compute_normalized_content_hash_from_archive(zf)
         except (KeyError, json.JSONDecodeError, UnicodeDecodeError) as exc:
@@ -253,6 +273,23 @@ def _compute_pack_digest_from_bytes(data: bytes) -> str:
     import hashlib
 
     return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def _validate_pack_artifacts(zf: zipfile.ZipFile) -> None:
+    """Validate chunks.jsonl records and pages.json against their schemas.
+
+    Raises SchemaValidationError on the first off-contract record, or the
+    underlying parse error (KeyError/JSONDecodeError/UnicodeDecodeError) if an
+    entry is missing or unparseable.
+    """
+    raw = zf.read("chunks.jsonl").decode("utf-8")
+    for line in raw.strip().split("\n"):
+        line = line.strip()
+        if line:
+            validate_chunk(json.loads(line))
+
+    pages = json.loads(zf.read("pages.json"))
+    validate_pages(pages)
 
 
 def _compute_normalized_content_hash_from_archive(zf: zipfile.ZipFile) -> str:

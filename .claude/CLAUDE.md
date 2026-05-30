@@ -66,7 +66,7 @@ python3.12 -m venv .venv
 
 ## Architecture Constraints
 
-- The normalization code path (`tank.builder.normalizer`) is shared between builder and verifier. Never duplicate or reimplement normalization logic — both must use the same function to preserve the hash stability guarantee.
+- The normalization code path (`synd.builder.normalizer`) is shared between builder and verifier. Never duplicate or reimplement normalization logic — both must use the same function to preserve the hash stability guarantee.
 - All data stays local. No outbound network calls at query time.
 - SQLite FTS5 is the only search backend for MVP. No embedding dependencies.
 - SQLite WAL mode enabled on database creation. Busy timeout set to 5000ms.
@@ -84,7 +84,7 @@ python3.12 -m venv .venv
 
 - **FTS5 functions take `Database`, not `sqlite3.Connection`**: `search()` and `get_chunks_by_id()` accept `db: Database` and read `conn = db.conn`. Do not pass a bare `sqlite3.Connection`. `db.conn` has `row_factory = sqlite3.Row` set, so both integer index (`row[0]`) and named key (`row["name"]`) access work — pick one and be consistent within a function.
 
-- **Circular import in `fts.py`**: Importing `Database` at the top of `fts.py` creates a circular import with `storage.db`. Use a `TYPE_CHECKING` guard: `if TYPE_CHECKING: from tank.storage.db import Database`, then annotate with the string `"Database"`. `server.py` has no circular import issue and uses an unconditional top-level import.
+- **Circular import in `fts.py`**: Importing `Database` at the top of `fts.py` creates a circular import with `storage.db`. Use a `TYPE_CHECKING` guard: `if TYPE_CHECKING: from synd.storage.db import Database`, then annotate with the string `"Database"`. `server.py` has no circular import issue and uses an unconditional top-level import.
 
 - **FastMCP tool names**: `@mcp.tool()` registers the Python function name, not a hyphenated name. `def search_tool()` becomes `"search_tool"`, not `"search"`. Always pass `name=` explicitly: `@mcp.tool(name="search")`.
 

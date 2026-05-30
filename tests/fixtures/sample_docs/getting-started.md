@@ -11,7 +11,7 @@ You need Python 3.11 or later.
 Run the following command:
 
 ```bash
-pip install tank
+pip install synaptic-drift
 ```
 
 That's it! You are ready to build your first pack.

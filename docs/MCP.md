@@ -4,11 +4,11 @@ How to wire the Synaptic Drift MCP server into Claude Code, Cursor, or VS Code s
 
 ## Current state
 
-The MCP server is functional via stdio transport with two tools: `search` and `fetch`.
+The MCP server is functional via stdio transport with two tools: `search` and `fetch`. The response shape both tools return is the `tool-response.v1` contract — published as each tool's `outputSchema` (discoverable via `tools/list`) and validated at the boundary. See [`docs/api-contracts.md`](api-contracts.md).
 
 **Known gaps (pre-v0.2.0):**
 
-- HTTP transport code exists (`run_http()` in `src/tank/server.py`) but is not wired to any CLI flag — stdio only for now.
+- HTTP transport code exists (`run_http()` in `src/synd/server.py`) but is not wired to any CLI flag — stdio only for now.
 
 ## Prerequisites
 
@@ -41,8 +41,8 @@ Project-scoped config at `.claude/mcp.json` (check it in so all contributors get
 ```json
 {
   "mcpServers": {
-    "tank": {
-      "command": "tank",
+    "synd": {
+      "command": "synd",
       "args": ["serve"],
       "cwd": "${workspaceFolder}"
     }
@@ -59,8 +59,8 @@ Or add to your global `~/.claude/mcp.json` if you prefer not to check it in.
 ```json
 {
   "mcpServers": {
-    "tank": {
-      "command": "tank",
+    "synd": {
+      "command": "synd",
       "args": ["serve"],
       "cwd": "${workspaceFolder}"
     }
@@ -75,9 +75,9 @@ Or add to your global `~/.claude/mcp.json` if you prefer not to check it in.
 ```json
 {
   "servers": {
-    "tank": {
+    "synd": {
       "type": "stdio",
-      "command": "tank",
+      "command": "synd",
       "args": ["serve"],
       "cwd": "${workspaceFolder}"
     }
@@ -92,8 +92,8 @@ If Synaptic Drift is installed in a project-local virtualenv rather than the sys
 ```json
 {
   "mcpServers": {
-    "tank": {
-      "command": "${workspaceFolder}/.venv/bin/tank",
+    "synd": {
+      "command": "${workspaceFolder}/.venv/bin/synd",
       "args": ["serve"],
       "cwd": "${workspaceFolder}"
     }
@@ -193,11 +193,11 @@ Read the `heading_path` and `summary` fields. Identify the `chunk_id` values tha
 }
 ```
 
-This two-step pattern typically costs 28–84% fewer tokens than fetching a full web page covering the same topic. See `tests/benchmarks/test_webfetch_vs_tank.py` for measured numbers.
+This two-step pattern typically costs 28–84% fewer tokens than fetching a full web page covering the same topic. See `tests/benchmarks/test_webfetch_vs_synd.py` for measured numbers.
 
 ## Token cost reference
 
-Based on the fastmcp stdio benchmark (`tests/benchmarks/results/webfetch_vs_tank_latest.json`):
+Based on the fastmcp stdio benchmark (`tests/benchmarks/results/webfetch_vs_synd_latest.json`):
 
 | approach | tokens | vs full page fetch |
 |---|---:|---:|
