@@ -1,46 +1,46 @@
 {
   "pack_count": 59,
-  "reps_per_query": 50,
+  "reps_per_query": 2500,
   "queries": {
     "single_common_term": {
       "query": "install",
       "limit": 10,
-      "p50_ms": 7.053,
-      "p95_ms": 12.272,
-      "min_ms": 6.884,
-      "max_ms": 12.331
+      "p50_ms": 8.996,
+      "p95_ms": 9.902,
+      "min_ms": 8.437,
+      "max_ms": 15.553
     },
     "multi_term": {
       "query": "authentication token",
       "limit": 10,
-      "p50_ms": 3.911,
-      "p95_ms": 4.001,
-      "min_ms": 3.837,
-      "max_ms": 4.414
+      "p50_ms": 4.855,
+      "p95_ms": 5.262,
+      "min_ms": 4.624,
+      "max_ms": 7.886
     },
     "technical_specific": {
       "query": "webhook endpoint",
       "limit": 10,
-      "p50_ms": 2.049,
-      "p95_ms": 2.253,
-      "min_ms": 1.974,
-      "max_ms": 2.816
+      "p50_ms": 2.484,
+      "p95_ms": 2.658,
+      "min_ms": 2.382,
+      "max_ms": 4.473
     },
     "rare_term": {
       "query": "sigstore",
       "limit": 10,
-      "p50_ms": 0.088,
-      "p95_ms": 0.123,
-      "min_ms": 0.086,
-      "max_ms": 0.166
+      "p50_ms": 0.12,
+      "p95_ms": 0.168,
+      "min_ms": 0.107,
+      "max_ms": 0.269
     },
     "high_limit": {
       "query": "configuration",
       "limit": 20,
-      "p50_ms": 15.13,
-      "p95_ms": 16.031,
-      "min_ms": 14.808,
-      "max_ms": 16.561
+      "p50_ms": 19.0,
+      "p95_ms": 20.357,
+      "min_ms": 18.051,
+      "max_ms": 34.039
     }
   }
 }
