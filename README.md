@@ -71,7 +71,7 @@ Every result tells the agent what it found, where it came from, and whether it s
 
 **Verifiable** — every pack carries cryptographic hashes. Tampering at any level is detectable before content enters your index.
 
-**Fast** — queries complete in under 25ms P95 against 100K real documentation chunks via SQLite FTS5 (3–6ms for specific technical terms, ~11ms for common words). No embedding model, no vector database, no GPU. [Benchmark details →](docs/benchmarks.md)
+**Fast** — queries complete in under 21ms P95 against 100K real documentation chunks via SQLite FTS5 (3–5ms for specific technical terms, ~10ms for common words). No embedding model, no vector database, no GPU. [Benchmark details →](docs/search-benchmarks.md)
 
 **Source-attributed** — every query result carries provenance metadata. Your agent knows exactly where its information came from.
 
@@ -112,7 +112,7 @@ Works with Claude Code, Claude Desktop, Cursor, VS Code, and any MCP-compatible 
 | Document | What's Inside |
 |---|---|
 | [Architecture](docs/architecture.md) | System design, formats, schemas, validation rules |
-| [Benchmarks](docs/benchmarks.md) | Search latency methodology, corpus, and measured results |
+| [Search Benchmarks](docs/search-benchmarks.md) | Search latency methodology, corpus, and measured results |
 | [Document Processing](docs/document-processing.md) | How `synd build` transforms source files into packs |
 | [Decisions](docs/decisions.md) | Design decisions with reasoning and rejected alternatives |
 | [Glossary](docs/glossary.md) | Definitions of all Synaptic Drift-specific terminology |

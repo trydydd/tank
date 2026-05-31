@@ -2,7 +2,7 @@
 
 ## Summary
 
-FTS5 queries against a 100,116-chunk real documentation index complete in under 25ms P95 across all tested query shapes. The most common agent query — a two-or-three-term technical intersection — runs in 3–6ms P95. Rare or highly specific terms complete in under 1ms. The slow end (~23ms P95) only appears when fetching a large result set for a very common word (`configuration`, limit=20).
+FTS5 queries against a 100,427-chunk real documentation index complete in under 21ms P95 across all tested query shapes. The most common agent query — a two-or-three-term technical intersection — runs in 5–6ms P95. Rare or highly specific terms complete in under 0.2ms. The slow end (~20ms P95) only appears when fetching a large result set for a very common word (`configuration`, limit=20).
 
 ---
 
@@ -12,7 +12,7 @@ The benchmark index was built from **59 real documentation packs** sourced from 
 
 | Metric | Value |
 |---|---|
-| Total chunks | 100,116 |
+| Total chunks | 100,427 |
 | Total packs | 59 |
 | Sources | Real API and developer documentation (Coinbase, Infisical, Pinecone, Axiom, CrewAI, Bright Data, Speakeasy, and 52 others) |
 | Chunk size | 20–800 tokens (project default limits) |
@@ -26,7 +26,7 @@ The full list of sources and a reproducible setup script are at `scripts/build_b
 
 ## Methodology
 
-Each query type is run **50 times** against the same in-memory-equivalent database (a fresh temp-file DB loaded from the fixture packs at test setup). Timings use `time.perf_counter()` around the `search()` call only — no fixture setup, no result serialisation.
+Each query type is run **2500 times** against the same in-memory-equivalent database (a fresh temp-file DB loaded from the fixture packs at benchmark startup). Timings use `time.perf_counter()` around the `search()` call only — no fixture setup, no result serialisation. True percentiles are computed from all 2500 raw samples per query.
 
 **Metrics reported:**
 - **P50** — median latency; what a typical query costs
@@ -37,8 +37,14 @@ The benchmark calls the public `search()` API in `src/synd/search/fts.py`, which
 Run the benchmark yourself:
 
 ```bash
-python scripts/build_benchmark_packs.py   # one-time: fetch and build the 59 packs (~10 min)
-pytest tests/benchmarks/test_query_latency.py -v -s
+# One-time: fetch and build the 59 packs (~10 min, requires network)
+python scripts/build_benchmark_packs.py
+
+# High-precision run (2500 reps/query, results written to latency.json)
+python scripts/run_accurate_benchmarks.py
+
+# Quick regression check via pytest (50 reps/query)
+pytest tests/benchmarks/test_query_latency.py --benchmark -v -s
 ```
 
 Results are written to `tests/benchmarks/results/latency.json`.
@@ -47,15 +53,15 @@ Results are written to `tests/benchmarks/results/latency.json`.
 
 ## Results
 
-Measured on a single core, Python 3.12, SQLite 3.x, Linux. 100,116 chunks, 59 packs.
+Measured on a single core, Python 3.12, SQLite 3.x, Linux. 100,427 chunks, 59 packs, 2500 reps/query.
 
 | Query type | Example query | Limit | P50 ms | P95 ms |
 |---|---|---|---|---|
-| Common single term | `install` | 10 | 10.2 | 11.0 |
-| Multi-term intersection | `authentication token` | 10 | 5.2 | 5.8 |
-| Technical specific | `webhook endpoint` | 10 | 2.7 | 3.0 |
-| Rare / specific term | `sigstore` | 10 | 0.15 | 0.19 |
-| High-limit common | `configuration` | 20 | 21.0 | 22.5 |
+| Common single term | `install` | 10 | 9.0 | 9.9 |
+| Multi-term intersection | `authentication token` | 10 | 4.9 | 5.3 |
+| Technical specific | `webhook endpoint` | 10 | 2.5 | 2.7 |
+| Rare / specific term | `sigstore` | 10 | 0.12 | 0.17 |
+| High-limit common | `configuration` | 20 | 19.0 | 20.4 |
 
 ---
 
@@ -67,7 +73,7 @@ FTS5 BM25 is O(posting-list-size): the time to answer a query is proportional to
 
 **Multi-term queries are faster than single-term.** "authentication token" is faster than "install" alone because the FTS5 inverted index intersects two posting lists before scoring — only chunks that contain both terms are ranked. More terms → smaller intersection → less BM25 work.
 
-**Limit=20 on a common term is the slow path.** The high-limit/common-term case (21ms P95) represents the worst realistic scenario: a very common word with a large result set requested at double the default limit. Still well within an interactive latency budget.
+**Limit=20 on a common term is the slow path.** The high-limit/common-term case (20ms P95) represents the worst realistic scenario: a very common word with a large result set requested at double the default limit. Still well within an interactive latency budget.
 
 ---
 

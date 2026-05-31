@@ -166,7 +166,7 @@ v0.1.1 is complete. Active development is on v0.2.0 (402 tests passing).
   - [x] Query sanitization: FTS5 special characters stripped in `fts.py` (prevents crashes on `mcp.tool` style queries)
   - [x] Query preprocessing: stopword filtering, term normalization — `_preprocess_query()` in `fts.py` filters common English function words before the FTS5 MATCH
   - [ ] Synonym expansion: `auth` → `authentication`, `JWT` → `JSON Web Token`, etc. — **deferred indefinitely** (superseded by hybrid search contingency; see `decisions.md` D25)
-- [x] **Query latency benchmark** — `tests/benchmarks/test_query_latency.py` measures P50/P95 against 100,116 real documentation chunks (59 packs); results in `tests/benchmarks/results/latency.json`. Measured P95: rare terms <1ms, multi-term ~6ms, common single term ~11ms, high-limit common term ~23ms. See `docs/benchmarks.md`.
+- [x] **Query latency benchmark** — `tests/benchmarks/test_query_latency.py` measures P50/P95 against 100,427 real documentation chunks (59 packs); results in `tests/benchmarks/results/latency.json`. Measured P95 (2500 reps/query): rare terms <0.2ms, multi-term ~5ms, common single term ~10ms, high-limit common term ~20ms. See `docs/search-benchmarks.md`.
 
 ### Release — after foundation + S5
 
