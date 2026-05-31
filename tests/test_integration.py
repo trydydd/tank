@@ -12,7 +12,6 @@ shared state between tests.
 
 from __future__ import annotations
 
-import hashlib
 import io
 import json
 import os
@@ -22,6 +21,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from synd.builder.manifest import compute_pack_digest
 from synd.cli.main import cli  # type: ignore[import-untyped]
 from synd.policy.engine import Policy  # type: ignore[import-untyped]
 from synd.search.fts import search  # type: ignore[import-untyped]
@@ -94,29 +94,31 @@ def _tamper_with_valid_digest(src: Path, content_replacements: dict[int, str]) -
             new_lines.append("")
     new_chunks = "\n".join(new_lines) + "\n"
 
-    # Compute pack_digest for the tampered archive (zero digest, re-zip, hash)
+    # Step 1: Write tampered archive with pack_digest="" to allow digest computation
     zeroed = dict(manifest)
     zeroed["pack_digest"] = ""
-    zeroed_manifest_json = json.dumps(zeroed, indent=2, sort_keys=True).encode()
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(src, "r") as _:
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out_zf:
-            out_zf.writestr("manifest.json", zeroed_manifest_json)
-            out_zf.writestr("chunks.jsonl", new_chunks.encode())
-            for name, data in other_files.items():
-                out_zf.writestr(name, data)
-    digest = "sha256:" + hashlib.sha256(buf.getvalue()).hexdigest()
-    manifest["pack_digest"] = digest
-
-    # Write tampered archive with updated pack_digest
     with zipfile.ZipFile(result, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(
-            "manifest.json", json.dumps(manifest, indent=2, sort_keys=True).encode()
+            "manifest.json", json.dumps(zeroed, indent=2, sort_keys=True).encode()
         )
         zf.writestr("chunks.jsonl", new_chunks.encode())
         for name, data in other_files.items():
             zf.writestr(name, data)
+
+    # Step 2: Compute digest from the written archive
+    digest = compute_pack_digest(result)
+    manifest["pack_digest"] = digest
+
+    # Step 3: Rewrite with the real digest
+    buf = io.BytesIO()
+    with zipfile.ZipFile(result, "r") as zf_in:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out_zf:
+            for item in zf_in.infolist():
+                data = zf_in.read(item.filename)
+                if item.filename == "manifest.json":
+                    data = json.dumps(manifest, indent=2, sort_keys=True).encode()
+                out_zf.writestr(item, data)
+    result.write_bytes(buf.getvalue())
 
     return result
 

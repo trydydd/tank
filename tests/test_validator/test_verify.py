@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from synd.builder.build import build_pack
+from synd.builder.manifest import compute_pack_digest as _compute_pack_digest
 from synd.policy.engine import Policy
 from synd.validator.verify import VerifyResult, verify
 
@@ -71,7 +72,6 @@ def _rewrite_archive_keep_digest(
 
     First builds the modified archive, then computes the correct digest.
     """
-    import hashlib as _hashlib
     import io as _io
 
     result = src.parent / (src.stem + "_rebuilt" + src.suffix)
@@ -101,17 +101,7 @@ def _rewrite_archive_keep_digest(
                     zf.writestr(name, data)
 
     # Step 2: Compute pack_digest from the modified archive
-    buf = _io.BytesIO()
-    with zipfile.ZipFile(result, "r") as zf:
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
-            for item in zf.infolist():
-                data = zf.read(item.filename)
-                if item.filename == "manifest.json":
-                    zeroed = dict(manifest)
-                    zeroed["pack_digest"] = ""
-                    data = json.dumps(zeroed, indent=2, sort_keys=True).encode()
-                out.writestr(item, data)
-    digest = "sha256:" + _hashlib.sha256(buf.getvalue()).hexdigest()
+    digest = _compute_pack_digest(result)
 
     # Step 3: Update manifest with the real digest
     manifest["pack_digest"] = digest
@@ -140,7 +130,6 @@ def _rewrite_archive_with_modified_chunks(
     content_replacements: dict[int, str],
 ) -> Path:
     """Rewrite archive with modified chunk content, correct digest."""
-    import hashlib as _hashlib
     import io as _io
 
     result = src.parent / (src.stem + "_rebuilt" + src.suffix)
@@ -162,34 +151,14 @@ def _rewrite_archive_with_modified_chunks(
         else:
             new_chunks += "\n"
 
-    # Compute correct pack_digest — pin all ZipInfo timestamps to _ZIP_EPOCH
-    buf = _io.BytesIO()
-    with zipfile.ZipFile(src, "r") as zf:
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
-            zeroed = dict(manifest)
-            zeroed["pack_digest"] = ""
-            manifest_info = zipfile.ZipInfo("manifest.json", date_time=_ZIP_EPOCH)
-            manifest_info.compress_type = zipfile.ZIP_DEFLATED
-            out.writestr(
-                manifest_info,
-                json.dumps(zeroed, indent=2, sort_keys=True).encode(),
-            )
-            chunks_info = zipfile.ZipInfo("chunks.jsonl", date_time=_ZIP_EPOCH)
-            chunks_info.compress_type = zipfile.ZIP_DEFLATED
-            out.writestr(chunks_info, new_chunks.encode())
-            for orig_item in zf.infolist():
-                if orig_item.filename in ("manifest.json", "chunks.jsonl"):
-                    continue
-                out.writestr(orig_item, zf.read(orig_item.filename))
-    digest = "sha256:" + _hashlib.sha256(buf.getvalue()).hexdigest()
-    manifest["pack_digest"] = digest
-
+    # Step 1: Write result with modified chunks and pack_digest="" to allow digest computation
+    zeroed = dict(manifest)
+    zeroed["pack_digest"] = ""
     with zipfile.ZipFile(result, "w", zipfile.ZIP_DEFLATED) as zf:
         manifest_info = zipfile.ZipInfo("manifest.json", date_time=_ZIP_EPOCH)
         manifest_info.compress_type = zipfile.ZIP_DEFLATED
         zf.writestr(
-            manifest_info,
-            json.dumps(manifest, indent=2, sort_keys=True).encode(),
+            manifest_info, json.dumps(zeroed, indent=2, sort_keys=True).encode()
         )
         chunks_info = zipfile.ZipInfo("chunks.jsonl", date_time=_ZIP_EPOCH)
         chunks_info.compress_type = zipfile.ZIP_DEFLATED
@@ -199,6 +168,21 @@ def _rewrite_archive_with_modified_chunks(
                 if orig_item.filename in ("manifest.json", "chunks.jsonl"):
                     continue
                 zf.writestr(orig_item, orig.read(orig_item.filename))
+
+    # Step 2: Compute digest from the written archive
+    digest = _compute_pack_digest(result)
+    manifest["pack_digest"] = digest
+
+    # Step 3: Rewrite result with the real digest in manifest
+    buf = _io.BytesIO()
+    with zipfile.ZipFile(result, "r") as zf:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
+            for item in zf.infolist():
+                data = zf.read(item.filename)
+                if item.filename == "manifest.json":
+                    data = json.dumps(manifest, indent=2, sort_keys=True).encode()
+                out.writestr(item, data)
+    result.write_bytes(buf.getvalue())
 
     return result
 

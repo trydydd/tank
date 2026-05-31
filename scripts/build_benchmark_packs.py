@@ -100,9 +100,9 @@ def _find_synd() -> str:
     candidates = [".venv/bin/synd", "synd"]
     for c in candidates:
         try:
-            subprocess.run([c, "--version"], capture_output=True, check=True)
+            subprocess.run([c, "--help"], capture_output=True)
             return c
-        except (FileNotFoundError, subprocess.CalledProcessError):
+        except FileNotFoundError:
             pass
     print("error: synd CLI not found. Run: pip install -e '.[all]'", file=sys.stderr)
     sys.exit(1)

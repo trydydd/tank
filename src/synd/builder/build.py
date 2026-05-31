@@ -394,8 +394,10 @@ def _write_archive(
     pages_json = json.dumps(page_records, indent=2, sort_keys=True)
 
     # _ZIP_EPOCH pins every entry's timestamp so both archive writes during
-    # build produce identical ZipInfo metadata, making pack_digest reproducible
-    # by the verifier. This value must never change.
+    # build produce identical binary archives (same source → same ZIP bytes on
+    # disk). pack_digest is now computed over decompressed entry content, so
+    # timestamps no longer affect it — but the epoch still ensures the two
+    # build writes are byte-for-byte identical. This value must never change.
     _ZIP_EPOCH = (2021, 8, 8, 0, 0, 0)
 
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:

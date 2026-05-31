@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-05-27T23:01:31.119187+00:00",
-  "git_commit": "cc3b1e9",
-  "tank_version": "0.1.1",
+  "timestamp": "2026-05-31T00:30:51.724727+00:00",
+  "git_commit": "534e792",
+  "synd_version": "0.1.1",
   "token_counter": "len_div_4",
   "source_url": "https://gofastmcp.com/deployment/running-server",
   "natural_language_query": "how do I configure a stdio implementation in fastmcp",
@@ -13,41 +13,34 @@
     "tokens": 2257,
     "note": "HTML comment lines stripped (benchmark bookkeeping, not real page content)."
   },
-  "tank_single_step_full": {
-    "chunks_returned": 3,
-    "tokens": 1550,
-    "pct_of_webfetch": 69,
-    "tokens_saved": 707,
-    "pct_saved": 31
+  "synd_single_step_full": {
+    "chunks_returned": 2,
+    "tokens": 559,
+    "pct_of_webfetch": 25,
+    "tokens_saved": 1698,
+    "pct_saved": 75
   },
-  "tank_two_step_agentless": {
-    "step1_summary_tokens": 81,
-    "step2_full_tokens": 1550,
-    "total_tokens": 1631,
-    "pct_of_webfetch": 72,
-    "tokens_saved": 626,
-    "pct_saved": 28,
+  "synd_two_step_agentless": {
+    "step1_summary_tokens": 51,
+    "step2_full_tokens": 559,
+    "total_tokens": 610,
+    "pct_of_webfetch": 27,
+    "tokens_saved": 1647,
+    "pct_saved": 73,
     "chunk_breakdown": [
       {
-        "chunk_id": 2,
-        "heading_path": "fastmcp-running-server / STDIO Transport (Default)",
-        "summary": "You can now run this MCP server by executing `python my_server.",
-        "content_chars": 1441,
-        "content_tokens": 360
-      },
-      {
-        "chunk_id": 3,
-        "heading_path": "fastmcp-running-server / HTTP Transport (Streamable)",
-        "summary": "STDIO is ideal for:  * Local development and testing * Claude Desktop integration * Command-line tools * Single-user applications  ### HTTP Transport (Streamable)  HTTP transport turns your MCP...",
-        "content_chars": 1035,
-        "content_tokens": 258
-      },
-      {
         "chunk_id": 5,
-        "heading_path": "fastmcp-running-server / Choosing the Right Transport",
-        "summary": "We recommend using HTTP transport instead of SSE for all new projects.",
-        "content_chars": 3729,
-        "content_tokens": 932
+        "heading_path": "fastmcp-running-server / Running Your Server / Transport Protocols / STDIO Transport (Default)",
+        "summary": "STDIO Transport (Default):  STDIO (Standard Input/Output) is the default transport for FastMCP servers.",
+        "content_chars": 953,
+        "content_tokens": 238
+      },
+      {
+        "chunk_id": 6,
+        "heading_path": "fastmcp-running-server / Running Your Server / Transport Protocols / HTTP Transport (Streamable)",
+        "summary": "HTTP Transport (Streamable):  HTTP transport turns your MCP server into a web service accessible via a URL.",
+        "content_chars": 1287,
+        "content_tokens": 321
       }
     ]
   },
